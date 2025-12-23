@@ -1,0 +1,1 @@
+- modello pushato su kaggle, notebook https://www.kaggle.com/code/mikymatt/ogad-diffusion-model
