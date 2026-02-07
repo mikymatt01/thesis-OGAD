@@ -1,2 +1,0 @@
-Il processo di noise del diffusion model a cosa porta su un immagine che rappresenta un tensore di grafone?
-- Per rispondere a questa domanda, capire cosa rappresenta quel tensore ed un tensore di noise cosa dovrebbe essere, guandando la funzione SIGL.

@@ -1,2 +1,5 @@
-dataset
-output
+_old
+_DDPM
+_dataset
+_output
+__pycache__
