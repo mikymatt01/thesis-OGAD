@@ -8,8 +8,8 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 import wandb
-from d3pm_runner import D3PM
-from dit import DiT_Llama
+from .d3pm_runner import D3PM
+from .dit import DiT_Llama
 
 if __name__ == "__main__":
 

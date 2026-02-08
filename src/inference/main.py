@@ -3,15 +3,30 @@ from ..ggme.metrics.kernels import gaussian_kernel
 from ..ggme.evaluate import evaluate_mmd
 from torchvision.utils import make_grid
 from ..ggme.utils import load_graphs
+from ..d3pm.d3pm_runner import D3PM
+from ..d3pm.d3pm_runner_cifar10 import DiT_Llama
 from PIL import Image
 import numpy as np
-
-import pickle
 import torch
 
+best_model = {
+    'batch_size': 64, 
+    'dim': 1024, 
+    'hybrid_loss_coeff': 0.001, 
+    'lr': 2e-05, 
+    'n_epoch': 200, 
+    'num_classes': 8
+}
+
 def generate_graphon():
-    with open("../../models/d3pm.pkl", "rb") as f:
-        d3pm = pickle.load(f)
+    hybrid_loss_coeff = best_model['hybrid_loss_coeff']
+    N = best_model['num_classes']
+    dim = best_model['dim']
+
+    d3pm = D3PM(
+        DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
+    ).cuda()
+    d3pm.load_state_dict(torch.load("data/models/d3pm_state_dict.pth"))
     global_step = 0
     N = 8
     d3pm.eval()
@@ -62,8 +77,8 @@ def sample_graph_from_graphon(W, n):
     return A
 
 def evaluate_graph():
-    predicted_graphs = load_graphs("../data/predictions/graphs/CommunityGraphs.pickle")
-    test_graphs = load_graphs("../data/test/graphs/CommunityGraphs.pickle")
+    predicted_graphs = load_graphs("data/predictions/graphs/CommunityGraphs.pickle")
+    test_graphs = load_graphs("data/test/graphs/CommunityGraphs.pickle")
 
     mmd = evaluate_mmd(
             graphs_dist_1=test_graphs,
@@ -79,7 +94,7 @@ def evaluate_graph():
     print("The MMD between the test and predicted graphs is {:.4f}.".format(mmd))
     
 if __name__ == '__main__':
-    test_graphs = load_graphs("../data/test/CommunityGraphs.pickle")
+    test_graphs = load_graphs("data/test/graphs/CommunityGraphs.pickle")
     
     # generate a graphon
     tensor = generate_graphon()

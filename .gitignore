@@ -3,3 +3,4 @@ _DDPM
 _dataset
 _output
 __pycache__
+data/models
