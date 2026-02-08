@@ -3,4 +3,4 @@ _DDPM
 _dataset
 _output
 __pycache__
-data/models
+data/models/d3pm.pkl
