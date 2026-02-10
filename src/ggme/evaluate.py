@@ -3,10 +3,10 @@ descriptor function choice '''
 
 import networkx as nx
 
-from .metrics.mmd import mmd
-from .metrics.mmd import mmd_linear_approximation
+from metrics.mmd import mmd
+from metrics.mmd import mmd_linear_approximation
 
-from .metrics.kernels import KernelDistributionWrapper
+from metrics.kernels import KernelDistributionWrapper
 
 
 

@@ -7,7 +7,7 @@ from scipy.sparse import csr_matrix
 import shutil
 import numpy as np
 import networkx as nx
-
+import os
 
 def get_open_fn(filepath):
     if filepath.endswith('.gz'):

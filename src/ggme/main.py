@@ -1,5 +1,3 @@
-
-
 from evaluate import evaluate_mmd
 from correlation import compute_correlation
 from correlation import select_kernel_and_hyperparameters
@@ -14,19 +12,45 @@ from metrics.descriptor_functions import clustering_coefficient
 from metrics.descriptor_functions import normalised_laplacian_spectrum
 
 from perturb_graphs import perturb_graphs
-
 from utils import load_graphs
+import networkx as nx
+import torch
 
-if __name__ == "__main__":
+def sample_graph_from_graphon(W, M):
+    # W_matrix: torch tensor NxN con valori in [0,1]
+    N = W.shape[0]
+    # campiona valori latenti uniformi
+    u = torch.rand(M)
+    v = torch.rand(M)
+    # mappa su indici della griglia W
+    idx_u = (u * N).long().clamp(0, N-1)
+    idx_v = (v * N).long().clamp(0, N-1)
+    # costruisci la matrice di probabilità
+    probs = W[idx_u][:, idx_v]   # risultato MxM
+    # campiona gli edges
+    A = torch.bernoulli(probs)
+    # se vuoi grafo non orientato senza self-loop:
+    A = torch.triu(A, diagonal=1)
+    A = A + A.T
+    return A
+
+def generate_graphs(graphons):
+    generated_graphs = []
+    for graphon in graphons:
+        graphon = graphon[0]
+        for i in range(0, 10):
+            adj_matrix = sample_graph_from_graphon(graphon, 32)
+            generated_graphs.append(nx.from_numpy_array(adj_matrix.numpy()))
+    return generated_graphs
     
+if __name__ == "__main__":
     # take a set of graphs and perturb them for a given perturbation
-    test_graphs = load_graphs("../data/test/CommunityGraphs.pickle")
+    test_graphs = load_graphs("../data/test/graphs/CommunityGraphs.pickle")
     print("esempio test graphs: ", len(test_graphs))
     perturbation_values, perturbed_graphs = perturb_graphs(
             graphs=test_graphs,
             perturbation_type="AddEdges"
             )
-
     # OPTION 1: to find the best parameters for a grid of kernel/hyperparameter
     # combination, run the following function, which will return the
     # kernel, sigma, and correlation of the best configuration
@@ -46,6 +70,9 @@ if __name__ == "__main__":
         best_params["sigma"],
         best_params["corr"]
         ))
+    best_kernel = best_params["kernel"].__name__
+    best_sigma = best_params["sigma"]
+    best_corr = best_params["corr"]
     print("======================")
 
     # OPTION 2: to compute the correlation for a single kernel/param combo,
@@ -58,7 +85,7 @@ if __name__ == "__main__":
         kernel=gaussian_kernel,
         use_linear_approximation=False,
         density=True,
-        sigma=0.1
+        sigma=best_sigma
         ) for graphs in perturbed_graphs]
 
     correlation = compute_correlation(
@@ -72,19 +99,32 @@ if __name__ == "__main__":
     print("======================")
 
     # OPTION 3: just compute MMD between predicted graphs and test graphs
-    predicted_graphs = load_graphs("../data/predictions/CommunityGraphs.pickle")
-    test_graphs = load_graphs("../data/test/CommunityGraphs.pickle")
-
-    mmd = evaluate_mmd(
-            graphs_dist_1=test_graphs,
-            graphs_dist_2=predicted_graphs,
-            function=degree_distribution,
-            kernel=gaussian_kernel,
-            use_linear_approximation=False,
-            density=True,
-            sigma=0.1
-            )
+    paper_graphs = load_graphs("../data/predictions/ggme_paper/CommunityGraphs.pickle")
+    test_graphs = load_graphs("../data/test/graphs/CommunityGraphs.pickle")
+    graphons = torch.load("../data/predictions/graphons/tensors.pt") 
+    generated_graphs = generate_graphs(graphons)
+    
+    generated_graphs_mmd = evaluate_mmd(
+        graphs_dist_1=test_graphs,
+        graphs_dist_2=generated_graphs,
+        function=degree_distribution,
+        kernel=gaussian_kernel,
+        use_linear_approximation=False,
+        density=True,
+        sigma=best_sigma
+    )
+    
+    paper_graphs_mmd = evaluate_mmd(
+        graphs_dist_1=test_graphs,
+        graphs_dist_2=paper_graphs,
+        function=degree_distribution,
+        kernel=gaussian_kernel,
+        use_linear_approximation=False,
+        density=True,
+        sigma=best_sigma
+    )
 
     print("Option 3:")
-    print("The MMD between the test and predicted graphs is {:.4f}.".format(mmd))
+    print("The MMD between the test and generated graphs is {:.4f}.".format(generated_graphs_mmd))
+    print("The MMD between the test and paper graphs is {:.4f}.".format(paper_graphs_mmd))
 
