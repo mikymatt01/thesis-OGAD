@@ -99,6 +99,33 @@ def main(cfg: DictConfig):
                         'sampling_metrics': sampling_metrics, 'visualization_tools': visualization_tools,
                         'extra_features': extra_features, 'domain_features': domain_features}
 
+    elif dataset_config["name"] == 'community_graphs':
+        from datasets.community_graphs_dataset import (
+            CommunityGraphDataModule,
+            CommunityGraphDatasetInfos,
+        )
+        from analysis.spectre_utils import Comm20SamplingMetrics
+        from analysis.visualization import NonMolecularVisualization
+
+        datamodule = CommunityGraphDataModule(cfg)
+        sampling_metrics = Comm20SamplingMetrics(datamodule)
+        dataset_infos = CommunityGraphDatasetInfos(datamodule, dataset_config)
+        train_metrics = TrainAbstractMetricsDiscrete() if cfg.model.type == 'discrete' else TrainAbstractMetrics()
+        visualization_tools = NonMolecularVisualization()
+
+        if cfg.model.type == 'discrete' and cfg.model.extra_features is not None:
+            extra_features = ExtraFeatures(cfg.model.extra_features, dataset_info=dataset_infos)
+        else:
+            extra_features = DummyExtraFeatures()
+        domain_features = DummyExtraFeatures()
+
+        dataset_infos.compute_input_output_dims(datamodule=datamodule, extra_features=extra_features,
+                                                domain_features=domain_features)
+
+        model_kwargs = {'dataset_infos': dataset_infos, 'train_metrics': train_metrics,
+                        'sampling_metrics': sampling_metrics, 'visualization_tools': visualization_tools,
+                        'extra_features': extra_features, 'domain_features': domain_features}
+
     elif dataset_config["name"] in ['qm9', 'guacamol', 'moses']:
         from metrics.molecular_metrics import TrainMolecularMetrics, SamplingMolecularMetrics
         from metrics.molecular_metrics_discrete import TrainMolecularMetricsDiscrete
