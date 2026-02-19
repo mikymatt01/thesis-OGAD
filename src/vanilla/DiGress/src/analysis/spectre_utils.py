@@ -24,6 +24,7 @@ from scipy.stats import chi2
 from src.analysis.dist_helper import compute_mmd, gaussian_emd, gaussian, emd, gaussian_tv, disc
 from torch_geometric.utils import to_networkx
 import wandb
+import pickle 
 
 PRINT_TIME = False
 __all__ = ['degree_stats', 'clustering_stats', 'orbit_stats_all', 'spectral_stats', 'eval_acc_lobster_graph']
@@ -770,6 +771,8 @@ class SpectreSamplingMetrics(nn.Module):
             nx_graph = nx.from_numpy_array(A)
             networkx_graphs.append(nx_graph)
 
+        with open("CommunityGraphs.pickle", "wb") as f:
+            pickle.dump(networkx_graphs, f, protocol=pickle.HIGHEST_PROTOCOL)
         np.savez('generated_adjs.npz', *adjacency_matrices)
 
         if 'degree' in self.metrics_list:

@@ -99,32 +99,38 @@ if __name__ == "__main__":
     print("======================")
 
     # OPTION 3: just compute MMD between predicted graphs and test graphs
-    paper_graphs = load_graphs("../data/predictions/ggme_paper/CommunityGraphs.pickle")
+    paper_graphs = load_graphs("../data/predictions/graphs/ggme_paper/CommunityGraphs.pickle")
+    digress_graphs = load_graphs("../data/predictions/graphs/digress/CommunityGraphs.pickle")
     test_graphs = load_graphs("../data/test/graphs/CommunityGraphs.pickle")
-    graphons = torch.load("../data/predictions/graphons/tensors.pt") 
+    
+    graphons = torch.load("../data/predictions/graphons/tensors.pt")
     generated_graphs = generate_graphs(graphons)
     
-    generated_graphs_mmd = evaluate_mmd(
-        graphs_dist_1=test_graphs,
-        graphs_dist_2=generated_graphs,
-        function=degree_distribution,
-        kernel=gaussian_kernel,
-        use_linear_approximation=False,
-        density=True,
-        sigma=best_sigma
-    )
     
-    paper_graphs_mmd = evaluate_mmd(
-        graphs_dist_1=test_graphs,
-        graphs_dist_2=paper_graphs,
-        function=degree_distribution,
-        kernel=gaussian_kernel,
-        use_linear_approximation=False,
-        density=True,
-        sigma=best_sigma
-    )
-
     print("Option 3:")
-    print("The MMD between the test and generated graphs is {:.4f}.".format(generated_graphs_mmd))
-    print("The MMD between the test and paper graphs is {:.4f}.".format(paper_graphs_mmd))
+    for key, dataset in [
+        ('DiGress', digress_graphs),
+        ('OGAD', generated_graphs),
+        ('Paper', paper_graphs),
+    ]:
+        generated_graphs_mmd = evaluate_mmd(
+            graphs_dist_1=test_graphs,
+            graphs_dist_2=dataset,
+            function=degree_distribution,
+            kernel=gaussian_kernel,
+            use_linear_approximation=False,
+            density=True,
+            sigma=best_sigma
+        )
+        print("The MMD between the test and {} graphs is {:.4f}.".format(key, generated_graphs_mmd))
+    
+    # paper_graphs_mmd = evaluate_mmd(
+    #     graphs_dist_1=test_graphs,
+    #     graphs_dist_2=paper_graphs,
+    #     function=degree_distribution,
+    #     kernel=gaussian_kernel,
+    #     use_linear_approximation=False,
+    #     density=True,
+    #     sigma=best_sigma
+    # )
 
