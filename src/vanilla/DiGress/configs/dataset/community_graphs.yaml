@@ -3,4 +3,6 @@ name: community_graphs
 remove_h: null
 datadir: "data/community_graphs/"
 # Path relative to DiGress root (src/vanilla/DiGress) to the pickle file
-pickle_path: "thesis-OGAD/data/train/graphs/CommunityGraphs.pickle"
+pickle_path: "../../../data/train/graphs/CommunityGraphs.pickle"
+
+# thesis-OGAD/data/train/graphs/CommunityGraphs.pickle"
