@@ -2,6 +2,7 @@
 import gzip
 import bz2
 import pickle
+import re
 #from io import BytesIO
 from scipy.sparse import csr_matrix
 import shutil
@@ -51,3 +52,48 @@ def sparse_to_networkx(graphs):
 def networkx_to_adj(graphs):
     """Convert networkx graphs to adjacency matrices."""
     return [nx.to_numpy_array(g) for g in graphs]
+
+
+def load_digress_generated_samples(filepath):
+    """
+    Load graphs from DiGress generated_samples1.txt format.
+    Each graph is stored as N=..., X: (node types), E: (n×n edge-type matrix).
+    Returns list of networkx graphs (undirected, 0/1 adjacency: non-zero E entry = edge).
+    """
+    graphs = []
+    with open(filepath, "r") as f:
+        content = f.read()
+    # Split into blocks by "N=" at start of line
+    blocks = re.split(r"\n(?=N=)", content.strip())
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+        lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
+        if not lines or not lines[0].startswith("N="):
+            continue
+        n = int(lines[0][2:].strip())
+        # Find "X:" and "E:" and parse
+        idx_x = next((i for i, ln in enumerate(lines) if ln == "X:"), None)
+        idx_e = next((i for i, ln in enumerate(lines) if ln == "E:"), None)
+        if idx_x is None or idx_e is None:
+            continue
+        # X line: next line after "X:"
+        x_line = lines[idx_x + 1] if idx_x + 1 < len(lines) else ""
+        # E lines: n lines after "E:"
+        e_lines = lines[idx_e + 1 : idx_e + 1 + n] if idx_e + 1 + n <= len(lines) else []
+        if len(e_lines) != n:
+            continue
+        # Parse E into n×n matrix of integers
+        adj = np.zeros((n, n), dtype=np.float64)
+        for i, eln in enumerate(e_lines):
+            row = [int(x) for x in eln.split()]
+            for j, val in enumerate(row):
+                if j < n:
+                    # Any non-zero edge type => edge present (binary adjacency)
+                    adj[i, j] = 1 if val != 0 else 0
+        # Undirected: symmetrise; zero diagonal
+        adj = np.maximum(adj, adj.T)
+        np.fill_diagonal(adj, 0)
+        graphs.append(nx.from_numpy_array(adj))
+    return graphs
