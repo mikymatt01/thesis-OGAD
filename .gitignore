@@ -4,3 +4,4 @@ _dataset
 _output
 __pycache__
 data/models/d3pm.pkl
+src/vanilla/outputs
