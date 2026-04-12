@@ -1,0 +1,32 @@
+name: OGAD Pipeline
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Create data directories
+        run: mkdir -p data/train/graphons data/models data/predictions/graphons
+
+      - name: Build and run pipeline
+        run: docker compose up --build --abort-on-container-exit
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogad-results
+          path: |
+            data/models/
+            data/predictions/
+            data/train/graphons/
+          retention-days: 30

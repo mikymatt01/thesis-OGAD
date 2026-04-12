@@ -48,7 +48,7 @@ if __name__ == "__main__":
     print("path for: ", os.getcwd())
     
     # take a set of graphs and perturb them for a given perturbation
-    test_graphs = load_graphs("data/test/graphs/CommunityGraphs.pickle")
+    test_graphs = load_graphs("../../data/test/graphs/CommunityGraphs.pickle")
     print("esempio test graphs: ", len(test_graphs))
     perturbation_values, perturbed_graphs = perturb_graphs(
             graphs=test_graphs,
@@ -102,13 +102,13 @@ if __name__ == "__main__":
     print("======================")
 
     # OPTION 3: just compute MMD between predicted graphs and test graphs
-    paper_graphs = load_graphs("data/predictions/graphs/ggme_paper/CommunityGraphs.pickle")
+    paper_graphs = load_graphs("../../data/predictions/graphs/ggme_paper/CommunityGraphs.pickle")
     # DiGress community graphs from generated_samples1.txt (adjacency matrices)
-    digress_graphs = load_digress_generated_samples("data/predictions/graphs/digress/generated_samples1.txt")
+    digress_graphs = load_digress_generated_samples("../../data/predictions/graphs/digress/generated_samples1.txt")
     print("Loaded {} DiGress graphs from generated_samples1.txt".format(len(digress_graphs)))
-    test_graphs = load_graphs("data/test/graphs/CommunityGraphs.pickle")
+    test_graphs = load_graphs("../../data/test/graphs/CommunityGraphs.pickle")
     
-    graphons = torch.load("data/predictions/graphons/tensors.pt")
+    graphons = torch.load("../../data/predictions/graphons/tensors.pt")
     generated_graphs = generate_graphs(graphons)
     print("Loaded {} OGAD graphs from tensors.pt".format(len(generated_graphs)))
     
