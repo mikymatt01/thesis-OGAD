@@ -26,7 +26,7 @@ gr_dataset = graphons_dataset.map(apply_transform, remove_columns=["image"], num
 gr_dataset.set_format(type="torch")
 
 param_grid = {
-    "dim": [64],
+    "dim": [512],
     "lr": [2e-5],
     "num_classes": [8],
     "batch_size": [32],

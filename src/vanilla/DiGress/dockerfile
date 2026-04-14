@@ -1,0 +1,24 @@
+FROM --platform=linux/amd64 python:3.10-slim
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+
+# PyTorch CPU wheels
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+    torch torchvision torchaudio
+
+# PyG wheels (torch-scatter/sparse/cluster/...) + torch-geometric
+# (scegli la pagina wheel coerente con la tua versione torch; esempio sotto)
+RUN pip install --no-cache-dir \
+    torch-scatter torch-sparse torch-cluster torch-spline-conv \
+    -f https://data.pyg.org/whl/torch-2.2.0+cpu.html \
+    && pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+CMD ["python", "src/main.py"]
