@@ -1,3 +1,4 @@
+from clusterize import cluster_graphs_from_arrays
 from tools import *
 import numpy as np
 import argparse
@@ -29,6 +30,7 @@ parser.add_argument('--h_size', type=int, default=4,
 parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/CommunityGraphs.pickle', 
                     help="Path to existing adjacency matrices (e.g., myGraphs/Adjs.pkl).")
 parser.add_argument('--output_dir', type=str, default='../../data/train/graphons', help="Output directory.")
+parser.add_argument('--n_clusters', type=int, default=200, help="Number of clasters")
 
 args = parser.parse_args()
 print("Parameters: \n", args)
@@ -50,6 +52,8 @@ w0 = args.w0
 lr = args.lr
 hsize = args.h_size
 Adjs_dir = args.Adjs_dir
+n_clusters = args.n_clusters
+
 output_dir = args.output_dir
 
 os.makedirs(output_dir, exist_ok=True)
@@ -112,8 +116,13 @@ if Adjs_dir is None: # Generate the adjacency matrices from a true graphon (synt
 
 else: # load the existing adjacency matrices
     graphs_inr = load_graphs(Adjs_dir)
-    for index in range(0, len(graphs_inr)):
-        graph_inr = [graphs_inr[index]]
+    print("graphs: ", len(graphs_inr))
+    graph_collections = cluster_graphs_from_arrays(
+        graphs_inr,
+        n_clusters
+    )
+    for index in range(0, len(graph_collections)):
+        graph_inr = graph_collections[index]
         ### Learn the coordinates and graphon as step 1
         print("Step1: Learning the laten variable of the nodes")
         model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graph_inr, lr)
@@ -129,4 +138,5 @@ else: # load the existing adjacency matrices
         # plot a sample of the graphs with the estimated graphon and the learned coordinates
         # sample_graph = graph_inr[-1]
         # plot_smaples_real(sample_graph, estimated_graphon, output_dir, model_SIGL)
+        print(f'graphon {output_dir}/sample_{index}.png generated', len(estimated_graphon))
         save_graphon_for_diff(estimated_graphon, output_dir + f'/sample_{index}.png')

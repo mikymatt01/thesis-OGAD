@@ -12,8 +12,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
 WORKDIR /app/src/ggme
+
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-ansi --no-root && rm -rf "$POETRY_CACHE_DIR"
+
+RUN poetry install --no-ansi --no-root --only main
+
+RUN pip install torch==1.13.1 torchvision==0.14.1 \
+    --index-url https://download.pytorch.org/whl/cpu
 
 COPY . .
 

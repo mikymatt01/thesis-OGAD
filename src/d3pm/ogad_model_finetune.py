@@ -25,20 +25,14 @@ def apply_transform(example):
 gr_dataset = graphons_dataset.map(apply_transform, remove_columns=["image"], num_proc=None)
 gr_dataset.set_format(type="torch")
 
-dataloader = DataLoader(
-    gr_dataset,
-    batch_size=32, 
-    shuffle=True, 
-    num_workers=4
-)
-
 param_grid = {
-    "dim": [1024],
+    "dim": [64],
     "lr": [2e-5],
     "num_classes": [8],
-    "batch_size": [64],
+    "batch_size": [32],
     "n_epoch": [1],
-    "hybrid_loss_coeff": [0.001]
+    "hybrid_loss_coeff": [0.001],
+    "num_workers": [0]
 }
 
 device = "cpu" #"cuda"
@@ -81,13 +75,14 @@ def finetune_model(params):
     dim = params['dim']
     lr = params['lr']
     hybrid_loss_coeff = params['hybrid_loss_coeff']
+    num_workers = params['num_workers']
 
     d3pm = D3PM(
         DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
     ) #.cuda()
     print(f"Total Param Count: {sum([p.numel() for p in d3pm.x0_model.parameters()])}")
 
-    dataloader = DataLoader(gr_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    dataloader = DataLoader(gr_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     optim = torch.optim.AdamW(d3pm.x0_model.parameters(), lr=lr)
     d3pm.train()
 

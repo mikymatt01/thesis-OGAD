@@ -12,6 +12,7 @@ name: ogad
 services:
   sigl:
     build: ./src/sigl
+    shm_size: 2gb
     volumes:
       - ./data:/app/data
 
@@ -20,6 +21,7 @@ services:
       sigl:
         condition: service_completed_successfully
     build: ./src/d3pm
+    shm_size: 4gb
     volumes:
       - ./data:/app/data
 
@@ -28,5 +30,6 @@ services:
       d3pm:
         condition: service_completed_successfully
     build: ./src/ggme
+    shm_size: 2gb
     volumes:
       - ./data:/app/data

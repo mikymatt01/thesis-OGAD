@@ -1,11 +1,6 @@
 import torchvision.transforms as transforms
-from torchvision.utils import make_grid
-from torch.utils.data import DataLoader
 from torchvision import transforms
 from datasets import load_dataset
-from PIL import Image
-import numpy as np
-# import Image
 import torch
 import gzip
 import io
@@ -19,21 +14,6 @@ graphons_dataset = load_dataset(
     "imagefolder",
     data_dir="../../data/train/graphons",
     split="train"
-)
-
-def apply_transform(example):
-    image = example['image'].convert("L")
-    tensor = transform(image)
-    return { 'data': tensor }
-
-gr_dataset = graphons_dataset.map(apply_transform, remove_columns=["image"], num_proc=None)
-gr_dataset.set_format(type="torch")
-
-dataloader = DataLoader(
-    gr_dataset, 
-    batch_size=32, 
-    shuffle=True, 
-    num_workers=4
 )
 
 with gzip.open("../../data/models/best_params_d3pm.pth.gz", "rb") as f:
