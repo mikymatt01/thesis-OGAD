@@ -1,0 +1,48 @@
+import torchvision.transforms as transforms
+from torchvision import transforms
+from datasets import load_dataset
+import torch
+import gzip
+import io
+
+from d3pm_runner import D3PM
+from dit import DiT_Llama
+
+transform = transforms.ToTensor()
+
+graphons_dataset = load_dataset(
+    "imagefolder",
+    data_dir="../../data/train/graphons",
+    split="train"
+)
+
+with gzip.open("../../data/models/best_params_d3pm.pth.gz", "rb") as f:
+    buffer = io.BytesIO(f.read())
+best_model = torch.load(buffer)
+  
+with gzip.open("../../data/models/best_model_d3pm.pth.gz", "rb") as f:
+    buffer = io.BytesIO(f.read())
+state_dict = torch.load(buffer)
+
+
+if __name__ == "__main__":
+    hybrid_loss_coeff = best_model['hybrid_loss_coeff']
+    N = best_model['num_classes']
+    dim = best_model['dim']
+    
+    d3pm = D3PM(
+        DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
+    ) #.cuda()
+
+    d3pm.load_state_dict(state_dict)
+
+    global_step = 0
+    d3pm.eval()
+    with torch.no_grad():
+        init_noise = torch.randint(0, N, (16, 1, 32, 32)) #.cuda()
+        images = d3pm.sample_with_image_sequence(
+            init_noise, None, stride=40
+        )
+        image = images[-1]
+        this_image = image.float().cpu() / (N - 1)
+        torch.save(this_image, f"../../data/predictions/graphons/predictions.pt")

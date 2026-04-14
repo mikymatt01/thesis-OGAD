@@ -1,0 +1,6 @@
+- usare descriptor_functions.py per clusterizzare il dataset di train
+- calcolare la metrica su tutte le funzioni in descriptor_functions.py
+- addestrare su piu epoche
+- generare la stessa quantità di dati su OGAD e DiGress
+- indagare che noise viene aggiunto al grafone
+- testare su gaussiano continuo con media p e varianza stretta

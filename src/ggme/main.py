@@ -7,9 +7,7 @@ from metrics.kernels import laplacian_total_variation_kernel
 from metrics.kernels import gaussian_emd
 from metrics.kernels import gaussian_kernel
 
-from metrics.descriptor_functions import degree_distribution
-from metrics.descriptor_functions import clustering_coefficient
-from metrics.descriptor_functions import normalised_laplacian_spectrum
+from metrics.descriptor_functions import degree_distribution, clustering_coefficient, normalised_laplacian_spectrum
 
 from perturb_graphs import perturb_graphs
 from utils import load_graphs, load_digress_generated_samples
@@ -43,17 +41,16 @@ def generate_graphs(graphons):
             adj_matrix = sample_graph_from_graphon(graphon, 32)
             generated_graphs.append(nx.from_numpy_array(adj_matrix.numpy()))
     return generated_graphs
-    
-if __name__ == "__main__":
-    print("path for: ", os.getcwd())
-    
-    # take a set of graphs and perturb them for a given perturbation
-    test_graphs = load_graphs("data/test/graphs/CommunityGraphs.pickle")
-    print("esempio test graphs: ", len(test_graphs))
-    perturbation_values, perturbed_graphs = perturb_graphs(
-            graphs=test_graphs,
-            perturbation_type="AddEdges"
-            )
+
+def compute_ggme(
+    test_graphs,
+    paper_graphs,
+    generated_graphs,
+    digress_graphs,
+    perturbed_graphs,
+    perturbation_values,
+    descriptor_fn
+): 
     # OPTION 1: to find the best parameters for a grid of kernel/hyperparameter
     # combination, run the following function, which will return the
     # kernel, sigma, and correlation of the best configuration
@@ -63,9 +60,9 @@ if __name__ == "__main__":
         perturbation_values=perturbation_values,
         kernels=[gaussian_kernel, linear_kernel],
         sigmas=[0.1, 1, 10],
-        descriptor_fn=degree_distribution,
+        descriptor_fn=descriptor_fn,
         correlation_type="pearson"
-        )
+    )
     print("Option 1:")
     print("The best kernel-hyperparameter combination is the {} with sigma={}. This had a correlation of {:.4f}."
         .format(
@@ -84,8 +81,8 @@ if __name__ == "__main__":
     list_of_mmd = [evaluate_mmd(
         graphs_dist_1=test_graphs,
         graphs_dist_2=graphs,
-        function=degree_distribution,
-        kernel=gaussian_kernel,
+        function=descriptor_fn,
+        kernel=best_kernel,
         use_linear_approximation=False,
         density=True,
         sigma=best_sigma
@@ -100,17 +97,6 @@ if __name__ == "__main__":
     print("Option 2:")
     print("The correlation is {:.6f}.".format(correlation))
     print("======================")
-
-    # OPTION 3: just compute MMD between predicted graphs and test graphs
-    paper_graphs = load_graphs("data/predictions/graphs/ggme_paper/CommunityGraphs.pickle")
-    # DiGress community graphs from generated_samples1.txt (adjacency matrices)
-    digress_graphs = load_digress_generated_samples("data/predictions/graphs/digress/generated_samples1.txt")
-    print("Loaded {} DiGress graphs from generated_samples1.txt".format(len(digress_graphs)))
-    test_graphs = load_graphs("data/test/graphs/CommunityGraphs.pickle")
-    
-    graphons = torch.load("data/predictions/graphons/tensors.pt")
-    generated_graphs = generate_graphs(graphons)
-    print("Loaded {} OGAD graphs from tensors.pt".format(len(generated_graphs)))
     
     print("Option 3:")
     for key, dataset in [
@@ -121,21 +107,44 @@ if __name__ == "__main__":
         generated_graphs_mmd = evaluate_mmd(
             graphs_dist_1=test_graphs,
             graphs_dist_2=dataset,
-            function=degree_distribution,
-            kernel=gaussian_kernel,
+            function=descriptor_fn,
+            kernel=best_kernel,
             use_linear_approximation=False,
             density=True,
             sigma=best_sigma
         )
         print("The MMD between the test and {} graphs is {:.4f}.".format(key, generated_graphs_mmd))
     
-    # paper_graphs_mmd = evaluate_mmd(
-    #     graphs_dist_1=test_graphs,
-    #     graphs_dist_2=paper_graphs,
-    #     function=degree_distribution,
-    #     kernel=gaussian_kernel,
-    #     use_linear_approximation=False,
-    #     density=True,
-    #     sigma=best_sigma
-    # )
-
+if __name__ == "__main__":
+    print("path for: ", os.getcwd())
+    
+    test_graphs = load_graphs("../../data/test/graphs/CommunityGraphs.pickle")
+    paper_graphs = load_graphs("../../data/predictions/graphs/ggme_paper/CommunityGraphs.pickle")
+    digress_graphs = load_digress_generated_samples("../../data/predictions/graphs/digress/generated_samples1.txt")
+    test_graphs = load_graphs("../../data/test/graphs/CommunityGraphs.pickle")
+    graphons = torch.load("../../data/predictions/graphons/tensors.pt")
+    generated_graphs = generate_graphs(graphons)
+    
+    print("Loaded {} DiGress graphs from generated_samples1.txt".format(len(digress_graphs)))
+    print("Loaded {} OGAD graphs from tensors.pt".format(len(generated_graphs)))
+    print("esempio test graphs: ", len(test_graphs))
+    
+    perturbation_values, perturbed_graphs = perturb_graphs(
+        graphs=test_graphs,
+        perturbation_type="AddEdges"
+    )
+    
+    for descriptor_fn in [
+        degree_distribution,
+        clustering_coefficient,
+        normalised_laplacian_spectrum
+    ]:
+        compute_ggme(
+            test_graphs,
+            paper_graphs,
+            generated_graphs,
+            digress_graphs,
+            perturbed_graphs,
+            perturbation_values,
+            descriptor_fn 
+        )

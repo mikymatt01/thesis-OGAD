@@ -1,0 +1,35 @@
+# OGAD pipeline: sigl → d3pm → ggme
+#
+#   docker compose up --build
+#
+# Debug un singolo servizio:
+#   docker compose run --rm sigl
+#   docker compose run --rm d3pm
+#   docker compose run --rm ggme
+
+name: ogad
+
+services:
+  sigl:
+    build: ./src/sigl
+    shm_size: 2gb
+    volumes:
+      - ./data:/app/data
+
+  d3pm:
+    depends_on:
+      sigl:
+        condition: service_completed_successfully
+    build: ./src/d3pm
+    shm_size: 4gb
+    volumes:
+      - ./data:/app/data
+
+  ggme:
+    depends_on:
+      d3pm:
+        condition: service_completed_successfully
+    build: ./src/ggme
+    shm_size: 2gb
+    volumes:
+      - ./data:/app/data
