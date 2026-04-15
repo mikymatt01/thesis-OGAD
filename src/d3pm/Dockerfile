@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG POETRY_VERSION=2.2.1
@@ -32,7 +32,7 @@ RUN poetry config virtualenvs.create false
 RUN poetry install --no-ansi --no-root --only main
 
 RUN pip install torch==2.11.0 torchvision==0.26.0 \
-    --index-url https://download.pytorch.org/whl/cu121
+    --index-url https://download.pytorch.org/whl/cu126
 
 COPY . .
 
