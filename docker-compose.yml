@@ -15,6 +15,13 @@ services:
     shm_size: 2gb
     volumes:
       - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   d3pm:
     depends_on:
@@ -24,6 +31,13 @@ services:
     shm_size: 4gb
     volumes:
       - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   ggme:
     depends_on:
@@ -33,3 +47,10 @@ services:
     shm_size: 2gb
     volumes:
       - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -15,6 +15,9 @@ import networkx as nx
 import torch
 import os
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
+
 def sample_graph_from_graphon(W, M):
     # W_matrix: torch tensor NxN con valori in [0,1]
     N = W.shape[0]
@@ -122,7 +125,7 @@ if __name__ == "__main__":
     paper_graphs = load_graphs("../../data/predictions/graphs/ggme_paper/CommunityGraphs.pickle")
     digress_graphs = load_digress_generated_samples("../../data/predictions/graphs/digress/generated_samples1.txt")
     test_graphs = load_graphs("../../data/test/graphs/CommunityGraphs.pickle")
-    graphons = torch.load("../../data/predictions/graphons/tensors.pt")
+    graphons = torch.load("../../data/predictions/graphons/tensors.pt", map_location=device)
     generated_graphs = generate_graphs(graphons)
     
     print("Loaded {} DiGress graphs from generated_samples1.txt".format(len(digress_graphs)))

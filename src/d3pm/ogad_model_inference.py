@@ -8,6 +8,9 @@ import io
 from d3pm_runner import D3PM
 from dit import DiT_Llama
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
+
 transform = transforms.ToTensor()
 
 graphons_dataset = load_dataset(
@@ -18,11 +21,11 @@ graphons_dataset = load_dataset(
 
 with gzip.open("../../data/models/best_params_d3pm.pth.gz", "rb") as f:
     buffer = io.BytesIO(f.read())
-best_model = torch.load(buffer)
+best_model = torch.load(buffer, map_location=device)
   
 with gzip.open("../../data/models/best_model_d3pm.pth.gz", "rb") as f:
     buffer = io.BytesIO(f.read())
-state_dict = torch.load(buffer)
+state_dict = torch.load(buffer, map_location=device)
 
 
 if __name__ == "__main__":
@@ -32,14 +35,14 @@ if __name__ == "__main__":
     
     d3pm = D3PM(
         DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
-    ) #.cuda()
+    ).to(device)
 
     d3pm.load_state_dict(state_dict)
 
     global_step = 0
     d3pm.eval()
     with torch.no_grad():
-        init_noise = torch.randint(0, N, (16, 1, 32, 32)) #.cuda()
+        init_noise = torch.randint(0, N, (16, 1, 32, 32)).to(device)
         images = d3pm.sample_with_image_sequence(
             init_noise, None, stride=40
         )

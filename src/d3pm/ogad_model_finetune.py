@@ -35,7 +35,8 @@ param_grid = {
     "num_workers": [0]
 }
 
-device = "cpu" #"cuda"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
 
 def train(d3pm, dataloader, optim, N):
     pbar = tqdm(dataloader)
@@ -79,7 +80,7 @@ def finetune_model(params):
 
     d3pm = D3PM(
         DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
-    ) #.cuda()
+    ).to(device)
     print(f"Total Param Count: {sum([p.numel() for p in d3pm.x0_model.parameters()])}")
 
     dataloader = DataLoader(gr_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)

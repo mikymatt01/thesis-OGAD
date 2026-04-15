@@ -1,11 +1,16 @@
-FROM python:3.10-slim
+FROM nvidia/cuda:11.7.1-cudnn8-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
 ARG POETRY_VERSION=2.2.1
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
     POETRY_CACHE_DIR=/tmp/poetry_cache \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv python3-dev \
     build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,8 +22,8 @@ COPY pyproject.toml poetry.lock ./
 
 RUN poetry install --no-ansi --no-root --only main
 
-RUN pip install torch==1.13.1 torchvision==0.14.1 \
-    --index-url https://download.pytorch.org/whl/cpu
+RUN pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 \
+    --extra-index-url https://download.pytorch.org/whl/cu117
 
 COPY . .
 
