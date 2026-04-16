@@ -30,7 +30,7 @@ param_grid = {
     "dim": [512],
     "lr": [2e-5],
     "num_classes": [8],
-    "batch_size": [8],
+    "batch_size": [4],
     "n_epoch": [1],
     "hybrid_loss_coeff": [0.001],
     "num_workers": [0]
