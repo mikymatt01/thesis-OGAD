@@ -115,6 +115,11 @@ if Adjs_dir is None: # Generate the adjacency matrices from a true graphon (synt
 
 
 else: # load the existing adjacency matrices
+    existing = [f for f in os.listdir(output_dir) if f.startswith("sample_") and f.endswith(".png")]
+    if existing:
+        print(f"Dataset already exists in {output_dir} ({len(existing)} graphons found). Skipping generation.")
+        exit(0)
+
     graphs_inr = load_graphs(Adjs_dir)
     print("graphs: ", len(graphs_inr))
     graph_collections = cluster_graphs_from_arrays(
