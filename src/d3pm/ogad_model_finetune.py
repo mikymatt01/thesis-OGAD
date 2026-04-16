@@ -2,6 +2,7 @@ from sklearn.model_selection import ParameterGrid
 import torchvision.transforms as transforms
 from torchvision import transforms
 from torch.utils.data import DataLoader
+from torch.cuda.amp import autocast, GradScaler
 from datasets import load_dataset
 from tqdm import tqdm
 import torch
@@ -38,6 +39,8 @@ param_grid = {
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
+scaler = GradScaler()
+
 def train(d3pm, dataloader, optim, N):
     pbar = tqdm(dataloader)
     loss_ema = None
@@ -47,12 +50,16 @@ def train(d3pm, dataloader, optim, N):
         optim.zero_grad()
         x = x.to(device)
 
-        # discritize x to N bins
         x_cat = (x * (N - 1)).round().long().clamp(0, N - 1)
-        loss, info = d3pm(x_cat)
 
-        loss.backward()
+        with autocast():
+            loss, info = d3pm(x_cat)
+
+        scaler.scale(loss).backward()
+        scaler.unscale_(optim)
         norm = torch.nn.utils.clip_grad_norm_(d3pm.x0_model.parameters(), 5.0)
+        scaler.step(optim)
+        scaler.update()
 
         with torch.no_grad():
             param_norm = sum([torch.norm(p) for p in d3pm.x0_model.parameters()])
@@ -65,7 +72,6 @@ def train(d3pm, dataloader, optim, N):
         pbar.set_description(
             f"loss: {loss_ema:.4f}, norm: {norm:.4f}, param_norm: {param_norm:.4f}, vb_loss: {info['vb_loss']:.4f}, ce_loss: {info['ce_loss']:.4f}"
         )
-        optim.step()
     
     return loss_ema
     
