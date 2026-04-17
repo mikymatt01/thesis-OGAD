@@ -1,24 +1,51 @@
-FROM --platform=linux/amd64 python:3.10-slim
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    CONDA_DIR=/opt/conda
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl \
+    ca-certificates \
+    curl \
+    git \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Miniconda (for rdkit + graph-tool)
+RUN curl -fsSL -o /tmp/miniconda.sh \
+    https://repo.anaconda.com/miniconda/Miniconda3-py310_24.1.2-0-Linux-x86_64.sh \
+    && bash /tmp/miniconda.sh -b -p "$CONDA_DIR" \
+    && rm -f /tmp/miniconda.sh
+
+ENV PATH="$CONDA_DIR/bin:$PATH"
+
+RUN conda config --system --set channel_priority strict \
+    && conda install -y -c conda-forge \
+    python=3.10 \
+    rdkit=2023.03.2 \
+    graph-tool=2.45 \
+    && conda clean -afy
 
 COPY requirements.txt ./
 
-# PyTorch CPU wheels
-RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
-    torch torchvision torchaudio
+# Torch + CUDA 11.8 wheels (match DiGress tested stack)
+RUN python -m pip install --no-cache-dir -U pip \
+    && python -m pip install --no-cache-dir \
+    torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 \
+    --index-url https://download.pytorch.org/whl/cu118
 
-# PyG wheels (torch-scatter/sparse/cluster/...) + torch-geometric
-# (scegli la pagina wheel coerente con la tua versione torch; esempio sotto)
-RUN pip install --no-cache-dir \
+# PyG wheels for torch 2.0.1 + cu118, then torch-geometric (pinned in requirements.txt)
+RUN python -m pip install --no-cache-dir \
     torch-scatter torch-sparse torch-cluster torch-spline-conv \
-    -f https://data.pyg.org/whl/torch-2.2.0+cpu.html \
-    && pip install --no-cache-dir -r requirements.txt
+    -f https://data.pyg.org/whl/torch-2.0.1+cu118.html \
+    && python -m pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Install package (setup.py) and compile ORCA binary used by analysis code
+RUN python -m pip install --no-cache-dir -e . \
+    && g++ -O2 -std=c++11 -o src/analysis/orca/orca src/analysis/orca/orca.cpp
+
 CMD ["python", "src/main.py"]
