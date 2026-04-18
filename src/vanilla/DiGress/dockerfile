@@ -1,10 +1,12 @@
 FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
 WORKDIR /app
+# Editable install adds .../src to sys.path; repo imports also need parent dir for `from src import ...`.
 ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DEBIAN_FRONTEND=noninteractive \
-    CONDA_DIR=/opt/conda
+    CONDA_DIR=/opt/conda \
+    PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -44,8 +46,8 @@ RUN python -m pip install --no-cache-dir \
 
 COPY . .
 
-# Install package (setup.py) and compile ORCA binary used by analysis code
-RUN python -m pip install --no-cache-dir -e . \
+# Install project in editable mode (deps already from requirements.txt); compile ORCA binary
+RUN python -m pip install --no-cache-dir --no-deps -e . \
     && g++ -O2 -std=c++11 -o src/analysis/orca/orca src/analysis/orca/orca.cpp
 
 CMD ["python", "src/main.py"]

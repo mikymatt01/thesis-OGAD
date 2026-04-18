@@ -26,7 +26,15 @@ dependencies = [
 ]
 
 [tool.poetry]
-package-mode = false
+packages = [
+    { include = "metrics", from = "src" },
+    { include = "models", from = "src" },
+    { include = "analysis", from = "src" },
+    { include = "datasets", from = "src" },
+    { include = "diffusion", from = "src" },
+    { include = "diffusion_model.py", from = "src" },
+    { include = "diffusion_model_discrete.py", from = "src" },
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
