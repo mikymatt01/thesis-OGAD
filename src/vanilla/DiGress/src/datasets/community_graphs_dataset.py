@@ -10,6 +10,7 @@ from scipy.sparse import csr_matrix
 from torch_geometric.data import InMemoryDataset, Data
 
 from src.datasets.abstract_dataset import AbstractDataModule, AbstractDatasetInfos
+from src.datasets.community_graphs_paths import resolve_community_graphs_pickle
 
 try:
     import networkx as nx
@@ -111,8 +112,8 @@ class CommunityGraphDataModule(AbstractDataModule):
         base_path = pathlib.Path(os.path.realpath(__file__)).parents[2]
         root_path = os.path.join(base_path, self.datadir)
         # Pickle path: config can be relative to DiGress root (e.g. ../../../data/...)
-        pickle_path = cfg.dataset.get('pickle_path', '../../../data/train/graphs/CommunityGraphs.pickle')
-        pickle_path = os.path.normpath(os.path.join(base_path, pickle_path))
+        pickle_rel = cfg.dataset.get('pickle_path', '../../../data/train/graphs/CommunityGraphs.pickle')
+        pickle_path = resolve_community_graphs_pickle(base_path, pickle_rel)
         self.pickle_path = pickle_path
         datasets = {
             'train': CommunityGraphDataset(split='train', root=root_path, pickle_path=pickle_path),

@@ -1,4 +1,11 @@
 # @package _global_
+# Root config defaults to dataset: qm9; this experiment must override it or Hydra still loads QM9.
+dataset:
+  name: community_graphs
+  remove_h: null
+  datadir: "data/community_graphs/"
+  pickle_path: "../../../data/train/graphs/CommunityGraphs.pickle"
+
 general:
   name: "community_graphs"
   gpus: 1

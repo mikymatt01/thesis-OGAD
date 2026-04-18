@@ -9,6 +9,10 @@ set -u
 # - Prefer dynamically enumerating zones where `nvidia-tesla-t4` exists (fast + accurate).
 # - Fall back to a curated list from Google's GPU locations doc if gcloud isn't usable.
 #
+# Resume (no checkpoint file):
+# - FIND_GPU_RESUME=us-west1-b — last zone you attempted; continues with the *next* zone in the list.
+# - FIND_GPU_RETRY_SAME_ZONE=1 — with FIND_GPU_RESUME set, retry that same zone first (e.g. after quota).
+#
 # Doc: https://cloud.google.com/compute/docs/gpus/gpu-regions-zones
 
 machine_type="${MACHINE_TYPE:-n1-standard-8}"
@@ -17,6 +21,45 @@ gpu_count="${GPU_COUNT:-1}"
 
 zones=()
 project="${GOOGLE_CLOUD_PROJECT:-${GCLOUD_PROJECT:-}}"
+
+# First index in zones[] to try; prints index to stdout, messages to stderr.
+compute_first_zone_index() {
+  local n="${#zones[@]}"
+  local i found_idx=-1
+  local resume="${FIND_GPU_RESUME:-}"
+
+  if [[ -z "$resume" ]]; then
+    echo 0
+    return
+  fi
+
+  for ((i = 0; i < n; i++)); do
+    if [[ "${zones[i]}" == "$resume" ]]; then
+      found_idx=$i
+      break
+    fi
+  done
+  if [[ "$found_idx" -lt 0 ]]; then
+    echo "WARN: FIND_GPU_RESUME=$resume not in zone list; starting from first zone." >&2
+    echo 0
+    return
+  fi
+
+  if [[ "${FIND_GPU_RETRY_SAME_ZONE:-}" == "1" ]]; then
+    echo "Resume: retrying zone $resume (index $found_idx)." >&2
+    echo "$found_idx"
+    return
+  fi
+
+  local start=$((found_idx + 1))
+  if [[ "$start" -ge "$n" ]]; then
+    echo "WARN: FIND_GPU_RESUME=$resume is the last zone; nothing after it — starting from first zone." >&2
+    echo 0
+    return
+  fi
+  echo "Resume: continuing after $resume (from index $start)." >&2
+  echo "$start"
+}
 
 if zones_json="$(gcloud compute accelerator-types list \
   --filter="name=${gpu_type}" \
@@ -57,12 +100,15 @@ if [[ "${#zones[@]}" -eq 0 ]]; then
   )
 fi
 
+first_idx="$(compute_first_zone_index)"
+
 echo "Machine type: $machine_type"
 echo "GPU:          ${gpu_type} x${gpu_count}"
-echo "Zones to try: ${#zones[@]}"
+echo "Zones to try: ${#zones[@]} (starting at index $first_idx)"
 echo
 
-for zone in "${zones[@]}"; do
+for ((zi = first_idx; zi < ${#zones[@]}; zi++)); do
+  zone="${zones[zi]}"
   echo "=============================="
   echo "Trying zone: $zone"
   echo "=============================="
@@ -99,10 +145,12 @@ for zone in "${zones[@]}"; do
   tail -n 40 "$tf_log"
 
   if grep -qiE "GPUS_ALL_REGIONS|gpus_all_regions|GPUS-ALL-REGIONS-per-project" "$tf_log"; then
+    rm -f "$tf_log"
     echo
     echo "Stopping: project global GPU quota (GPUS_ALL_REGIONS) is exhausted."
     echo "Retrying zones won't help until you delete other GPU VMs/reservations or request a quota increase."
-    rm -f "$tf_log"
+    echo "After fixing quota, continue with next zones: FIND_GPU_RESUME=$zone $0"
+    echo "Or retry this zone first: FIND_GPU_RESUME=$zone FIND_GPU_RETRY_SAME_ZONE=1 $0"
     exit 2
   fi
 
