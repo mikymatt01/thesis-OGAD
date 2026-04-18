@@ -5,3 +5,10 @@ _output
 __pycache__
 data/models/d3pm.pkl
 src/vanilla/outputs
+
+# Terraform / infrastructure (local cache and state)
+infrastructure/.terraform/
+infrastructure/*.tfstate
+infrastructure/*.tfstate.*
+infrastructure/crash.log
+infrastructure/*.tfplan

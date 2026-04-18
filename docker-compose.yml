@@ -1,4 +1,4 @@
-# OGAD pipeline: sigl → d3pm → ggme
+# OGAD pipeline: sigl → d3pm → ggme → digress (vanilla baseline)
 #
 #   docker compose up --build
 #
@@ -6,6 +6,7 @@
 #   docker compose run --rm sigl
 #   docker compose run --rm d3pm
 #   docker compose run --rm ggme
+#   docker compose run --rm digress
 
 name: ogad
 
@@ -38,10 +39,27 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+  digress:
+    depends_on:
+      d3pm:
+        condition: service_completed_successfully
+    build:
+      context: ./src/vanilla/DiGress
+      dockerfile: dockerfile
+    shm_size: 4gb
+    volumes:
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   ggme:
     depends_on:
-      d3pm:
+      digress:
         condition: service_completed_successfully
     build: ./src/ggme
     shm_size: 2gb
