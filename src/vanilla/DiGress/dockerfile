@@ -30,6 +30,14 @@ RUN conda config --system --set channel_priority strict \
     graph-tool=2.45 \
     && conda clean -afy
 
+# Match ogad-vanilla-digress2.ipynb runtime (Kaggle/local): Hydra, OpenMP, allocator, W&B off.
+# If you use W&B, do not bake keys into the image: `docker run -e WANDB_API_KEY=...` or compose `environment:`.
+ENV WANDB_DISABLED=true \
+    HYDRA_FULL_ERROR=1 \
+    LD_PRELOAD=/opt/conda/lib/libgomp.so.1 \
+    LD_LIBRARY_PATH=/opt/conda/lib:${LD_LIBRARY_PATH} \
+    PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64,expandable_segments:True
+
 COPY requirements.txt ./
 
 # Torch + CUDA 11.8 wheels (match DiGress tested stack)
@@ -50,4 +58,4 @@ COPY . .
 RUN python -m pip install --no-cache-dir --no-deps -e . \
     && g++ -O2 -std=c++11 -o src/analysis/orca/orca src/analysis/orca/orca.cpp
 
-CMD ["python", "src/main.py"]
+CMD ["python", "src/main.py", "+experiment=community_graphs", "train.batch_size=32"]

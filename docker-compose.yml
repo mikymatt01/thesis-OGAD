@@ -24,24 +24,9 @@ services:
               count: all
               capabilities: [gpu]
 
-  d3pm:
-    depends_on:
-      sigl:
-        condition: service_completed_successfully
-    build: ./src/d3pm
-    shm_size: 4gb
-    volumes:
-      - ./data:/app/data
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
   digress:
     depends_on:
-      d3pm:
+      sigl:
         condition: service_completed_successfully
     build:
       context: ./src/vanilla/DiGress
@@ -57,9 +42,25 @@ services:
               count: all
               capabilities: [gpu]
 
-  ggme:
+  d3pm:
     depends_on:
       digress:
+        condition: service_completed_successfully
+    build: ./src/d3pm
+    shm_size: 4gb
+    volumes:
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  ggme:
+    depends_on:
+      d3pm:
         condition: service_completed_successfully
     build: ./src/ggme
     shm_size: 2gb
