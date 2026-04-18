@@ -36,7 +36,7 @@ ENV WANDB_DISABLED=true \
     HYDRA_FULL_ERROR=1 \
     LD_PRELOAD=/opt/conda/lib/libgomp.so.1 \
     LD_LIBRARY_PATH=/opt/conda/lib:${LD_LIBRARY_PATH} \
-    PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64,expandable_segments:True
+    PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64
 
 COPY requirements.txt ./
 
