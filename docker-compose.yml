@@ -12,6 +12,7 @@ name: ogad
 
 services:
   sigl:
+    image: mikymatt/ogad-sigl:latest
     build: ./src/sigl
     shm_size: 2gb
     volumes:
@@ -28,6 +29,7 @@ services:
     depends_on:
       sigl:
         condition: service_completed_successfully
+    image: mikymatt/ogad-digress:latest
     build:
       context: ./src/vanilla/DiGress
       dockerfile: dockerfile
@@ -46,6 +48,7 @@ services:
     depends_on:
       digress:
         condition: service_completed_successfully
+    image: mikymatt/ogad-d3pm:latest
     build: ./src/d3pm
     shm_size: 4gb
     volumes:
@@ -62,6 +65,7 @@ services:
     depends_on:
       d3pm:
         condition: service_completed_successfully
+    image: mikymatt/ogad-ggme:latest
     build: ./src/ggme
     shm_size: 2gb
     volumes:
