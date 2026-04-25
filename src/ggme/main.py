@@ -69,11 +69,12 @@ def compute_ggme(
     print("Option 1:")
     print("The best kernel-hyperparameter combination is the {} with sigma={}. This had a correlation of {:.4f}."
         .format(
-        best_params["kernel"].__name__,
+        best_params["kernel"],
         best_params["sigma"],
         best_params["corr"]
         ))
-    best_kernel = best_params["kernel"].__name__
+    # Keep the kernel as a callable; only use __name__ for display.
+    best_kernel = best_params["kernel"]
     best_sigma = best_params["sigma"]
     best_corr = best_params["corr"]
     print("======================")
