@@ -42,7 +42,7 @@ def generate_graphs(graphons):
         graphon = graphon[0]
         for i in range(0, 10):
             adj_matrix = sample_graph_from_graphon(graphon, 32)
-            generated_graphs.append(nx.from_numpy_array(adj_matrix.numpy()))
+            generated_graphs.append(nx.from_numpy_array(adj_matrix.detach().cpu().numpy()))
     return generated_graphs
 
 def compute_ggme(
