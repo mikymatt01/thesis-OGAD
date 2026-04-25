@@ -22,6 +22,8 @@ WORKDIR /app/src/ggme
 
 COPY pyproject.toml poetry.lock ./
 
+RUN poetry config virtualenvs.create false
+
 RUN poetry install --no-ansi --no-root --only main
 
 RUN pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 \
