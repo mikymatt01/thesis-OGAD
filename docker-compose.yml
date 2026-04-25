@@ -3,16 +3,16 @@
 #   docker compose up --build
 #
 # Debug un singolo servizio:
-#   docker compose run --rm sigl
-#   docker compose run --rm d3pm
-#   docker compose run --rm ggme
-#   docker compose run --rm digress
+#   docker compose run --rm prep_data
+#   docker compose run --rm train_model_a
+#   docker compose run --rm train_model_b
+#   docker compose run --rm eval_metrics
 
 name: ogad
 
 services:
-  sigl:
-    image: mikymatt/ogad-sigl:latest
+  prep_data:
+    image: mikymatt/ogad-prep-data:latest
     build: ./src/sigl
     shm_size: 2gb
     volumes:
@@ -25,11 +25,11 @@ services:
               count: 1
               capabilities: [gpu]
 
-  digress:
+  train_model_a:
     depends_on:
-      sigl:
+      prep_data:
         condition: service_completed_successfully
-    image: mikymatt/ogad-digress:latest
+    image: mikymatt/ogad-train-model-a:latest
     build:
       context: ./src/vanilla/DiGress
       dockerfile: dockerfile
@@ -44,11 +44,11 @@ services:
               count: 1
               capabilities: [gpu]
 
-  d3pm:
+  train_model_b:
     depends_on:
-      digress:
+      train_model_a:
         condition: service_completed_successfully
-    image: mikymatt/ogad-d3pm:latest
+    image: mikymatt/ogad-train-model-b:latest
     build: ./src/d3pm
     shm_size: 4gb
     volumes:
@@ -61,11 +61,11 @@ services:
               count: 1
               capabilities: [gpu]
 
-  ggme:
+  eval_metrics:
     depends_on:
-      d3pm:
+      train_model_b:
         condition: service_completed_successfully
-    image: mikymatt/ogad-ggme:latest
+    image: mikymatt/ogad-eval-metrics:latest
     build: ./src/ggme
     shm_size: 2gb
     volumes:
