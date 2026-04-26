@@ -46,7 +46,7 @@ services:
 
   train_model_b:
     depends_on:
-      prep_data:
+      train_model_a:
         condition: service_completed_successfully
     image: mikymatt/ogad-train-model-b:latest
     build: ./src/d3pm
