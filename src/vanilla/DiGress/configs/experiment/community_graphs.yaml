@@ -22,7 +22,7 @@ general:
   final_model_chains_to_save: 20
 train:
   n_epochs: 1 # TODO: replace with 100
-  batch_size: 128 # Reduced from default 512 for T4 GPU memory constraints
+  batch_size: 32 # Reduced from default 512 for T4 GPU memory constraints
   accumulate_grad_batches: 16 # Effective batch size = 32 * 16 = 512
   save_model: True
 model:
