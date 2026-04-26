@@ -46,7 +46,7 @@ services:
 
   train_model_b:
     depends_on:
-      train_model_a:
+      prep_data:
         condition: service_completed_successfully
     image: mikymatt/ogad-train-model-b:latest
     build: ./src/d3pm
@@ -63,6 +63,8 @@ services:
 
   eval_metrics:
     depends_on:
+      train_model_a:
+        condition: service_completed_successfully
       train_model_b:
         condition: service_completed_successfully
     image: mikymatt/ogad-eval-metrics:latest
