@@ -54,6 +54,11 @@ def compute_ggme(
     perturbation_values,
     descriptor_fn
 ): 
+    descriptor_name = getattr(descriptor_fn, "__name__", str(descriptor_fn))
+    prefix = f"[descriptor={descriptor_name}] "
+    def log(msg: str) -> None:
+        print(prefix + msg)
+
     # OPTION 1: to find the best parameters for a grid of kernel/hyperparameter
     # combination, run the following function, which will return the
     # kernel, sigma, and correlation of the best configuration
@@ -66,8 +71,8 @@ def compute_ggme(
         descriptor_fn=descriptor_fn,
         correlation_type="pearson"
     )
-    print("Option 1:")
-    print("The best kernel-hyperparameter combination is the {} with sigma={}. This had a correlation of {:.4f}."
+    log("Option 1:")
+    log("The best kernel-hyperparameter combination is the {} with sigma={}. This had a correlation of {:.4f}."
         .format(
         best_params["kernel"],
         best_params["sigma"],
@@ -77,7 +82,7 @@ def compute_ggme(
     best_kernel = best_params["kernel"]
     best_sigma = best_params["sigma"]
     best_corr = best_params["corr"]
-    print("======================")
+    log("======================")
 
     # OPTION 2: to compute the correlation for a single kernel/param combo,
     # take perturbed graphs and true graphs and calculate MMD
@@ -98,11 +103,11 @@ def compute_ggme(
             correlation_type="pearson"
             )
 
-    print("Option 2:")
-    print("The correlation is {:.6f}.".format(correlation))
-    print("======================")
+    log("Option 2:")
+    log("The correlation is {:.6f}.".format(correlation))
+    log("======================")
     
-    print("Option 3:")
+    log("Option 3:")
     for key, dataset in [
         ('DiGress', digress_graphs),
         ('OGAD', generated_graphs),
@@ -117,7 +122,7 @@ def compute_ggme(
             density=True,
             sigma=best_sigma
         )
-        print("The MMD between the test and {} graphs is {:.4f}.".format(key, generated_graphs_mmd))
+        log("The MMD between the test and {} graphs is {:.4f}.".format(key, generated_graphs_mmd))
     
 if __name__ == "__main__":
     print("path for: ", os.getcwd())
