@@ -4,6 +4,7 @@ from datasets import load_dataset
 import torch
 import gzip
 import io
+from pathlib import Path
 
 from d3pm_runner import D3PM
 from dit import DiT_Llama
@@ -48,4 +49,6 @@ if __name__ == "__main__":
         )
         image = images[-1]
         this_image = image.float().cpu() / (N - 1)
-        torch.save(this_image, f"../../data/predictions/graphons/tensors.pt")
+        out_path = Path("../../data/predictions/graphons/tensors.pt")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(this_image, out_path)

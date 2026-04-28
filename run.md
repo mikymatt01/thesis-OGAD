@@ -9,3 +9,6 @@
 ### Delete tmux session
 - tmux ls
 - tmux kill-session -t <id>
+
+### Delete data dir
+docker run --rm -v $(pwd):/app alpine rm -rf /app/data
