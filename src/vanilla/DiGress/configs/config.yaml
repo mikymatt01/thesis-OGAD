@@ -9,4 +9,4 @@ hydra:
   job:
     chdir: True
   run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${general.name}
+    dir: ${hydra:runtime.cwd}/data/predictions/graphs/digress

@@ -67,6 +67,15 @@ def get_resume_adaptive(cfg, model_kwargs):
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
     dataset_config = cfg["dataset"]
+    dataset_name = dataset_config.get("name", "<missing>")
+    dataset_datadir = dataset_config.get("datadir", None)
+    dataset_pickle_path = dataset_config.get("pickle_path", None)
+    print(
+        "[DiGress] Loaded dataset config:",
+        f"name={dataset_name}",
+        f"datadir={dataset_datadir}" if dataset_datadir is not None else "datadir=<none>",
+        f"pickle_path={dataset_pickle_path}" if dataset_pickle_path is not None else "pickle_path=<none>",
+    )
 
     if dataset_config["name"] in ['sbm', 'comm20', 'planar']:
         from datasets.spectre_dataset import SpectreGraphDataModule, SpectreDatasetInfos

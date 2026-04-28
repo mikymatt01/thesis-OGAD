@@ -48,4 +48,4 @@ if __name__ == "__main__":
         )
         image = images[-1]
         this_image = image.float().cpu() / (N - 1)
-        torch.save(this_image, f"../../data/predictions/graphons/predictions.pt")
+        torch.save(this_image, f"../../data/predictions/graphons/tensors.pt")

@@ -28,11 +28,11 @@ gr_dataset.set_format(type="torch")
 
 param_grid = {
     "dim": [512],
-    "lr": [1e-5, 2e-5, 5e-5],
+    "lr": [1e-5], #2e-5, 5e-5],
     "num_classes": [8],
-    "batch_size": [32, 64],
-    "n_epoch": [100],
-    "hybrid_loss_coeff": [0.0, 1e-3, 1e-2],
+    "batch_size": [32], #64],
+    "n_epoch": [1],
+    "hybrid_loss_coeff": [1e-2], #0.0, 1e-3, ],
     "num_workers": [0],
 }
 
