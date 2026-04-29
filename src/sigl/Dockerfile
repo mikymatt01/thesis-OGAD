@@ -34,4 +34,4 @@ RUN pip install torch-sparse -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 
 COPY . .
 
-CMD ["poetry","run","python","Main.py","--Res","32","--Adjs_dir","/app/data/train/graphs/CommunityGraphs.pickle","--output_dir","/app/data/train/graphons"]
+CMD ["poetry","run","python","Main.py","--Res","256","--Adjs_dir","/app/data/train/graphs/CommunityGraphs.pickle","--output_dir","/app/data/train/graphons"]
