@@ -28,11 +28,11 @@ gr_dataset.set_format(type="torch")
 
 param_grid = {
     "dim": [512],
-    "lr": [1e-5], #2e-5, 5e-5],
+    "lr": [1e-5, 2e-5, 5e-5],
     "num_classes": [8],
-    "batch_size": [32], #64],
-    "n_epoch": [1],
-    "hybrid_loss_coeff": [1e-2], #0.0, 1e-3, ],
+    "batch_size": [32, 64],
+    "n_epoch": [50],
+    "hybrid_loss_coeff": [1e-2, 0.0, 1e-3, ],
     "num_workers": [0],
 }
 
@@ -84,6 +84,8 @@ def finetune_model(params):
     hybrid_loss_coeff = params['hybrid_loss_coeff']
     num_workers = params['num_workers']
 
+    print(f"Params {params}")
+    
     d3pm = D3PM(
         DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
     ).to(device)
@@ -116,6 +118,7 @@ if __name__ == '__main__':
  
     print(f"Best model {best_params} with loss {best_loss}")
     
+    best_params['n_epoch'] = 200
     loss_ema, best_model = finetune_model(best_params)
     
     state_dict = best_model.state_dict()
