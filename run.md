@@ -11,6 +11,7 @@
 - tmux kill-session -t <id>
 
 ### Delete data dir
-docker run --rm -v $(pwd):/app alpine rm -rf /app/data/predictions/graphons 
+docker run --rm -v $(pwd):/app alpine rm -rf /app/data/predictions/graphons
+docker run --rm -v $(pwd):/app alpine rm -rf /app/data/train/graphons/*
 docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples1.txt 
 docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples2.txt 
