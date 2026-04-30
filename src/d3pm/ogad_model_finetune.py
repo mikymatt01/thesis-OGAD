@@ -30,6 +30,7 @@ param_grid = {
     "dim": [512],
     "lr": [1e-5, 2e-5, 5e-5],
     "num_classes": [8],
+    "image_size": [128],
     "batch_size": [16, 32],
     "n_epoch": [50],
     "hybrid_loss_coeff": [1e-2, 0.0, 1e-3],
@@ -41,7 +42,7 @@ print(f"Using device: {device}")
 
 scaler = GradScaler()
 
-def train(d3pm, dataloader, optim, N):
+def train(d3pm, dataloader, optim, N, image_size: int):
     pbar = tqdm(dataloader)
     loss_ema = None
     
@@ -49,6 +50,10 @@ def train(d3pm, dataloader, optim, N):
         x = item['data']
         optim.zero_grad()
         x = x.to(device)
+        if x.shape[-2:] != (image_size, image_size):
+            raise ValueError(
+                f"Unexpected image size {tuple(x.shape[-2:])}; expected {(image_size, image_size)}"
+            )
 
         x_cat = (x * (N - 1)).round().long().clamp(0, N - 1)
 
@@ -83,6 +88,7 @@ def finetune_model(params):
     lr = params['lr']
     hybrid_loss_coeff = params['hybrid_loss_coeff']
     num_workers = params['num_workers']
+    image_size = params['image_size']
 
     print(f"Params {params}")
     
@@ -100,7 +106,8 @@ def finetune_model(params):
             d3pm,
             dataloader,
             optim,
-            N
+            N,
+            image_size,
         )
         
     return loss_ema, d3pm

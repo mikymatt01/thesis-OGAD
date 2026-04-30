@@ -33,6 +33,7 @@ if __name__ == "__main__":
     hybrid_loss_coeff = best_model['hybrid_loss_coeff']
     N = best_model['num_classes']
     dim = best_model['dim']
+    image_size = best_model.get("image_size", 32)
     
     d3pm = D3PM(
         DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
@@ -43,7 +44,7 @@ if __name__ == "__main__":
     global_step = 0
     d3pm.eval()
     with torch.no_grad():
-        init_noise = torch.randint(0, N, (16, 1, 32, 32)).to(device)
+        init_noise = torch.randint(0, N, (16, 1, image_size, image_size)).to(device)
         images = d3pm.sample_with_image_sequence(
             init_noise, None, stride=40
         )
