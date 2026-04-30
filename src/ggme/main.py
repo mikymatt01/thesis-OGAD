@@ -14,8 +14,12 @@ from utils import load_graphs, load_digress_generated_samples
 import networkx as nx
 import torch
 import os
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
 print(f"Using device: {device}")
 
 def sample_graph_from_graphon(W, M):

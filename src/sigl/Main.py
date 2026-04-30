@@ -122,10 +122,11 @@ else: # load the existing adjacency matrices
 
     graphs_inr = load_graphs(Adjs_dir)
     print("graphs: ", len(graphs_inr))
-    graph_collections = cluster_graphs_from_arrays(
-        graphs_inr,
-        n_clusters
-    )
+    graph_collections = graphs_inr
+    # cluster_graphs_from_arrays(
+    #     graphs_inr,
+    #     n_clusters
+    # )
     for index in range(0, len(graph_collections)):
         graph_inr = graph_collections[index]
         ### Learn the coordinates and graphon as step 1
