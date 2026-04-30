@@ -1,6 +1,6 @@
 # OGAD
 
-### Test 1 con raggruppamento di grafi
+### Test 1 con raggruppamento di grafi (cluster 200)
 
 eval_metrics-1  | [descriptor=degree_distribution] Option 1:
 eval_metrics-1  | [descriptor=degree_distribution] The best kernel-hyperparameter combination is the <function gaussian_kernel at 0x7fc3af58dfc0> with sigma=10. This had a correlation of 0.8946.

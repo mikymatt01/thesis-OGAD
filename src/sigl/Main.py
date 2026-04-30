@@ -30,7 +30,7 @@ parser.add_argument('--h_size', type=int, default=4,
 parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/CommunityGraphs.pickle', 
                     help="Path to existing adjacency matrices (e.g., myGraphs/Adjs.pkl).")
 parser.add_argument('--output_dir', type=str, default='../../data/train/graphons', help="Output directory.")
-parser.add_argument('--n_clusters', type=int, default=200, help="Number of clasters")
+parser.add_argument('--n_clusters', type=int, default=None, help="Number of clasters")
 
 args = parser.parse_args()
 print("Parameters: \n", args)
@@ -123,12 +123,18 @@ else: # load the existing adjacency matrices
     graphs_inr = load_graphs(Adjs_dir)
     print("graphs: ", len(graphs_inr))
     graph_collections = graphs_inr
-    # cluster_graphs_from_arrays(
-    #     graphs_inr,
-    #     n_clusters
-    # )
+
+    if n_clusters != None:
+        graph_collections = cluster_graphs_from_arrays(
+            graphs_inr,
+            n_clusters
+        )
+
     for index in range(0, len(graph_collections)):
-        graph_inr = graph_collections[index]
+        if n_clusters != None:
+            graph_inr = graph_collections[index]
+        else:
+            graph_inr = [graph_collections[index]]
         ### Learn the coordinates and graphon as step 1
         print("Step1: Learning the laten variable of the nodes")
         model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graph_inr, lr)
