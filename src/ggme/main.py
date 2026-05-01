@@ -13,6 +13,7 @@ from perturb_graphs import perturb_graphs
 from utils import load_graphs, load_digress_generated_samples
 import argparse
 import json
+import numpy as np
 import networkx as nx
 import torch
 import os
@@ -43,12 +44,33 @@ def sample_graph_from_graphon(W, M):
     A = A + A.T
     return A
 
-def generate_graphs(graphons):
+
+def _test_node_sizes(test_graphs):
+    return [G.number_of_nodes() for G in test_graphs]
+
+
+def _sample_M(rng, sizes, n_max, max_tries=64):
+    """Sample M from empirical test sizes; reject M > n_max and resample."""
+    for _ in range(max_tries):
+        m = int(rng.choice(sizes))
+        if 1 <= m <= n_max:
+            return m
+    # fallback: clamp last draw
+    return max(1, min(int(rng.choice(sizes)), n_max))
+
+
+def generate_graphs(graphons, test_sizes, seed=0):
+    """Sample OGAD graphs from graphon tensors; M ~ empirical test node counts (capped by grid size)."""
+    if not test_sizes:
+        raise ValueError("test_sizes is empty; cannot align sampling to test distribution")
+    rng = np.random.default_rng(seed)
     generated_graphs = []
     for graphon in graphons:
-        graphon = graphon[0]
-        for i in range(0, 10):
-            adj_matrix = sample_graph_from_graphon(graphon, 32)
+        W = graphon[0]
+        n_max = W.shape[0]
+        for _ in range(10):
+            M = _sample_M(rng, test_sizes, n_max)
+            adj_matrix = sample_graph_from_graphon(W, M)
             generated_graphs.append(nx.from_numpy_array(adj_matrix.detach().cpu().numpy()))
     return generated_graphs
 
@@ -202,6 +224,7 @@ if __name__ == "__main__":
                 setattr(args, key, val)
 
     test_graphs = load_graphs(args.test_graphs)
+    test_sizes = _test_node_sizes(test_graphs)
     paper_graphs = load_graphs(args.paper_graphs)
 
     digress_graphs = []
@@ -215,7 +238,19 @@ if __name__ == "__main__":
         )
 
     graphons = torch.load(args.graphons_pt, map_location=device)
-    generated_graphs = generate_graphs(graphons)
+    generated_graphs = generate_graphs(graphons, test_sizes, seed=0)
+
+    gen_sizes = [G.number_of_nodes() for G in generated_graphs]
+    print(
+        "OGAD generated sizes: min={} max={} mean={:.1f}".format(
+            min(gen_sizes), max(gen_sizes), sum(gen_sizes) / len(gen_sizes)
+        )
+    )
+    print(
+        "Test sizes:          min={} max={} mean={:.1f}".format(
+            min(test_sizes), max(test_sizes), sum(test_sizes) / len(test_sizes)
+        )
+    )
 
     print("Loaded {} DiGress graphs".format(len(digress_graphs)))
     print("Loaded {} OGAD graphs from {}".format(len(generated_graphs), args.graphons_pt))
