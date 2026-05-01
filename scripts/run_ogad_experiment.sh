@@ -8,6 +8,7 @@ cd "$ROOT"
 
 EXP_REL="${1:-experiments/example.json}"
 SLUG="${2:-}"
+OGAD_CLEANUP="${OGAD_CLEANUP:-1}"
 
 EXP_ABS="$ROOT/$EXP_REL"
 if [[ ! -f "$EXP_ABS" ]]; then
@@ -53,6 +54,14 @@ run_stage() {
     -v "$ROOT/experiments:/app/experiments:ro" \
     "$service" "$@" 2>&1 | tee "$logfile"
 }
+
+cleanup() {
+  if [[ "$OGAD_CLEANUP" == "1" ]]; then
+    OGAD_ROOT="$ROOT" bash "$ROOT/scripts/cleanup_ogad_run.sh" || true
+  fi
+}
+
+trap cleanup EXIT
 
 run_stage prep_data "$RUN_DIR/sigl.log" "${SIGL_CMD[@]}"
 run_stage train_model_b "$RUN_DIR/d3pm.log" "${D3PM_CMD[@]}"

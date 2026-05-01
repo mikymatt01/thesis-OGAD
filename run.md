@@ -25,7 +25,7 @@ Optional second argument sets a slug in the run id (e.g. `mytrial`).
 Run every top-level `experiments/*.json` in sorted order (one full pipeline per file; stops on first error):
 
 ```bash
-./scripts/run_all_experiments.sh
+t
 ```
 
 ### Delete tmux session
@@ -37,3 +37,12 @@ docker run --rm -v $(pwd):/app alpine rm -rf /app/data/predictions/graphons
 docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples1.txt 
 docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples2.txt 
 cd data/train/graphons && docker run --rm -v $(pwd):/app alpine rm -rf /app
+
+### Cleanup automatico a fine esperimento
+Lo script `scripts/run_ogad_experiment.sh` esegue automaticamente la pulizia (generazioni + cache dataset) a fine run.
+
+Per disabilitarla temporaneamente:
+
+```bash
+OGAD_CLEANUP=0 ./scripts/run_ogad_experiment.sh experiments/example.json
+```
