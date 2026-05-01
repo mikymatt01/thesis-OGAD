@@ -46,7 +46,7 @@ run_stage() {
   shift
   local logfile="$1"
   shift
-  "${COMPOSE[@]}" run --rm \
+  "${COMPOSE[@]}" run --rm --no-deps \
     -e "OGAD_RUN_ID=$RUN_ID" \
     -e OGAD_RUN_DIR=/app/runs/current \
     -v "$RUN_DIR:/app/runs/current" \
