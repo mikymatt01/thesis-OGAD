@@ -1,8 +1,8 @@
 {
-  "name": "example_ogad_only",
+  "name": "test_1",
   "shared": {},
   "sigl": {
-    "n_epoch": 10,
+    "n_epoch": 100,
     "lr": 0.06,
     "Res": 128,
     "Adjs_dir": "/app/data/train/graphs/CommunityGraphs.pickle",
