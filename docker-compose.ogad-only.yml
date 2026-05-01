@@ -1,0 +1,27 @@
+# Merge with base: SIGL (prep_data) → D3PM (train_model_b) → GGME (eval_metrics), no DiGress.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ogad-only.yml up --build
+#
+# For a single run with experiment JSON and run dir mounts, prefer scripts/run_ogad_experiment.sh
+#
+# Base compose already mounts ./data:/app/data; here we add experiments and adjust deps/command.
+
+services:
+  train_model_b:
+    depends_on:
+      prep_data:
+        condition: service_completed_successfully
+    volumes:
+      - ./experiments:/app/experiments:ro
+
+  eval_metrics:
+    depends_on:
+      train_model_b:
+        condition: service_completed_successfully
+    volumes:
+      - ./experiments:/app/experiments:ro
+    command: ["poetry", "run", "python", "main.py", "--skip-digress"]
+
+  prep_data:
+    volumes:
+      - ./experiments:/app/experiments:ro

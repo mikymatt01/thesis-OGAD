@@ -6,6 +6,28 @@
 - docker compose up
 - control + B and D
 
+### OGAD-only pipeline (SIGL → D3PM → GGME, no DiGress)
+
+Gli script in `scripts/` sono pensati per **Linux**: bash recente (>= 4.1 per `run_all_experiments.sh`), Docker Compose plugin v2, `python3` sul PATH.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.ogad-only.yml up --build
+```
+
+End-to-end run with unified experiment JSON, local logs under `runs/<run_id>/`, and DiGress skipped in GGME:
+
+```bash
+./scripts/run_ogad_experiment.sh experiments/example.json
+```
+
+Optional second argument sets a slug in the run id (e.g. `mytrial`).
+
+Run every top-level `experiments/*.json` in sorted order (one full pipeline per file; stops on first error):
+
+```bash
+./scripts/run_all_experiments.sh
+```
+
 ### Delete tmux session
 - tmux ls
 - tmux kill-session -t <id>

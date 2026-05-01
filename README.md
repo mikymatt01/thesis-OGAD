@@ -32,3 +32,5 @@ eval_metrics-1  | [descriptor=normalised_laplacian_spectrum] Option 3:
 eval_metrics-1  | [descriptor=normalised_laplacian_spectrum] The MMD between the test and DiGress graphs is 1.8530.
 eval_metrics-1  | [descriptor=normalised_laplacian_spectrum] The MMD between the test and OGAD graphs is 44.1202.
 eval_metrics-1  | [descriptor=normalised_laplacian_spectrum] The MMD between the test and Paper graphs is 0.5686.
+
+### Test 1 con raggruppamento di grafi (cluster 50)

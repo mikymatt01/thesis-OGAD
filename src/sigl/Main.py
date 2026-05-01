@@ -2,6 +2,7 @@ from clusterize import cluster_graphs_from_arrays
 from tools import *
 import numpy as np
 import argparse
+import json
 import pickle
 import torch
 import time
@@ -31,8 +32,21 @@ parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/Com
                     help="Path to existing adjacency matrices (e.g., myGraphs/Adjs.pkl).")
 parser.add_argument('--output_dir', type=str, default='../../data/train/graphons', help="Output directory.")
 parser.add_argument('--n_clusters', type=int, default=None, help="Number of clasters")
+parser.add_argument(
+    '--config',
+    type=str,
+    default=None,
+    help="Optional JSON experiment file: merges top-level 'shared' then 'sigl' into CLI args.",
+)
 
 args = parser.parse_args()
+if args.config:
+    with open(args.config, encoding="utf-8") as f:
+        cfg = json.load(f)
+    merged = {**(cfg.get("shared") or {}), **(cfg.get("sigl") or {})}
+    for key, val in merged.items():
+        if hasattr(args, key):
+            setattr(args, key, val)
 print("Parameters: \n", args)
 
 test_name = args.test_name

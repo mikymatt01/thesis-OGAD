@@ -11,9 +11,12 @@ from metrics.descriptor_functions import degree_distribution, clustering_coeffic
 
 from perturb_graphs import perturb_graphs
 from utils import load_graphs, load_digress_generated_samples
+import argparse
+import json
 import networkx as nx
 import torch
 import os
+from pathlib import Path
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -112,11 +115,16 @@ def compute_ggme(
     log("======================")
     
     log("Option 3:")
+    mmd_by_key = {}
     for key, dataset in [
         ('DiGress', digress_graphs),
         ('OGAD', generated_graphs),
         ('Paper', paper_graphs),
     ]:
+        if key == "DiGress" and not dataset:
+            log("DiGress baseline skipped (no graphs).")
+            mmd_by_key[key] = None
+            continue
         generated_graphs_mmd = evaluate_mmd(
             graphs_dist_1=test_graphs,
             graphs_dist_2=dataset,
@@ -126,38 +134,116 @@ def compute_ggme(
             density=True,
             sigma=best_sigma
         )
+        mmd_by_key[key] = float(generated_graphs_mmd)
         log("The MMD between the test and {} graphs is {:.4f}.".format(key, generated_graphs_mmd))
-    
+
+    return {
+        "descriptor": descriptor_name,
+        "best_kernel": getattr(best_kernel, "__name__", str(best_kernel)),
+        "best_sigma": float(best_sigma),
+        "corr_option1": float(best_corr),
+        "correlation_option2": float(correlation),
+        "mmd": mmd_by_key,
+    }
+
+
+def append_metrics_jsonl(run_dir: str | None, payload: dict) -> None:
+    if not run_dir:
+        return
+    path = Path(run_dir) / "metrics.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, default=str) + "\n")
+
+
 if __name__ == "__main__":
     print("path for: ", os.getcwd())
-    
-    test_graphs = load_graphs("../../data/test/graphs/CommunityGraphs.pickle")
-    paper_graphs = load_graphs("../../data/predictions/graphs/ggme_paper/CommunityGraphs.pickle")
-    digress_graphs = load_digress_generated_samples("../../data/predictions/graphs/digress/generated_samples1.txt")
-    test_graphs = load_graphs("../../data/test/graphs/CommunityGraphs.pickle")
-    graphons = torch.load("../../data/predictions/graphons/tensors.pt", map_location=device)
+
+    parser = argparse.ArgumentParser(description="GGME evaluation")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Optional experiment JSON: uses 'ggme' object for paths (Docker: /app/data/...).",
+    )
+    parser.add_argument(
+        "--skip-digress",
+        action="store_true",
+        help="Do not load DiGress baseline samples.",
+    )
+    parser.add_argument(
+        "--digress_samples",
+        type=str,
+        default="../../data/predictions/graphs/digress/generated_samples1.txt",
+        help="Path to DiGress generated_samples1.txt",
+    )
+    parser.add_argument(
+        "--test_graphs",
+        type=str,
+        default="../../data/test/graphs/CommunityGraphs.pickle",
+    )
+    parser.add_argument(
+        "--paper_graphs",
+        type=str,
+        default="../../data/predictions/graphs/ggme_paper/CommunityGraphs.pickle",
+    )
+    parser.add_argument(
+        "--graphons_pt",
+        type=str,
+        default="../../data/predictions/graphons/tensors.pt",
+    )
+    args = parser.parse_args()
+
+    if args.config:
+        with open(args.config, encoding="utf-8") as f:
+            cfg = json.load(f)
+        for key, val in (cfg.get("ggme") or {}).items():
+            if hasattr(args, key):
+                setattr(args, key, val)
+
+    test_graphs = load_graphs(args.test_graphs)
+    paper_graphs = load_graphs(args.paper_graphs)
+
+    digress_graphs = []
+    if not args.skip_digress and args.digress_samples and os.path.isfile(args.digress_samples):
+        digress_graphs = load_digress_generated_samples(args.digress_samples)
+    elif not args.skip_digress and args.digress_samples:
+        print(
+            "DiGress samples not found at {}; continuing without baseline.".format(
+                args.digress_samples
+            )
+        )
+
+    graphons = torch.load(args.graphons_pt, map_location=device)
     generated_graphs = generate_graphs(graphons)
-    
-    print("Loaded {} DiGress graphs from generated_samples1.txt".format(len(digress_graphs)))
-    print("Loaded {} OGAD graphs from tensors.pt".format(len(generated_graphs)))
-    print("esempio test graphs: ", len(test_graphs))
-    
+
+    print("Loaded {} DiGress graphs".format(len(digress_graphs)))
+    print("Loaded {} OGAD graphs from {}".format(len(generated_graphs), args.graphons_pt))
+    print("Test graphs: ", len(test_graphs))
+
     perturbation_values, perturbed_graphs = perturb_graphs(
         graphs=test_graphs,
         perturbation_type="AddEdges"
     )
-    
+
+    run_dir = os.environ.get("OGAD_RUN_DIR")
+    run_id = os.environ.get("OGAD_RUN_ID")
+
     for descriptor_fn in [
         degree_distribution,
         clustering_coefficient,
         normalised_laplacian_spectrum
     ]:
-        compute_ggme(
+        row = compute_ggme(
             test_graphs,
             paper_graphs,
             generated_graphs,
             digress_graphs,
             perturbed_graphs,
             perturbation_values,
-            descriptor_fn 
+            descriptor_fn
+        )
+        append_metrics_jsonl(
+            run_dir,
+            {"stage": "ggme", "run_id": run_id, **row},
         )

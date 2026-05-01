@@ -6,6 +6,9 @@ __pycache__
 data/models/d3pm.pkl
 src/vanilla/outputs
 
+# Local experiment runs (logs + metrics)
+runs/
+
 # Terraform / infrastructure (local cache and state)
 infrastructure/.terraform/
 infrastructure/*.tfstate
