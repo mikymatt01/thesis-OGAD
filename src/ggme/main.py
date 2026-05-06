@@ -59,9 +59,9 @@ def _sample_M(rng, sizes, n_max, max_tries=64):
     return max(1, min(int(rng.choice(sizes)), n_max))
 
 
-def generate_graphs(graphons, test_sizes, seed=0):
+def generate_graphs(graphons, train_sizes, seed=0):
     """Sample OGAD graphs from graphon tensors; M ~ empirical test node counts (capped by grid size)."""
-    if not test_sizes:
+    if not train_sizes:
         raise ValueError("test_sizes is empty; cannot align sampling to test distribution")
     rng = np.random.default_rng(seed)
     generated_graphs = []
@@ -69,7 +69,7 @@ def generate_graphs(graphons, test_sizes, seed=0):
         W = graphon[0]
         n_max = W.shape[0]
         for _ in range(10):
-            M = _sample_M(rng, test_sizes, n_max)
+            M = _sample_M(rng, train_sizes, n_max)
             adj_matrix = sample_graph_from_graphon(W, M)
             generated_graphs.append(nx.from_numpy_array(adj_matrix.detach().cpu().numpy()))
     return generated_graphs
@@ -200,6 +200,11 @@ if __name__ == "__main__":
         help="Path to DiGress generated_samples1.txt",
     )
     parser.add_argument(
+        "--train_graphs",
+        type=str,
+        default="../../data/train/graphs/CommunityGraphs.pickle",
+    )
+    parser.add_argument(
         "--test_graphs",
         type=str,
         default="../../data/test/graphs/CommunityGraphs.pickle",
@@ -223,8 +228,9 @@ if __name__ == "__main__":
             if hasattr(args, key):
                 setattr(args, key, val)
 
+    train_graphs = load_graphs(args.train_graphs)
+    train_sizes = _test_node_sizes(train_graphs)
     test_graphs = load_graphs(args.test_graphs)
-    test_sizes = _test_node_sizes(test_graphs)
     paper_graphs = load_graphs(args.paper_graphs)
 
     digress_graphs = []
@@ -238,7 +244,7 @@ if __name__ == "__main__":
         )
 
     graphons = torch.load(args.graphons_pt, map_location=device)
-    generated_graphs = generate_graphs(graphons, test_sizes, seed=0)
+    generated_graphs = generate_graphs(graphons, train_sizes, seed=0)
 
     gen_sizes = [G.number_of_nodes() for G in generated_graphs]
     print(
@@ -248,7 +254,7 @@ if __name__ == "__main__":
     )
     print(
         "Test sizes:          min={} max={} mean={:.1f}".format(
-            min(test_sizes), max(test_sizes), sum(test_sizes) / len(test_sizes)
+            min(train_sizes), max(train_sizes), sum(train_sizes) / len(train_sizes)
         )
     )
 

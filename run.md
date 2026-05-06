@@ -35,7 +35,6 @@ t
 ### Delete data dir
 docker run --rm -v $(pwd):/app alpine rm -rf /app/data/predictions/graphons
 docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples1.txt 
-docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples2.txt 
 cd data/train/graphons && docker run --rm -v $(pwd):/app alpine rm -rf /app
 
 ### Cleanup automatico a fine esperimento
@@ -45,4 +44,9 @@ Per disabilitarla temporaneamente:
 
 ```bash
 OGAD_CLEANUP=0 ./scripts/run_ogad_experiment.sh experiments/example.json
+```
+
+### Copy results from server
+```bash
+scp -r thesis_unipi:/raid/m.mattiello/OGAD/runs ./
 ```
