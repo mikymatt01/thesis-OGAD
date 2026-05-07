@@ -1,0 +1,28 @@
+{
+  "name": "test_1",
+  "shared": {},
+  "sigl": {
+    "n_epoch": 100,
+    "lr": 0.06,
+    "Res": 128,
+    "Adjs_dir": "/app/data/train/graphs/CommunityGraphs.pickle",
+    "output_dir": "/app/data/train/graphons",
+    "n_clusters": 25
+  },
+  "d3pm": {
+    "batch_size": [32],
+    "dim": [512],
+    "lr": [1e-5, 2e-5],
+    "num_classes": [8],
+    "image_size": [128],
+    "hybrid_loss_coeff": [0.01, 0.0, 0.001],
+    "num_workers": [0],
+    "n_epoch": [50]
+  },
+  "ggme": {
+    "test_graphs": "/app/data/test/graphs/CommunityGraphs.pickle",
+    "paper_graphs": "/app/data/predictions/graphs/ggme_paper/CommunityGraphs.pickle",
+    "graphons_pt": "/app/data/predictions/graphons/tensors.pt",
+    "digress_samples": "/app/data/predictions/graphs/digress/generated_samples1.txt"
+  }
+}

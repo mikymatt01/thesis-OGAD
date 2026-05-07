@@ -11,7 +11,7 @@
 Gli script in `scripts/` sono pensati per **Linux**: bash recente (>= 4.1 per `run_all_experiments.sh`), Docker Compose plugin v2, `python3` sul PATH.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.ogad-only.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.ogad-only.yml build
 ```
 
 End-to-end run with unified experiment JSON, local logs under `runs/<run_id>/`, and DiGress skipped in GGME:
