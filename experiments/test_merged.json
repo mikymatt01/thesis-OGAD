@@ -2,12 +2,12 @@
   "name": "test_1",
   "shared": {},
   "sigl": {
-    "n_epoch": 200,
-    "lr": 0.06,
-    "Res": 128,
-    "Adjs_dir": "/app/data/train/graphs/CommunityGraphs.pickle",
-    "output_dir": "/app/data/train/graphons",
-    "n_clusters": 50
+    "n_epoch": [100, 150, 200],
+    "lr": [0.06],
+    "Res": [32, 64, 128],
+    "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
+    "output_dir": ["/app/data/train/graphons"],
+    "n_clusters": [10, 15, 25, 50, 100, null]
   },
   "d3pm": {
     "batch_size": [32],
