@@ -30,4 +30,4 @@ for index, sigl_run in enumerate(sigl_runs):
     path = MERGED.with_name(f"test_nc{index}.json")
 
     path.write_text(json.dumps(test, indent=2), encoding="utf-8")
-    subprocess.run([str(RUN_SH), str(path.relative_to(ROOT)), f"nc{k}"], cwd=ROOT, check=True)
+    subprocess.run([str(RUN_SH), str(path.relative_to(ROOT)), f"nc{index}"], cwd=ROOT, check=True)
