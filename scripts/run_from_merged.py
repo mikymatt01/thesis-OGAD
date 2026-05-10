@@ -27,8 +27,8 @@ sigl_runs = expand_block(raw["sigl"])
 for index, sigl_run in enumerate(sigl_runs):
     test = copy.deepcopy(raw) | {"name": f"test_nc{index}"}
     test["sigl"] = sigl_run
+    test["d3pm"]["image_size"] = [sigl_run['Res']]
 
     path = MERGED.with_name(f"test_nc{index}.json")
-
     path.write_text(json.dumps(test, indent=2), encoding="utf-8")
     subprocess.run([str(RUN_SH), str(path.relative_to(ROOT)), f"nc{index}"], cwd=ROOT, check=True)
