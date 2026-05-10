@@ -2,9 +2,10 @@
 """Esplode experiments/test_merged.json in N config scalari (uno per n_clusters)
 e per ciascuno lancia scripts/run_ogad_experiment.sh."""
 from itertools import product
-import copy, json, subprocess
-from pathlib import Path
 import copy
+import json
+import subprocess
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MERGED = ROOT / "experiments" / "test_merged.json"
@@ -21,7 +22,7 @@ def expand_block(block: dict) -> list[dict]:
 raw = json.loads(MERGED.read_text(encoding="utf-8"))
 
 
-sigl_runs = [{"sigl": run} for run in expand_block(raw["sigl"])]
+sigl_runs = expand_block(raw["sigl"])
 
 for index, sigl_run in enumerate(sigl_runs):
     test = copy.deepcopy(raw) | {"name": f"test_nc{index}"}
