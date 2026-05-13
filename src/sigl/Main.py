@@ -27,6 +27,11 @@ parser.add_argument('--batch_size', type=int, default=1024, help="Batch size for
 parser.add_argument('--w0', type=float, default=10, help="Default frequency for sine activation in INR.")
 parser.add_argument('--lr', type=float, default=0.01, help="Learning rate.")
 parser.add_argument('--seed', type=int, default=0, help="Global RNG seed for reproducibility.")
+parser.add_argument('--rank_norm', dest='rank_norm', action='store_true',
+                    help="Enable straight-through rank-normalization on GCN output (default).")
+parser.add_argument('--no_rank_norm', dest='rank_norm', action='store_false',
+                    help="Disable STE rank-norm and fall back to sigmoid + min-max (pre-modification behaviour).")
+parser.set_defaults(rank_norm=True)
 parser.add_argument('--h_size', type=int, default=4, 
                     help="Pooling window size (1: 1, 2: 2, 3: 3, 4: log(n), 5: sqrt(n)). Default: 4.")
 parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/CommunityGraphs.pickle', 
@@ -94,7 +99,7 @@ if Adjs_dir is None: # Generate the adjacency matrices from a true graphon (synt
         start_time = time.time()
         ### Learn the coordinates and graphon as step 1
         print("Step1: Learning the laten variable of the nodes")
-        model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs_inr, lr)
+        model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs_inr, lr, rank_norm=args.rank_norm)
         ### Sort the graphs based on the learned latent variables
         print("Step2: Sorting the graphs and calculating the pooling")
         X_all, y_all, w_all = graph2XY(graphs_inr, model_SIGL)
@@ -155,7 +160,7 @@ else: # load the existing adjacency matrices
             graph_inr = [graph_collections[index]]
         ### Learn the coordinates and graphon as step 1
         print("Step1: Learning the laten variable of the nodes")
-        model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graph_inr, lr)
+        model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graph_inr, lr, rank_norm=args.rank_norm)
         ### Sort the graphs based on the learned latent variables
         print("Step2: Sorting the graphs and calculating the pooling")
         X_all, y_all, w_all = graph2XY(graph_inr, model_SIGL)

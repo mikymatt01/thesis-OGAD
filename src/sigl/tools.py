@@ -134,28 +134,34 @@ class SirenNet(nn.Module):
 
 # GNN network using GCNConv:
 class GCN(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, num_dimensions):
-        super(GCN, self).__init__()        
-        self.layers = torch.nn.ModuleList()        
-        self.layers.append(GCNConv(in_channels, hidden_channels[0]))        
+    def __init__(self, in_channels, hidden_channels, num_dimensions, rank_norm: bool = True):
+        super(GCN, self).__init__()
+        self.rank_norm = rank_norm
+        self.layers = torch.nn.ModuleList()
+        self.layers.append(GCNConv(in_channels, hidden_channels[0]))
         for i in range(1, len(hidden_channels)):
-            self.layers.append(GCNConv(hidden_channels[i-1], hidden_channels[i]))  
-        
+            self.layers.append(GCNConv(hidden_channels[i-1], hidden_channels[i]))
+
         # Final fully connected layer
-        self.fc1 = torch.nn.Linear(hidden_channels[-1], num_dimensions)        
+        self.fc1 = torch.nn.Linear(hidden_channels[-1], num_dimensions)
     def forward(self, x, edge_index):
         for conv in self.layers:
             x = conv(x, edge_index)
             x = F.relu(x)
         x_pre_fc = x
         x_post_fc = self.fc1(x_pre_fc)
-        # Straight-through rank-normalization: forward yields exact uniform ranks in [0,1],
-        # backward passes the gradient through identity to avoid outlier-driven min-max collapse.
-        n = x_post_fc.size(0)
-        denom = max(n - 1, 1)
-        with torch.no_grad():
-            ranks = torch.argsort(torch.argsort(x_post_fc, dim=0), dim=0).float() / denom
-        x_post_fc = x_post_fc + (ranks - x_post_fc).detach()
+        if self.rank_norm:
+            # Straight-through rank-normalization: forward yields exact uniform ranks in [0,1],
+            # backward passes the gradient through identity to avoid outlier-driven min-max collapse.
+            n = x_post_fc.size(0)
+            denom = max(n - 1, 1)
+            with torch.no_grad():
+                ranks = torch.argsort(torch.argsort(x_post_fc, dim=0), dim=0).float() / denom
+            x_post_fc = x_post_fc + (ranks - x_post_fc).detach()
+        else:
+            # Pre-modification behaviour: sigmoid + min-max normalization.
+            x_post_fc = torch.sigmoid(x_post_fc)
+            x_post_fc = (x_post_fc - x_post_fc.min()) / (x_post_fc.max() - x_post_fc.min() + 1e-12)
 
         return x_pre_fc, x_post_fc
     
@@ -413,7 +419,7 @@ def gw_distance(graphon: np.ndarray, estimation: np.ndarray) -> float:
     dw2 = ot.gromov.gromov_wasserstein2(graphon, estimation, p, q, loss_fun, log=False, armijo=False)
     return np.sqrt(dw2)
 
-def coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs, lr, patience: int = 30):
+def coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs, lr, patience: int = 30, rank_norm: bool = True):
     # Auxiliary graphon represented by an INR (symmetric in (x,y) by construction).
     model_inr = SirenNet(dim_in = 2, # input [x,y] coordinate
                 dim_hidden = inr_dim_hidden,
@@ -423,7 +429,7 @@ def coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, 
                 w0_initial = w0,
                 symmetric = True).to(device)
     # GNN model to output the latent variables of the nodes.
-    model_gnn = GCN(NODE_FEAT_DIM, gnn_dim_hidden, 1).to(device)
+    model_gnn = GCN(NODE_FEAT_DIM, gnn_dim_hidden, 1, rank_norm=rank_norm).to(device)
     # End-to-end model of Step 1
     model_SIGL = SIGL(model_gnn, model_inr).to(device)
     # Train the model

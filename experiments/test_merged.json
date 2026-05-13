@@ -3,13 +3,14 @@
   "shared": {},
   "sigl": {
     "n_epoch": [300],
-    "lr": [0.01, 0.03, 0.06],
+    "lr": [0.01],
     "Res": [128],
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
-    "n_clusters": [10, 25, 50],
-    "w0": [10, 30],
-    "seed": [0]
+    "n_clusters": [50],
+    "w0": [10],
+    "seed": [0, 1, 2],
+    "rank_norm": [true, false]
   },
   "d3pm": {
     "batch_size": [32],
