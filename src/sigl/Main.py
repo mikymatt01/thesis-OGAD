@@ -16,16 +16,17 @@ parser.add_argument('--test_name', type=str, default=None, help="Test name")
 parser.add_argument('--n_graphon', type=int, default=1, help="Index of the graphon to learn.")
 parser.add_argument('--alpha', type=float, default=0.5, help="Parameter for the SBM graphons.")
 parser.add_argument('--n_trials', type=int, default=10, help="Number of trials.")
-parser.add_argument('--n_G', type=int, default=10, help="Number of graphs generated per trial.")
+parser.add_argument('--n_G', type=int, default=30, help="Number of graphs generated per trial.")
 parser.add_argument('--offset', type=int, default=0, help="Offset for the number of nodes in each graph.")
 parser.add_argument('--Res', type=int, default=1000, help="Resolution of the samples graphon from the INR.")
-parser.add_argument('--n_epoch', type=int, default=100, help="Number of training epochs.")
-parser.add_argument('--epoch_show', type=int, default=20, help="Training checkpoint interval.")
+parser.add_argument('--n_epoch', type=int, default=300, help="Number of training epochs.")
+parser.add_argument('--epoch_show', type=int, default=50, help="Training checkpoint interval.")
 parser.add_argument('--gnn_dim_hidden', type=str, default="8,8,8", help="Hidden layer sizes for GNN in step 1.")
 parser.add_argument('--inr_dim_hidden', type=str, default="20,20", help="Hidden layer sizes for SIREN.")
 parser.add_argument('--batch_size', type=int, default=1024, help="Batch size for training INR in step 3.")
 parser.add_argument('--w0', type=float, default=10, help="Default frequency for sine activation in INR.")
-parser.add_argument('--lr', type=float, default=0.06, help="Learning rate.")
+parser.add_argument('--lr', type=float, default=0.01, help="Learning rate.")
+parser.add_argument('--seed', type=int, default=0, help="Global RNG seed for reproducibility.")
 parser.add_argument('--h_size', type=int, default=4, 
                     help="Pooling window size (1: 1, 2: 2, 3: 3, 4: log(n), 5: sqrt(n)). Default: 4.")
 parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/CommunityGraphs.pickle', 
@@ -48,6 +49,8 @@ if args.config:
         if hasattr(args, key):
             setattr(args, key, val)
 print("Parameters: \n", args)
+
+set_seed(args.seed)
 
 test_name = args.test_name
 n_graphon = args.n_graphon - 1
@@ -117,7 +120,7 @@ if Adjs_dir is None: # Generate the adjacency matrices from a true graphon (synt
                 pickle.dump(trained_inr, f)
             list_of_tensors = [predictions_graphon for _ in range(10)]
             arrays = {f"tensor_{i:05d}": t for i, t in enumerate(list_of_tensors)}
-            np.savez("output/SIGL/graphon_dataset.npz", **arrays)
+            np.savez(os.path.join(output_dir, "graphon_dataset.npz"), **arrays)
 
     # print the average error
     print("Average time: ", np.mean(All_time))
@@ -144,6 +147,7 @@ else: # load the existing adjacency matrices
             n_clusters
         )
 
+    metrics_log = {"n_clusters": n_clusters, "clusters": []}
     for index in range(0, len(graph_collections)):
         if n_clusters != None:
             graph_inr = graph_collections[index]
@@ -161,8 +165,17 @@ else: # load the existing adjacency matrices
         # Sample the estimated graphon from inr:
         estimated_graphon = get_graphon(Res, trained_inr)
 
-        # plot a sample of the graphs with the estimated graphon and the learned coordinates
-        # sample_graph = graph_inr[-1]
-        # plot_smaples_real(sample_graph, estimated_graphon, output_dir, model_SIGL)
+        m = proxy_metrics(estimated_graphon, graph_inr)
+        m["index"] = index
+        m["n_graphs"] = len(graph_inr)
+        metrics_log["clusters"].append(m)
+        print(
+            f"[metrics] cluster={index} n={len(graph_inr)} "
+            f"deg_w1={m['degree_w1']:.4f} spec_w1={m['spectral_w1']:.4f} tv={m['tv']:.4f}"
+        )
+
         print(f'graphon {output_dir}/sample_{index}.png generated', len(estimated_graphon))
         save_graphon_for_diff(estimated_graphon, output_dir + f'/sample_{index}.png')
+
+    with open(os.path.join(output_dir, "metrics.json"), "w", encoding="utf-8") as f:
+        json.dump(metrics_log, f, indent=2)

@@ -2,6 +2,7 @@ from torchvision.utils import save_image
 from torch_geometric.nn import GCNConv
 from torch_geometric.data import Data
 from scipy.sparse import csr_matrix
+from scipy.stats import wasserstein_distance
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from einops import rearrange
@@ -16,6 +17,17 @@ import math
 import ot
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+def set_seed(seed: int = 0):
+    """Make torch / numpy / python RNG deterministic."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 '''Classes'''
@@ -75,11 +87,12 @@ class Siren(nn.Module):
 
 # Siren network:    
 class SirenNet(nn.Module):
-    def __init__(self, dim_in, dim_hidden, dim_out, num_layers, w0 = 1., w0_initial = 30., use_bias = True, activation = 'sine', final_activation = 'sigmoid'):
+    def __init__(self, dim_in, dim_hidden, dim_out, num_layers, w0 = 1., w0_initial = 30., use_bias = True, activation = 'sine', final_activation = 'sigmoid', symmetric = False):
         super().__init__()
 
         self.dim_hidden = dim_hidden
         self.num_layers = len(dim_hidden)
+        self.symmetric = symmetric
         self.layers = nn.ModuleList([])
         for ind in range(self.num_layers):
             is_first = ind == 0
@@ -97,8 +110,18 @@ class SirenNet(nn.Module):
         final_activation = 'id' if not exists(final_activation) else final_activation
         self.last_layer = Siren(dim_in = dim_hidden[num_layers-1], dim_out = dim_out, w0 = w0, use_bias = use_bias, activation = final_activation)
 
+    def _symmetrize_input(self, x):
+        # Enforce f(x, y) = f(y, x) by replacing the first two coords with (min, max).
+        xy = x[..., :2]
+        rest = x[..., 2:]
+        lo = xy.min(dim=-1, keepdim=True).values
+        hi = xy.max(dim=-1, keepdim=True).values
+        return torch.cat([lo, hi, rest], dim=-1)
+
     def forward(self, x, mods = None):
         mods = cast_tuple(mods, self.num_layers)
+        if self.symmetric:
+            x = self._symmetrize_input(x)
 
         for layer, mod in zip(self.layers, mods):
             x = layer(x)
@@ -126,9 +149,13 @@ class GCN(torch.nn.Module):
             x = F.relu(x)
         x_pre_fc = x
         x_post_fc = self.fc1(x_pre_fc)
-        x_post_fc = torch.sigmoid(x_post_fc)
-        # Normalize the latent variables to [0,1]
-        x_post_fc = (x_post_fc - x_post_fc.min())/(x_post_fc.max() - x_post_fc.min())        
+        # Straight-through rank-normalization: forward yields exact uniform ranks in [0,1],
+        # backward passes the gradient through identity to avoid outlier-driven min-max collapse.
+        n = x_post_fc.size(0)
+        denom = max(n - 1, 1)
+        with torch.no_grad():
+            ranks = torch.argsort(torch.argsort(x_post_fc, dim=0), dim=0).float() / denom
+        x_post_fc = x_post_fc + (ranks - x_post_fc).detach()
 
         return x_pre_fc, x_post_fc
     
@@ -154,11 +181,57 @@ class SIGL(nn.Module):
 
 
 '''Functions'''
+NODE_FEAT_DIM = 5
+
+
+def _ldp_node_features(A: torch.Tensor) -> torch.Tensor:
+    """Deterministic permutation-equivariant node features (LDP-like).
+
+    Returns a (n, NODE_FEAT_DIM) tensor with:
+      0: normalized degree d_i / (n-1)
+      1: local clustering coefficient (triangles / (d_i choose 2))
+      2: mean of neighbor degrees / (n-1)
+      3: min of neighbor degrees / (n-1)  (0 if isolated)
+      4: max of neighbor degrees / (n-1)  (0 if isolated)
+    """
+    n = A.size(0)
+    A = A.float()
+    A = A - torch.diag(torch.diagonal(A))
+    deg = A.sum(dim=1)
+    denom = max(n - 1, 1)
+    deg_n = deg / denom
+
+    triangles = torch.einsum('ij,jk,ki->i', A, A, A)
+    pairs = deg * (deg - 1.0)
+    clustering = torch.where(pairs > 0, triangles / pairs, torch.zeros_like(deg))
+
+    deg_row = deg.unsqueeze(0).expand(n, -1)
+    mask = A > 0
+    safe_deg = torch.where(mask, deg_row, torch.zeros_like(deg_row))
+
+    has_neigh = deg > 0
+    sum_n = safe_deg.sum(dim=1)
+    mean_n = torch.where(has_neigh, sum_n / torch.clamp(deg, min=1.0), torch.zeros_like(deg))
+    big = torch.full_like(deg_row, float('inf'))
+    min_neigh = torch.where(mask, deg_row, big).min(dim=1).values
+    min_neigh = torch.where(has_neigh, min_neigh, torch.zeros_like(deg))
+    max_neigh = torch.where(mask, deg_row, torch.zeros_like(deg_row)).max(dim=1).values
+
+    feats = torch.stack([
+        deg_n,
+        clustering.clamp(0.0, 1.0),
+        mean_n / denom,
+        min_neigh / denom,
+        max_neigh / denom,
+    ], dim=1)
+    return feats
+
+
 def nx2torch(adjacency_matrix):
     adjacency_matrix = torch.tensor(adjacency_matrix, dtype=torch.float)
     edge_index = torch.nonzero(adjacency_matrix, as_tuple=False).t().contiguous()
     edge_value = adjacency_matrix.reshape(-1)
-    x = torch.randn(adjacency_matrix.size(0), 1) # Random node features
+    x = _ldp_node_features(adjacency_matrix)
     data = Data(x=x, edge_index=edge_index, y=edge_value).to(device)
     return data
 
@@ -314,7 +387,7 @@ def simulate_graphs(w: np.ndarray, seed_gsize: int=123, seed_edge:int=123, num_g
     r = w.shape[0]
 	
     if graph_size == 'vary':
-        numbers = np.linspace(75+offset,300+offset,num_graphs).astype(int).tolist()
+        numbers = np.linspace(100+offset,500+offset,num_graphs).astype(int).tolist()
 
     else:
         numbers = [num_nodes for _ in range(num_graphs)]
@@ -340,64 +413,87 @@ def gw_distance(graphon: np.ndarray, estimation: np.ndarray) -> float:
     dw2 = ot.gromov.gromov_wasserstein2(graphon, estimation, p, q, loss_fun, log=False, armijo=False)
     return np.sqrt(dw2)
 
-def coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs, lr):
-    # Auxiliary graphon represented by an INR 
+def coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs, lr, patience: int = 30):
+    # Auxiliary graphon represented by an INR (symmetric in (x,y) by construction).
     model_inr = SirenNet(dim_in = 2, # input [x,y] coordinate
                 dim_hidden = inr_dim_hidden,
                 dim_out = 1, # output graphon (edge) probability 
                 num_layers = len(inr_dim_hidden), # f_theta number of layers
                 final_activation = 'sigmoid',
-                w0_initial = w0).to(device)
-    # GNN model to output the latent variables of the nodes
-    model_gnn = GCN(1, gnn_dim_hidden, 1).to(device) 
+                w0_initial = w0,
+                symmetric = True).to(device)
+    # GNN model to output the latent variables of the nodes.
+    model_gnn = GCN(NODE_FEAT_DIM, gnn_dim_hidden, 1).to(device)
     # End-to-end model of Step 1
     model_SIGL = SIGL(model_gnn, model_inr).to(device)
     # Train the model
     graph_data = [nx2torch(graph_i) for graph_i in graphs]
     optimizer = torch.optim.Adam(model_SIGL.parameters(), lr=lr)
-    criterion = torch.nn.MSELoss()
+    criterion = torch.nn.BCELoss()
     model_SIGL.train()
-    for epoch in range(1,n_epochs+1):
+    best_loss = float('inf')
+    bad_epochs = 0
+    for epoch in range(1, n_epochs + 1):
         random.shuffle(graph_data)
         loss_e = 0
-        for data_i in graph_data: 
+        for data_i in graph_data:
             edges_pred, _ = model_SIGL(data_i)
-            loss = criterion(edges_pred.squeeze(-1), data_i.y) 
+            preds = edges_pred.squeeze(-1).clamp(1e-6, 1.0 - 1e-6)
+            loss = criterion(preds, data_i.y)
             if torch.isnan(loss):
                 break
-            loss.backward() 
-            optimizer.step() 
+            loss.backward()
+            optimizer.step()
             optimizer.zero_grad()
             loss_e = loss_e + loss.item()
-        if epoch==1 or epoch % epoch_show == 0:
+        if epoch == 1 or epoch % epoch_show == 0:
             print("epoch: ", epoch, " loss: ", loss_e)
-
+        if loss_e < best_loss - 1e-5:
+            best_loss = loss_e
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if bad_epochs >= patience:
+                print(f"Early stopping Step1 at epoch {epoch} (best loss {best_loss:.5f})")
+                break
 
     return model_SIGL, loss_e
 
-def train_graphon(inr_dim_hidden, w0, X_all, y_all, w_all, n_epochs, epoch_show, lr, batch_size, isparametric=0):
+def train_graphon(inr_dim_hidden, w0, X_all, y_all, w_all, n_epochs, epoch_show, lr, batch_size, isparametric=0, patience: int = 30):
     inr_model = SirenNet(dim_in = 2 + isparametric , # input [x,y] coordinate
                 dim_hidden = inr_dim_hidden,
                 dim_out = 1, # output graphon (edge) probability 
                 num_layers = len(inr_dim_hidden), # f_theta number of layers
                 final_activation = 'sigmoid',
-                w0_initial = w0).to(device)
+                w0_initial = w0,
+                symmetric = True).to(device)
     train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(X_all, y_all, w_all), batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.Adam(inr_model.parameters(), lr=lr)
-    criterion = torch.nn.MSELoss(reduction='none')
+    criterion = torch.nn.BCELoss(reduction='none')
+    best_loss = float('inf')
+    bad_epochs = 0
     for epoch in range(1, n_epochs+1):
         loss_e = 0
         for loader_idx, (X, y, w) in enumerate(train_loader):
             X, y, w = X.to(device), y.to(device), w.to(device)
             optimizer.zero_grad()
-            y_pred = inr_model(X)
-            loss = criterion(y_pred, y)
+            y_pred = inr_model(X).clamp(1e-6, 1.0 - 1e-6)
+            y_target = y.clamp(0.0, 1.0)
+            loss = criterion(y_pred, y_target)
             weighted_loss = torch.mean(loss * w)
             weighted_loss.backward()
             optimizer.step()
             loss_e = loss_e + weighted_loss.item()
         if epoch==1 or epoch % epoch_show == 0:
             print('Epoch: {}, Loss: {:.5f}'.format(epoch, loss_e))
+        if loss_e < best_loss - 1e-5:
+            best_loss = loss_e
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if bad_epochs >= patience:
+                print(f"Early stopping Step3 at epoch {epoch} (best loss {best_loss:.5f})")
+                break
 
     return inr_model
 
@@ -524,4 +620,67 @@ def load_graphs(filepath):
         return [graph.toarray() for graph in graphs]
     else:
         raise ValueError('Unsupported input type.')
-    
+
+
+def graphon_total_variation(W: np.ndarray) -> float:
+    """Anisotropic TV of a Res x Res graphon, normalized per pixel."""
+    dx = np.abs(np.diff(W, axis=0)).sum()
+    dy = np.abs(np.diff(W, axis=1)).sum()
+    return float((dx + dy) / (W.size + 1e-12))
+
+
+def graphon_to_degree_dist(W: np.ndarray, n_bins: int = 200) -> np.ndarray:
+    """Marginal degree density implied by the estimated graphon."""
+    deg = W.mean(axis=1)
+    hist, _ = np.histogram(deg, bins=n_bins, range=(0.0, 1.0), density=True)
+    return hist
+
+
+def _normalized_degrees(graphs):
+    out = []
+    for A in graphs:
+        n = A.shape[0]
+        if n <= 1:
+            continue
+        out.append(A.sum(axis=1) / (n - 1))
+    return np.concatenate(out) if out else np.zeros(0)
+
+
+def _spectral_samples(graphs):
+    """Normalized Laplacian eigenvalues, concatenated across input graphs."""
+    eigs = []
+    for A in graphs:
+        n = A.shape[0]
+        if n <= 1:
+            continue
+        d = A.sum(axis=1)
+        d_inv_sqrt = np.where(d > 0, 1.0 / np.sqrt(d), 0.0)
+        L = np.eye(n) - (d_inv_sqrt[:, None] * A * d_inv_sqrt[None, :])
+        eigs.append(np.clip(np.linalg.eigvalsh(L), 0.0, 2.0))
+    return np.concatenate(eigs) if eigs else np.zeros(0)
+
+
+def proxy_metrics(W: np.ndarray, graphs) -> dict:
+    """Return degree-W1, spectral-W1 and TV between graphon W and its input graphs.
+
+    These are diagnostic metrics for the real-data branch where no ground-truth
+    graphon is available. Smaller W1 means the estimated graphon better matches
+    the empirical degree / spectral distributions; TV measures smoothness.
+    """
+    emp_deg = _normalized_degrees(graphs)
+    pred_deg = W.mean(axis=1)
+    deg_w1 = float(wasserstein_distance(emp_deg, pred_deg)) if emp_deg.size else float("nan")
+
+    emp_spec = _spectral_samples(graphs)
+    n = W.shape[0]
+    d = W.sum(axis=1)
+    d_inv_sqrt = np.where(d > 0, 1.0 / np.sqrt(d), 0.0)
+    L_w = np.eye(n) - (d_inv_sqrt[:, None] * W * d_inv_sqrt[None, :])
+    pred_spec = np.clip(np.linalg.eigvalsh(L_w), 0.0, 2.0)
+    spec_w1 = float(wasserstein_distance(emp_spec, pred_spec)) if emp_spec.size else float("nan")
+
+    return {
+        "degree_w1": deg_w1,
+        "spectral_w1": spec_w1,
+        "tv": graphon_total_variation(W),
+    }

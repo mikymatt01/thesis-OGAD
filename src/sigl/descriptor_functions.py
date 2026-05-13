@@ -12,14 +12,14 @@ import networkx as nx
 # from metrics.utils import ensure_padded
 
 
-def degree_distribution(G, density=False, **kwargs):
-    """Calculate degree distribution of a graph."""
-    hist = nx.degree_histogram(G)
-
-    if density:
-        hist = np.divide(hist, np.sum(hist))
-
-    return np.asarray(hist)
+def degree_distribution(G, n_bins=200, density=False, **kwargs):
+    """Fixed-length histogram of normalized degrees d/(n-1) in [0, 1]."""
+    n = G.number_of_nodes()
+    if n <= 1:
+        return np.zeros(n_bins, dtype=float)
+    degrees = np.fromiter((d for _, d in G.degree()), dtype=float, count=n) / (n - 1)
+    hist, _ = np.histogram(degrees, bins=n_bins, range=(0.0, 1.0), density=density)
+    return hist
 
 
 def clustering_coefficient(G, n_bins=200, density=False, **kwargs):
