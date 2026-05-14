@@ -628,6 +628,22 @@ def load_graphs(filepath):
         raise ValueError('Unsupported input type.')
 
 
+def sharpen_graphon(W: np.ndarray, gain: float = 1.0) -> np.ndarray:
+    """Logit-space contrast sharpening for a graphon in [0, 1].
+
+    gain=1.0 is the identity (sigmoid(logit(W)) == W). gain>1 stretches the
+    logit symmetrically around W=0.5, pulling mid-tones toward {0, 1} and
+    making community blocks crisper. gain<1 smooths instead.
+    """
+    if gain == 1.0:
+        return W
+    eps = 1e-6
+    Wc = np.clip(W, eps, 1.0 - eps)
+    logit = np.log(Wc / (1.0 - Wc))
+    out = 1.0 / (1.0 + np.exp(-gain * logit))
+    return np.clip(out, 0.0, 1.0)
+
+
 def graphon_total_variation(W: np.ndarray) -> float:
     """Anisotropic TV of a Res x Res graphon, normalized per pixel."""
     dx = np.abs(np.diff(W, axis=0)).sum()

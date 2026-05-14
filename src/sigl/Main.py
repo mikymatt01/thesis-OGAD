@@ -32,6 +32,8 @@ parser.add_argument('--rank_norm', dest='rank_norm', action='store_true',
 parser.add_argument('--no_rank_norm', dest='rank_norm', action='store_false',
                     help="Disable STE rank-norm and fall back to sigmoid + min-max (pre-modification behaviour).")
 parser.set_defaults(rank_norm=True)
+parser.add_argument('--graphon_sharpen', type=float, default=1.0,
+                    help="Logit-space contrast gain applied to the estimated graphon (1.0 = identity, >1 sharpens).")
 parser.add_argument('--h_size', type=int, default=4, 
                     help="Pooling window size (1: 1, 2: 2, 3: 3, 4: log(n), 5: sqrt(n)). Default: 4.")
 parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/CommunityGraphs.pickle', 
@@ -109,6 +111,7 @@ if Adjs_dir is None: # Generate the adjacency matrices from a true graphon (synt
 
         # Sample the estimated graphon from inr:
         predictions_graphon = get_graphon(Res, trained_inr)
+        predictions_graphon = sharpen_graphon(predictions_graphon, args.graphon_sharpen)
         end_time = time.time()
 
         # Calculate the GW distance between the true and estimated graphon as error
@@ -169,6 +172,7 @@ else: # load the existing adjacency matrices
         trained_inr = train_graphon(inr_dim_hidden, w0, X_all, y_all, w_all, n_epochs, epoch_show, lr, batch_size)
         # Sample the estimated graphon from inr:
         estimated_graphon = get_graphon(Res, trained_inr)
+        estimated_graphon = sharpen_graphon(estimated_graphon, args.graphon_sharpen)
 
         m = proxy_metrics(estimated_graphon, graph_inr)
         m["index"] = index

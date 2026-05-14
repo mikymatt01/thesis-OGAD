@@ -10,7 +10,8 @@
     "n_clusters": [50],
     "w0": [10],
     "seed": [0, 1, 2],
-    "rank_norm": [true, false]
+    "rank_norm": [true],
+    "graphon_sharpen": [1.0, 2.0]
   },
   "d3pm": {
     "batch_size": [32],
