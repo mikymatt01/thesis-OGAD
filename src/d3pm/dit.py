@@ -333,7 +333,8 @@ class DiT_Llama(nn.Module):
         )
         self.final_layer = FinalLayer(dim, patch_size, self.out_channels)
 
-        self.freqs_cis = DiT_Llama.precompute_freqs_cis(dim // n_heads, 4096)
+        seqlen = (input_size // patch_size) ** 2
+        self.freqs_cis = DiT_Llama.precompute_freqs_cis(dim // n_heads, seqlen)
 
     def unpatchify(self, x):
         c = self.out_channels
