@@ -134,7 +134,7 @@ def finetune_model(params):
     print(f"Params {params}")
     
     d3pm = D3PM(
-        DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
+        DiT_Llama(1, N, input_size=image_size, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
     ).to(device)
     print(f"Total Param Count: {sum([p.numel() for p in d3pm.x0_model.parameters()])}")
 

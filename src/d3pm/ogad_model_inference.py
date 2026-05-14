@@ -36,7 +36,7 @@ if __name__ == "__main__":
     image_size = best_model.get("image_size", 32)
     
     d3pm = D3PM(
-        DiT_Llama(1, N, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
+        DiT_Llama(1, N, input_size=image_size, dim=dim), 1000, num_classes=N, hybrid_loss_coeff=hybrid_loss_coeff
     ).to(device)
 
     d3pm.load_state_dict(state_dict)
