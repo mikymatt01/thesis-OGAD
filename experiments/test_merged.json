@@ -14,7 +14,7 @@
     "graphon_sharpen": [1.0, 2.0]
   },
   "d3pm": {
-    "batch_size": [32],
+    "batch_size": [8],
     "dim": [512],
     "lr": [1e-5, 2e-5],
     "num_classes": [8],
