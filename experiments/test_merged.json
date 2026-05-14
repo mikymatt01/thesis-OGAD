@@ -4,7 +4,7 @@
   "sigl": {
     "n_epoch": [300],
     "lr": [0.01],
-    "Res": [128],
+    "Res": [256],
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
     "n_clusters": [50],
@@ -18,7 +18,7 @@
     "dim": [512],
     "lr": [1e-5, 2e-5],
     "num_classes": [8],
-    "image_size": [128],
+    "image_size": [256],
     "hybrid_loss_coeff": [0.01, 0.0, 0.001],
     "num_workers": [0],
     "n_epoch": [50]
