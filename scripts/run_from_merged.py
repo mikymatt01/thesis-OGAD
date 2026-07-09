@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Esplode experiments/test_merged.json in N config scalari (uno per n_clusters)
 e per ciascuno lancia scripts/run_ogad_experiment.sh."""
-from itertools import product
 import copy
 import json
 import subprocess
+from itertools import product
 from pathlib import Path
+from typing import Any, Dict, List
 
 ROOT = Path(__file__).resolve().parents[1]
 MERGED = ROOT / "experiments" / "test_merged.json"
 RUN_SH = ROOT / "scripts" / "run_ogad_experiment.sh"
 
-def expand_block(block: dict) -> list[dict]:
+def expand_block(block: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
     keys = list(block.keys())
     values_lists = [block[k] for k in keys]  # ogni valore deve essere una lista
     combos = []

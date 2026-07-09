@@ -8,15 +8,15 @@
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
     "n_clusters": [50],
-    "bootstrap_replicates": [5],
+    "bootstrap_replicates": [3, 5, 10],
     "bootstrap_seed": [0],
-    "include_original_clusters": [true]
+    "include_original_clusters": [false, true]
   },
   "d3pm": {
     "batch_size": [32],
-    "dim": [128],
-    "lr": [2e-5],
-    "num_classes": [16],
+    "dim": [128, 256],
+    "lr": [1e-5, 2e-5, 5e-5],
+    "num_classes": [8, 16, 32],
     "image_size": [64],
     "hybrid_loss_coeff": [0.01],
     "num_workers": [0]
@@ -24,9 +24,9 @@
   "d3pm_training": {
     "validation_fraction": 0.2,
     "split_seed": 0,
-    "patience": 10,
-    "min_delta": 0.0001,
-    "max_epochs": 200
+    "patience": 25,
+    "min_delta": 0.00005,
+    "max_epochs": 300
   },
   "ggme": {
     "test_graphs": "/app/data/test/graphs/CommunityGraphs.pickle",
