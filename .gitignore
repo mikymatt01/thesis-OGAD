@@ -8,6 +8,7 @@ src/vanilla/outputs
 
 # Local experiment runs (logs + metrics)
 runs/
+runs_imp/
 
 # Terraform / infrastructure (local cache and state)
 infrastructure/.terraform/

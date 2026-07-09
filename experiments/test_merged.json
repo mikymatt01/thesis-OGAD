@@ -10,7 +10,7 @@
     "n_clusters": [50],
     "bootstrap_replicates": [5],
     "bootstrap_seed": [0],
-    "include_original_clusters": [false]
+    "include_original_clusters": [true]
   },
   "d3pm": {
     "batch_size": [32],
