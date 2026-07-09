@@ -1,3 +1,4 @@
+from bootstrap_utils import build_cluster_bootstrap_plan
 from clusterize import cluster_graphs_from_arrays
 from tools import *
 import numpy as np
@@ -10,6 +11,17 @@ import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("device: ", device)
+
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    lowered = value.lower()
+    if lowered in ("1", "true", "yes", "y"):
+        return True
+    if lowered in ("0", "false", "no", "n"):
+        return False
+    raise argparse.ArgumentTypeError("Expected a boolean value")
+
 
 parser = argparse.ArgumentParser(description="Arguments for training and evaluating graphon learning models.")
 parser.add_argument('--test_name', type=str, default=None, help="Test name")
@@ -32,6 +44,14 @@ parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/Com
                     help="Path to existing adjacency matrices (e.g., myGraphs/Adjs.pkl).")
 parser.add_argument('--output_dir', type=str, default='../../data/train/graphons', help="Output directory.")
 parser.add_argument('--n_clusters', type=int, default=None, help="Number of clasters")
+parser.add_argument('--bootstrap_replicates', type=int, default=1, help="Bootstrap graphon replicas per cluster.")
+parser.add_argument('--bootstrap_seed', type=int, default=0, help="Seed for deterministic cluster bootstrap.")
+parser.add_argument(
+    '--include_original_clusters',
+    type=str2bool,
+    default=False,
+    help="Whether to save one original whole-cluster graphon in addition to bootstrap replicas.",
+)
 parser.add_argument(
     '--config',
     type=str,
@@ -67,6 +87,9 @@ lr = args.lr
 hsize = args.h_size
 Adjs_dir = args.Adjs_dir
 n_clusters = args.n_clusters
+bootstrap_replicates = int(args.bootstrap_replicates)
+bootstrap_seed = int(args.bootstrap_seed)
+include_original_clusters = str2bool(args.include_original_clusters)
 
 output_dir = args.output_dir
 
@@ -136,19 +159,53 @@ else: # load the existing adjacency matrices
 
     graphs_inr = load_graphs(Adjs_dir)
     print("graphs: ", len(graphs_inr))
-    graph_collections = graphs_inr
+    graphon_jobs = [
+        {
+            "sample_id": index,
+            "cluster_id": index,
+            "bootstrap_id": None,
+            "is_original": True,
+            "original_graph_indices": [index],
+        }
+        for index in range(len(graphs_inr))
+    ]
+    cluster_sizes = [1 for _ in graphs_inr]
 
     if n_clusters != None:
-        graph_collections = cluster_graphs_from_arrays(
+        clustered_graphs = cluster_graphs_from_arrays(
             graphs_inr,
-            n_clusters
+            n_clusters,
+            return_indices=True
+        )
+        cluster_sizes = [len(cluster["indices"]) for cluster in clustered_graphs]
+        graphon_jobs = build_cluster_bootstrap_plan(
+            [cluster["indices"] for cluster in clustered_graphs],
+            bootstrap_replicates=bootstrap_replicates,
+            seed=bootstrap_seed,
+            include_original_clusters=include_original_clusters,
+        )
+        print(
+            "bootstrap graphons: ",
+            len(graphon_jobs),
+            "from clusters: ",
+            len(clustered_graphs),
         )
 
-    for index in range(0, len(graph_collections)):
-        if n_clusters != None:
-            graph_inr = graph_collections[index]
-        else:
-            graph_inr = [graph_collections[index]]
+    metadata = {
+        "n_clusters": n_clusters,
+        "bootstrap_replicates": bootstrap_replicates,
+        "bootstrap_seed": bootstrap_seed,
+        "include_original_clusters": include_original_clusters,
+        "cluster_sizes": cluster_sizes,
+        "samples": graphon_jobs,
+    }
+
+    for job in graphon_jobs:
+        index = job["sample_id"]
+        graph_inr = [
+            graphs_inr[source_index]
+            for source_index in job["original_graph_indices"]
+        ]
         ### Learn the coordinates and graphon as step 1
         print("Step1: Learning the laten variable of the nodes")
         model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graph_inr, lr)
@@ -166,3 +223,6 @@ else: # load the existing adjacency matrices
         # plot_smaples_real(sample_graph, estimated_graphon, output_dir, model_SIGL)
         print(f'graphon {output_dir}/sample_{index}.png generated', len(estimated_graphon))
         save_graphon_for_diff(estimated_graphon, output_dir + f'/sample_{index}.png')
+
+    with open(os.path.join(output_dir, "bootstrap_metadata.json"), "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2)

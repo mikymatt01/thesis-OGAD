@@ -7,7 +7,10 @@
     "Res": [64],
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
-    "n_clusters": [50]
+    "n_clusters": [50],
+    "bootstrap_replicates": [5],
+    "bootstrap_seed": [0],
+    "include_original_clusters": [false]
   },
   "d3pm": {
     "batch_size": [32],

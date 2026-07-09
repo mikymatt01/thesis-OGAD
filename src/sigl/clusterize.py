@@ -32,7 +32,7 @@ def graph_to_features(G):
 # -------------------------------
 # 3. FULL PIPELINE
 # -------------------------------
-def cluster_graphs_from_arrays(graph_arrays, n_clusters=100):
+def cluster_graphs_from_arrays(graph_arrays, n_clusters=100, return_indices=False):
     features = []
 
     for A in graph_arrays:
@@ -56,8 +56,18 @@ def cluster_graphs_from_arrays(graph_arrays, n_clusters=100):
 
     labels = model.fit_predict(X)
     group_idx = defaultdict(list)
+    original_idx = defaultdict(list)
     
-    for graph, label in zip(graph_arrays, labels):
+    for index, (graph, label) in enumerate(zip(graph_arrays, labels)):
         group_idx[label].append(graph)
+        original_idx[label].append(index)
         
+    if return_indices:
+        return [
+            {
+                "graphs": group_idx[key],
+                "indices": original_idx[key],
+            }
+            for key in group_idx.keys()
+        ]
     return [group_idx[key] for key in group_idx.keys()]

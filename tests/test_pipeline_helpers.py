@@ -11,7 +11,12 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src" / "d3pm"))
 sys.path.insert(0, str(ROOT / "src" / "ggme"))
+sys.path.insert(0, str(ROOT / "src" / "sigl"))
 
+from bootstrap_utils import (  # noqa: E402
+    build_cluster_bootstrap_plan,
+    expected_graphon_count,
+)
 from graphon_utils import (  # noqa: E402
     cyclic_graphon_index,
     probability_matrix,
@@ -91,6 +96,9 @@ class D3PMHelperTests(unittest.TestCase):
         self.assertEqual(config["sigl"]["n_epoch"], [100])
         self.assertEqual(config["sigl"]["Res"], [64])
         self.assertEqual(config["sigl"]["n_clusters"], [50])
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [5])
+        self.assertEqual(config["sigl"]["bootstrap_seed"], [0])
+        self.assertEqual(config["sigl"]["include_original_clusters"], [False])
         self.assertEqual(grid["dim"], [128])
         self.assertEqual(grid["num_classes"], [16])
         self.assertEqual(grid["image_size"], [64])
@@ -99,6 +107,33 @@ class D3PMHelperTests(unittest.TestCase):
         validate_generation_request(
             config["ggme"]["num_generated_graphs"], [45] * 100
         )
+
+
+class SIGLBootstrapTests(unittest.TestCase):
+    def test_bootstrap_plan_is_deterministic_and_cluster_local(self):
+        clusters = [[0, 1, 2], [3, 4]]
+        first = build_cluster_bootstrap_plan(clusters, 3, seed=0)
+        second = build_cluster_bootstrap_plan(clusters, 3, seed=0)
+
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 6)
+
+        cluster_sets = [set(indices) for indices in clusters]
+        for job in first:
+            cluster_id = job["cluster_id"]
+            original_graph_indices = job["original_graph_indices"]
+            self.assertEqual(len(original_graph_indices), len(clusters[cluster_id]))
+            self.assertTrue(set(original_graph_indices).issubset(cluster_sets[cluster_id]))
+            self.assertFalse(job["is_original"])
+
+    def test_bootstrap_count_includes_optional_originals(self):
+        self.assertEqual(expected_graphon_count(50, 5, False), 250)
+        self.assertEqual(expected_graphon_count(50, 5, True), 300)
+        self.assertEqual(expected_graphon_count(50, 1, False), 50)
+
+        plan = build_cluster_bootstrap_plan([[0, 1], [2, 3]], 2, seed=0, include_original_clusters=True)
+        self.assertEqual(len(plan), 6)
+        self.assertEqual(sum(1 for job in plan if job["is_original"]), 2)
 
 
 class GraphonHelperTests(unittest.TestCase):

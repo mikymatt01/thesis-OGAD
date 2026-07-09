@@ -1,7 +1,9 @@
 ### Delete images
+
 - docker compose down -v --rmi all --remove-orphans
 
 ### How to execute
+
 - tmux
 - docker compose up
 - control + B and D
@@ -29,15 +31,18 @@ t
 ```
 
 ### Delete tmux session
+
 - tmux ls
 - tmux kill-session -t <id>
 
 ### Delete data dir
+
 docker run --rm -v $(pwd):/app alpine rm -rf /app/data/predictions/graphons
-docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples1.txt 
+docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples1.txt
 cd data/train/graphons && docker run --rm -v $(pwd):/app alpine rm -rf /app
 
 ### Cleanup automatico a fine esperimento
+
 Lo script `scripts/run_ogad_experiment.sh` esegue automaticamente la pulizia (generazioni + cache dataset) a fine run.
 
 Per disabilitarla temporaneamente:
@@ -47,6 +52,7 @@ OGAD_CLEANUP=0 ./scripts/run_ogad_experiment.sh experiments/example.json
 ```
 
 ### Copy results from server
+
 ```bash
 scp -r thesis_unipi:/raid/m.mattiello/OGAD/runs ./
 ```
