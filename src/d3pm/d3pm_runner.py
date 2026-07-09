@@ -8,6 +8,8 @@ from torchvision.datasets import MNIST
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
+from training_utils import combine_d3pm_losses
+
 blk = lambda ic, oc: nn.Sequential(
     nn.Conv2d(ic, oc, 5, padding=2),
     nn.GroupNorm(oc // 8, oc),
@@ -314,7 +316,11 @@ class D3PM(nn.Module):
 
         ce_loss = torch.nn.CrossEntropyLoss()(predicted_x0_logits, x)
 
-        return self.hybrid_loss_coeff * vb_loss + ce_loss, {
+        total_loss = combine_d3pm_losses(
+            vb_loss, ce_loss, self.hybrid_loss_coeff
+        )
+        return total_loss, {
+            "loss": total_loss.detach().item(),
             "vb_loss": vb_loss.detach().item(),
             "ce_loss": ce_loss.detach().item(),
         }

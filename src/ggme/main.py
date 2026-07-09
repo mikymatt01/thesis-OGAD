@@ -3,14 +3,18 @@ from correlation import compute_correlation
 from correlation import select_kernel_and_hyperparameters
 
 from metrics.kernels import linear_kernel
-from metrics.kernels import laplacian_total_variation_kernel
-from metrics.kernels import gaussian_emd
 from metrics.kernels import gaussian_kernel
 
 from metrics.descriptor_functions import degree_distribution, clustering_coefficient, normalised_laplacian_spectrum
 
 from perturb_graphs import perturb_graphs
 from utils import load_graphs, load_digress_generated_samples
+from graphon_utils import (
+    cyclic_graphon_index,
+    probability_matrix,
+    sanitize_graphon_matrix,
+    validate_generation_request,
+)
 import argparse
 import json
 import numpy as np
@@ -26,19 +30,22 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 print(f"Using device: {device}")
 
-def sample_graph_from_graphon(W, M):
+def sanitize_graphon(W):
+    """Enforce graphon symmetry, probability range, and a zero diagonal."""
+    return sanitize_graphon_matrix(W)
+
+
+def sample_graph_from_graphon(W, M, generator=None):
     # W_matrix: torch tensor NxN con valori in [0,1]
     N = W.shape[0]
     # campiona valori latenti uniformi
-    u = torch.rand(M)
-    v = torch.rand(M)
+    eta = torch.rand(M, device=W.device, generator=generator)
     # mappa su indici della griglia W
-    idx_u = (u * N).long().clamp(0, N-1)
-    idx_v = (v * N).long().clamp(0, N-1)
+    idx = (eta * N).long().clamp(0, N-1)
     # costruisci la matrice di probabilità
-    probs = W[idx_u][:, idx_v]   # risultato MxM
+    probs = probability_matrix(W, idx)
     # campiona gli edges
-    A = torch.bernoulli(probs)
+    A = torch.bernoulli(probs, generator=generator)
     # se vuoi grafo non orientato senza self-loop:
     A = torch.triu(A, diagonal=1)
     A = A + A.T
@@ -59,19 +66,25 @@ def _sample_M(rng, sizes, n_max, max_tries=64):
     return max(1, min(int(rng.choice(sizes)), n_max))
 
 
-def generate_graphs(graphons, train_sizes, seed=0):
-    """Sample OGAD graphs from graphon tensors; M ~ empirical test node counts (capped by grid size)."""
-    if not train_sizes:
-        raise ValueError("test_sizes is empty; cannot align sampling to test distribution")
+def generate_graphs(graphons, test_sizes, num_graphs=100, seed=0):
+    """Generate a fixed count of OGAD graphs with test-set node sizes."""
+    validate_generation_request(num_graphs, test_sizes)
+    if len(graphons) < 1:
+        raise ValueError("No graphons available for graph generation")
     rng = np.random.default_rng(seed)
+    torch_generator = torch.Generator(device=graphons.device)
+    torch_generator.manual_seed(seed)
+    sanitized_graphons = [
+        sanitize_graphon(graphon[0]) for graphon in graphons
+    ]
     generated_graphs = []
-    for graphon in graphons:
-        W = graphon[0]
+    for sample_index in range(num_graphs):
+        graphon_index = cyclic_graphon_index(sample_index, len(sanitized_graphons))
+        W = sanitized_graphons[graphon_index]
         n_max = W.shape[0]
-        for _ in range(10):
-            M = _sample_M(rng, train_sizes, n_max)
-            adj_matrix = sample_graph_from_graphon(W, M)
-            generated_graphs.append(nx.from_numpy_array(adj_matrix.detach().cpu().numpy()))
+        M = _sample_M(rng, test_sizes, n_max)
+        adj_matrix = sample_graph_from_graphon(W, M, generator=torch_generator)
+        generated_graphs.append(nx.from_numpy_array(adj_matrix.detach().cpu().numpy()))
     return generated_graphs
 
 def compute_ggme(
@@ -219,6 +232,8 @@ if __name__ == "__main__":
         type=str,
         default="../../data/predictions/graphons/tensors.pt",
     )
+    parser.add_argument("--num_generated_graphs", type=int, default=100)
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
     if args.config:
@@ -228,9 +243,8 @@ if __name__ == "__main__":
             if hasattr(args, key):
                 setattr(args, key, val)
 
-    train_graphs = load_graphs(args.train_graphs)
-    train_sizes = _test_node_sizes(train_graphs)
     test_graphs = load_graphs(args.test_graphs)
+    test_sizes = _test_node_sizes(test_graphs)
     paper_graphs = load_graphs(args.paper_graphs)
 
     digress_graphs = []
@@ -242,9 +256,19 @@ if __name__ == "__main__":
                 args.digress_samples
             )
         )
+    if digress_graphs and len(digress_graphs) != args.num_generated_graphs:
+        raise ValueError(
+            "DiGress and OGAD must use the same number of generated graphs: "
+            f"expected {args.num_generated_graphs}, found {len(digress_graphs)}"
+        )
 
     graphons = torch.load(args.graphons_pt, map_location=device)
-    generated_graphs = generate_graphs(graphons, train_sizes, seed=0)
+    generated_graphs = generate_graphs(
+        graphons,
+        test_sizes,
+        num_graphs=args.num_generated_graphs,
+        seed=args.seed,
+    )
 
     gen_sizes = [G.number_of_nodes() for G in generated_graphs]
     print(
@@ -254,7 +278,7 @@ if __name__ == "__main__":
     )
     print(
         "Test sizes:          min={} max={} mean={:.1f}".format(
-            min(train_sizes), max(train_sizes), sum(train_sizes) / len(train_sizes)
+            min(test_sizes), max(test_sizes), sum(test_sizes) / len(test_sizes)
         )
     )
 
@@ -286,5 +310,11 @@ if __name__ == "__main__":
         )
         append_metrics_jsonl(
             run_dir,
-            {"stage": "ggme", "run_id": run_id, **row},
+            {
+                "stage": "ggme",
+                "run_id": run_id,
+                "seed": args.seed,
+                "num_generated_graphs": args.num_generated_graphs,
+                **row,
+            },
         )

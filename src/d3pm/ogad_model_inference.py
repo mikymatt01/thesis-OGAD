@@ -1,6 +1,3 @@
-import torchvision.transforms as transforms
-from torchvision import transforms
-from datasets import load_dataset
 import torch
 import gzip
 import io
@@ -11,14 +8,6 @@ from dit import DiT_Llama
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
-
-transform = transforms.ToTensor()
-
-graphons_dataset = load_dataset(
-    "imagefolder",
-    data_dir="../../data/train/graphons",
-    split="train"
-)
 
 with gzip.open("../../data/models/best_params_d3pm.pth.gz", "rb") as f:
     buffer = io.BytesIO(f.read())
@@ -50,6 +39,8 @@ if __name__ == "__main__":
         )
         image = images[-1]
         this_image = image.float().cpu() / (N - 1)
+        this_image = ((this_image + this_image.transpose(-1, -2)) / 2).clamp(0, 1)
+        this_image.diagonal(dim1=-2, dim2=-1).zero_()
         out_path = Path("../../data/predictions/graphons/tensors.pt")
         out_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(this_image, out_path)
