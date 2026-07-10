@@ -4,11 +4,11 @@
   "sigl": {
     "n_epoch": [100],
     "lr": [0.06],
-    "Res": [64],
+    "Res": [128],
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
     "n_clusters": [50],
-    "bootstrap_replicates": [10, 15],
+    "bootstrap_replicates": [15, 20],
     "bootstrap_seed": [0],
     "include_original_clusters": [false]
   },
@@ -17,7 +17,7 @@
     "dim": [256],
     "lr": [5e-5],
     "num_classes": [8, 12, 16],
-    "image_size": [64],
+    "image_size": [128],
     "hybrid_loss_coeff": [0.01],
     "num_workers": [0]
   },
