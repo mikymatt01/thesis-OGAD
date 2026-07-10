@@ -8,15 +8,15 @@
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
     "n_clusters": [50],
-    "bootstrap_replicates": [3, 5, 10],
+    "bootstrap_replicates": [10, 15],
     "bootstrap_seed": [0],
-    "include_original_clusters": [false, true]
+    "include_original_clusters": [false]
   },
   "d3pm": {
     "batch_size": [32],
-    "dim": [128, 256],
-    "lr": [1e-5, 2e-5, 5e-5],
-    "num_classes": [8, 16, 32],
+    "dim": [256],
+    "lr": [5e-5],
+    "num_classes": [8, 12, 16],
     "image_size": [64],
     "hybrid_loss_coeff": [0.01],
     "num_workers": [0]
