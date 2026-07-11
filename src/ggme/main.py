@@ -15,12 +15,14 @@ from graphon_utils import (
     sanitize_graphon_matrix,
     validate_generation_request,
 )
+from selection_utils import DESCRIPTORS, select_best_candidate
 import argparse
 import json
 import numpy as np
 import networkx as nx
 import torch
 import os
+import shutil
 from pathlib import Path
 import warnings
 
@@ -191,6 +193,152 @@ def append_metrics_jsonl(run_dir: str | None, payload: dict) -> None:
         f.write(json.dumps(payload, default=str) + "\n")
 
 
+def update_manifest_graph_selection(run_dir: str | None, payload: dict) -> None:
+    if not run_dir:
+        return
+    manifest_path = Path(run_dir) / "manifest.json"
+    if not manifest_path.is_file():
+        return
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    runtime = manifest.setdefault("runtime", {})
+    runtime["graph_selection"] = payload
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+
+def compute_validation_mmd(
+    reference_graphs,
+    generated_graphs,
+    perturbed_graphs,
+    perturbation_values,
+    descriptor_fn,
+):
+    best_params = select_kernel_and_hyperparameters(
+        test_graphs=reference_graphs,
+        perturbed_graphs=perturbed_graphs,
+        perturbation_values=perturbation_values,
+        kernels=[gaussian_kernel, linear_kernel],
+        sigmas=[0.1, 1, 10],
+        descriptor_fn=descriptor_fn,
+        correlation_type="pearson",
+    )
+    mmd = evaluate_mmd(
+        graphs_dist_1=reference_graphs,
+        graphs_dist_2=generated_graphs,
+        function=descriptor_fn,
+        kernel=best_params["kernel"],
+        use_linear_approximation=False,
+        density=True,
+        sigma=best_params["sigma"],
+    )
+    return {
+        "descriptor": getattr(descriptor_fn, "__name__", str(descriptor_fn)),
+        "best_kernel": getattr(best_params["kernel"], "__name__", str(best_params["kernel"])),
+        "best_sigma": float(best_params["sigma"]),
+        "corr_option1": float(best_params["corr"]),
+        "mmd": float(mmd),
+    }
+
+
+def maybe_select_candidate_with_ggme(args, run_dir: str | None, run_id: str | None):
+    if not run_dir:
+        return None
+    validation_graphs_path = Path(run_dir) / "ggme_validation_graphs.pickle"
+    candidate_manifest_path = Path(args.candidate_manifest)
+    if not validation_graphs_path.is_file() or not candidate_manifest_path.is_file():
+        return None
+
+    candidate_manifest = json.loads(candidate_manifest_path.read_text(encoding="utf-8"))
+    if not candidate_manifest.get("selection_enabled"):
+        return None
+
+    validation_graphs = load_graphs(str(validation_graphs_path))
+    validation_sizes = _test_node_sizes(validation_graphs)
+    perturbation_values, perturbed_graphs = perturb_graphs(
+        graphs=validation_graphs,
+        perturbation_type="AddEdges",
+    )
+    descriptor_fns = [
+        degree_distribution,
+        clustering_coefficient,
+        normalised_laplacian_spectrum,
+    ]
+    candidate_rows = []
+    for candidate in candidate_manifest["candidates"]:
+        graphons = torch.load(candidate["graphons_path"], map_location=device)
+        generated_graphs = generate_graphs(
+            graphons,
+            validation_sizes,
+            num_graphs=args.num_generated_graphs,
+            seed=args.seed,
+        )
+        descriptor_rows = [
+            compute_validation_mmd(
+                validation_graphs,
+                generated_graphs,
+                perturbed_graphs,
+                perturbation_values,
+                descriptor_fn,
+            )
+            for descriptor_fn in descriptor_fns
+        ]
+        mmd = {row["descriptor"]: row["mmd"] for row in descriptor_rows}
+        candidate_row = {
+            "candidate_id": candidate["candidate_id"],
+            "params": candidate["params"],
+            "best_epoch": candidate["best_epoch"],
+            "validation_loss": candidate["best_validation_loss"],
+            "mmd": mmd,
+            "checkpoint_path": candidate["checkpoint_path"],
+            "params_path": candidate["params_path"],
+            "graphons_path": candidate["graphons_path"],
+            "descriptor_rows": descriptor_rows,
+        }
+        candidate_rows.append(candidate_row)
+        append_metrics_jsonl(
+            run_dir,
+            {
+                "stage": "ggme_validation_candidate",
+                "run_id": run_id,
+                "seed": args.seed,
+                "num_generated_graphs": args.num_generated_graphs,
+                **candidate_row,
+            },
+        )
+
+    best_candidate, ranked_candidates = select_best_candidate(
+        candidate_rows,
+        descriptors=DESCRIPTORS,
+    )
+    Path(args.graphons_pt).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.best_model_out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.best_params_out).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(best_candidate["graphons_path"], args.graphons_pt)
+    shutil.copyfile(best_candidate["checkpoint_path"], args.best_model_out)
+    shutil.copyfile(best_candidate["params_path"], args.best_params_out)
+    selection_payload = {
+        "selection_metric": "mean_rank",
+        "validation_graphs_path": str(validation_graphs_path),
+        "best_candidate": best_candidate,
+        "ranked_candidates": ranked_candidates,
+    }
+    append_metrics_jsonl(
+        run_dir,
+        {
+            "stage": "ggme_validation_selection",
+            "run_id": run_id,
+            **selection_payload,
+        },
+    )
+    update_manifest_graph_selection(run_dir, selection_payload)
+    print(
+        "GGME validation selected {} with score {:.4f}".format(
+            best_candidate["candidate_id"],
+            best_candidate["ggme_score"],
+        )
+    )
+    return selection_payload
+
+
 if __name__ == "__main__":
     print("path for: ", os.getcwd())
 
@@ -234,6 +382,21 @@ if __name__ == "__main__":
     )
     parser.add_argument("--num_generated_graphs", type=int, default=100)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--candidate_manifest",
+        type=str,
+        default="../../data/models/d3pm_candidates/candidates.json",
+    )
+    parser.add_argument(
+        "--best_model_out",
+        type=str,
+        default="../../data/models/best_model_d3pm.pth.gz",
+    )
+    parser.add_argument(
+        "--best_params_out",
+        type=str,
+        default="../../data/models/best_params_d3pm.pth.gz",
+    )
     args = parser.parse_args()
 
     if args.config:
@@ -261,6 +424,10 @@ if __name__ == "__main__":
             "DiGress and OGAD must use the same number of generated graphs: "
             f"expected {args.num_generated_graphs}, found {len(digress_graphs)}"
         )
+
+    run_dir = os.environ.get("OGAD_RUN_DIR")
+    run_id = os.environ.get("OGAD_RUN_ID")
+    maybe_select_candidate_with_ggme(args, run_dir, run_id)
 
     graphons = torch.load(args.graphons_pt, map_location=device)
     generated_graphs = generate_graphs(
@@ -290,9 +457,6 @@ if __name__ == "__main__":
         graphs=test_graphs,
         perturbation_type="AddEdges"
     )
-
-    run_dir = os.environ.get("OGAD_RUN_DIR")
-    run_id = os.environ.get("OGAD_RUN_ID")
 
     for descriptor_fn in [
         degree_distribution,

@@ -27,6 +27,12 @@ DEFAULT_TRAINING_CONFIG = {
     "max_epochs": 200,
 }
 
+DEFAULT_GRAPH_SELECTION_CONFIG = {
+    "validation_fraction": 0.2,
+    "split_seed": 0,
+    "selection_metric": "mean_rank",
+}
+
 
 def combine_d3pm_losses(vb_loss: Any, ce_loss: Any, auxiliary_ce_coeff: float) -> Any:
     """Return the D3PM paper objective: variational bound plus weighted CE."""
@@ -101,6 +107,33 @@ def load_experiment_config(config_path: str | None) -> tuple[dict, dict]:
         raise ValueError("min_delta must be non-negative")
 
     return grid, training
+
+
+def load_graph_selection_config(config_path: str | None) -> dict:
+    """Load optional GGME-based graph selection controls."""
+    resolved_path = config_path or os.environ.get("OGAD_EXPERIMENT_JSON")
+    if not resolved_path:
+        return {}
+
+    with open(resolved_path, encoding="utf-8") as config_file:
+        config = json.load(config_file)
+
+    if "graph_selection" not in config:
+        return {}
+
+    graph_selection = {
+        **DEFAULT_GRAPH_SELECTION_CONFIG,
+        **(config.get("graph_selection") or {}),
+    }
+    graph_selection["validation_fraction"] = float(
+        graph_selection["validation_fraction"]
+    )
+    graph_selection["split_seed"] = int(graph_selection["split_seed"])
+    if not 0.0 < graph_selection["validation_fraction"] < 1.0:
+        raise ValueError("graph_selection.validation_fraction must be between 0 and 1")
+    if graph_selection["selection_metric"] != "mean_rank":
+        raise ValueError("Only graph_selection.selection_metric='mean_rank' is supported")
+    return graph_selection
 
 
 def update_run_manifest(run_dir: str | None, payload: dict) -> None:

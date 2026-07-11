@@ -17,6 +17,7 @@ from bootstrap_utils import (  # noqa: E402
     build_cluster_bootstrap_plan,
     expected_graphon_count,
 )
+from graph_split_utils import deterministic_graph_split  # noqa: E402
 from graphon_utils import (  # noqa: E402
     cyclic_graphon_index,
     probability_matrix,
@@ -26,8 +27,10 @@ from graphon_utils import (  # noqa: E402
 from training_utils import (  # noqa: E402
     combine_d3pm_losses,
     deterministic_split,
+    load_graph_selection_config,
     load_experiment_config,
 )
+from selection_utils import select_best_candidate  # noqa: E402
 
 
 class D3PMHelperTests(unittest.TestCase):
@@ -94,19 +97,23 @@ class D3PMHelperTests(unittest.TestCase):
         config = json.loads(config_path.read_text(encoding="utf-8"))
 
         self.assertEqual(config["sigl"]["n_epoch"], [100])
-        self.assertEqual(config["sigl"]["Res"], [64, 128])
+        self.assertEqual(config["sigl"]["Res"], [128])
         self.assertEqual(config["sigl"]["n_clusters"], [50])
-        self.assertEqual(config["sigl"]["bootstrap_replicates"], [10, 15])
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [12, 15, 20])
         self.assertEqual(config["sigl"]["bootstrap_seed"], [0])
         self.assertEqual(config["sigl"]["include_original_clusters"], [False])
         self.assertEqual(grid["dim"], [256])
         self.assertEqual(grid["lr"], [5e-5])
-        self.assertEqual(grid["num_classes"], [8, 12, 16])
-        self.assertEqual(grid["image_size"], [64])
+        self.assertEqual(grid["num_classes"], [12, 16])
+        self.assertEqual(grid["image_size"], [128])
         self.assertEqual(grid["hybrid_loss_coeff"], [0.01])
         self.assertEqual(training["validation_fraction"], 0.2)
         self.assertEqual(training["patience"], 25)
         self.assertEqual(training["max_epochs"], 300)
+        graph_selection = load_graph_selection_config(str(config_path))
+        self.assertEqual(graph_selection["validation_fraction"], 0.2)
+        self.assertEqual(graph_selection["split_seed"], 0)
+        self.assertEqual(graph_selection["selection_metric"], "mean_rank")
         self.assertEqual(config["ggme"]["num_generated_graphs"], 100)
         validate_generation_request(
             config["ggme"]["num_generated_graphs"], [45] * 100
@@ -138,6 +145,54 @@ class SIGLBootstrapTests(unittest.TestCase):
         plan = build_cluster_bootstrap_plan([[0, 1], [2, 3]], 2, seed=0, include_original_clusters=True)
         self.assertEqual(len(plan), 6)
         self.assertEqual(sum(1 for job in plan if job["is_original"]), 2)
+
+    def test_graph_selection_split_is_deterministic_disjoint_and_complete(self):
+        first = deterministic_graph_split(10, 0.2, seed=0)
+        second = deterministic_graph_split(10, 0.2, seed=0)
+        self.assertEqual(first, second)
+        model_train_indices, ggme_validation_indices = first
+        self.assertEqual(len(ggme_validation_indices), 2)
+        self.assertFalse(set(model_train_indices) & set(ggme_validation_indices))
+        self.assertEqual(
+            sorted(model_train_indices + ggme_validation_indices),
+            list(range(10)),
+        )
+
+
+class GGMECandidateSelectionTests(unittest.TestCase):
+    def test_mean_rank_selects_best_candidate_and_breaks_ties_with_loss(self):
+        candidates = [
+            {
+                "candidate_id": "a",
+                "validation_loss": 0.2,
+                "mmd": {
+                    "degree_distribution": 1.0,
+                    "clustering_coefficient": 1.0,
+                    "normalised_laplacian_spectrum": 3.0,
+                },
+            },
+            {
+                "candidate_id": "b",
+                "validation_loss": 0.1,
+                "mmd": {
+                    "degree_distribution": 1.0,
+                    "clustering_coefficient": 1.0,
+                    "normalised_laplacian_spectrum": 3.0,
+                },
+            },
+            {
+                "candidate_id": "c",
+                "validation_loss": 0.01,
+                "mmd": {
+                    "degree_distribution": 3.0,
+                    "clustering_coefficient": 3.0,
+                    "normalised_laplacian_spectrum": 1.0,
+                },
+            },
+        ]
+        best, ranked = select_best_candidate(candidates)
+        self.assertEqual(best["candidate_id"], "b")
+        self.assertLess(ranked[0]["ggme_score"], ranked[-1]["ggme_score"])
 
 
 class GraphonHelperTests(unittest.TestCase):

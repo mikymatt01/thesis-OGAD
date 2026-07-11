@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Esplode experiments/test_merged.json in N config scalari (uno per n_clusters)
+"""Esplode experiments/test_merged.json in config scalari SIGL.
 e per ciascuno lancia scripts/run_ogad_experiment.sh."""
 import copy
 import json
@@ -26,7 +26,8 @@ raw = json.loads(MERGED.read_text(encoding="utf-8"))
 sigl_runs = expand_block(raw["sigl"])
 
 for index, sigl_run in enumerate(sigl_runs):
-    test = copy.deepcopy(raw) | {"name": f"test_nc{index}"}
+    test = copy.deepcopy(raw)
+    test["name"] = f"test_nc{index}"
     test["sigl"] = sigl_run
     test["d3pm"]["image_size"] = [sigl_run['Res']]
 

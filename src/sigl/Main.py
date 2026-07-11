@@ -1,5 +1,6 @@
 from bootstrap_utils import build_cluster_bootstrap_plan
 from clusterize import cluster_graphs_from_arrays
+from graph_split_utils import deterministic_graph_split, select_by_indices
 from tools import *
 import numpy as np
 import argparse
@@ -59,11 +60,13 @@ parser.add_argument(
     help="Optional JSON experiment file: merges top-level 'shared' then 'sigl' into CLI args.",
 )
 
+graph_selection_config = {}
 args = parser.parse_args()
 if args.config:
     with open(args.config, encoding="utf-8") as f:
         cfg = json.load(f)
     merged = {**(cfg.get("shared") or {}), **(cfg.get("sigl") or {})}
+    graph_selection_config = cfg.get("graph_selection") or {}
     for key, val in merged.items():
         if hasattr(args, key):
             setattr(args, key, val)
@@ -159,6 +162,40 @@ else: # load the existing adjacency matrices
 
     graphs_inr = load_graphs(Adjs_dir)
     print("graphs: ", len(graphs_inr))
+    split_metadata = None
+    graph_index_map = list(range(len(graphs_inr)))
+    if graph_selection_config:
+        selection_fraction = float(graph_selection_config.get("validation_fraction", 0.2))
+        selection_seed = int(graph_selection_config.get("split_seed", 0))
+        model_train_indices, ggme_validation_indices = deterministic_graph_split(
+            len(graphs_inr),
+            selection_fraction,
+            selection_seed,
+        )
+        ggme_validation_graphs = select_by_indices(graphs_inr, ggme_validation_indices)
+        graphs_inr = select_by_indices(graphs_inr, model_train_indices)
+        graph_index_map = model_train_indices
+        run_dir = os.environ.get("OGAD_RUN_DIR")
+        if run_dir:
+            validation_path = os.path.join(run_dir, "ggme_validation_graphs.pickle")
+            model_train_path = os.path.join(run_dir, "model_train_graphs.pickle")
+            with open(validation_path, "wb") as f:
+                pickle.dump(ggme_validation_graphs, f, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(model_train_path, "wb") as f:
+                pickle.dump(graphs_inr, f, protocol=pickle.HIGHEST_PROTOCOL)
+        split_metadata = {
+            "validation_fraction": selection_fraction,
+            "split_seed": selection_seed,
+            "model_train_indices": model_train_indices,
+            "ggme_validation_indices": ggme_validation_indices,
+            "model_train_count": len(graphs_inr),
+            "ggme_validation_count": len(ggme_validation_graphs),
+        }
+        print(
+            "GGME validation split: model_train={} ggme_validation={}".format(
+                len(graphs_inr), len(ggme_validation_graphs)
+            )
+        )
     graphon_jobs = [
         {
             "sample_id": index,
@@ -191,12 +228,20 @@ else: # load the existing adjacency matrices
             len(clustered_graphs),
         )
 
+    for job in graphon_jobs:
+        model_train_graph_indices = list(job["original_graph_indices"])
+        job["model_train_graph_indices"] = model_train_graph_indices
+        job["original_graph_indices"] = [
+            graph_index_map[index] for index in model_train_graph_indices
+        ]
+
     metadata = {
         "n_clusters": n_clusters,
         "bootstrap_replicates": bootstrap_replicates,
         "bootstrap_seed": bootstrap_seed,
         "include_original_clusters": include_original_clusters,
         "cluster_sizes": cluster_sizes,
+        "graph_selection_split": split_metadata,
         "samples": graphon_jobs,
     }
 
@@ -204,7 +249,7 @@ else: # load the existing adjacency matrices
         index = job["sample_id"]
         graph_inr = [
             graphs_inr[source_index]
-            for source_index in job["original_graph_indices"]
+            for source_index in job["model_train_graph_indices"]
         ]
         ### Learn the coordinates and graphon as step 1
         print("Step1: Learning the laten variable of the nodes")

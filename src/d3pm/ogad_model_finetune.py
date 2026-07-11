@@ -5,6 +5,7 @@ import gzip
 import json
 import os
 import random
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +22,7 @@ from dit import DiT_Llama
 from training_utils import (
     deterministic_split,
     load_experiment_config,
+    load_graph_selection_config,
     update_run_manifest,
 )
 
@@ -239,6 +241,36 @@ def save_gzip_torch(payload, path: Path) -> None:
         torch.save(payload, compressed_file)
 
 
+def generate_graphons_from_checkpoint(state_dict, params, out_path: Path, seed: int) -> None:
+    """Generate sanitized graphon tensors for one trained D3PM candidate."""
+    set_reproducible_seed(seed)
+    num_classes = params["num_classes"]
+    dim = params["dim"]
+    image_size = params["image_size"]
+    hybrid_loss_coeff = params["hybrid_loss_coeff"]
+    d3pm = D3PM(
+        DiT_Llama(1, num_classes, dim=dim),
+        1000,
+        num_classes=num_classes,
+        hybrid_loss_coeff=hybrid_loss_coeff,
+    ).to(device)
+    d3pm.load_state_dict(state_dict)
+    d3pm.eval()
+    with torch.no_grad():
+        init_noise = torch.randint(
+            0,
+            num_classes,
+            (16, 1, image_size, image_size),
+            device=device,
+        )
+        images = d3pm.sample_with_image_sequence(init_noise, None, stride=40)
+        graphons = images[-1].float().cpu() / (num_classes - 1)
+        graphons = ((graphons + graphons.transpose(-1, -2)) / 2).clamp(0, 1)
+        graphons.diagonal(dim1=-2, dim2=-1).zero_()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(graphons, out_path)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="D3PM finetuning with validation and early stopping."
@@ -251,6 +283,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     param_grid, training_config = load_experiment_config(args.config)
+    graph_selection_config = load_graph_selection_config(args.config)
     train_indices, validation_indices = deterministic_split(
         len(gr_dataset),
         training_config["validation_fraction"],
@@ -274,17 +307,49 @@ if __name__ == "__main__":
     best_result = None
     best_params = None
     candidate_summaries = []
+    candidate_manifest = []
+    candidate_dir = Path("../../data/models/d3pm_candidates")
+    candidate_graphon_dir = Path("../../data/predictions/graphons/candidates")
+    if candidate_dir.exists():
+        shutil.rmtree(candidate_dir)
+    if candidate_graphon_dir.exists():
+        shutil.rmtree(candidate_graphon_dir)
 
-    for params in ParameterGrid(param_grid):
+    for candidate_index, params in enumerate(ParameterGrid(param_grid)):
+        candidate_id = f"candidate_{candidate_index:03d}"
         result = finetune_model(
             params, training_config, train_indices, validation_indices
         )
+        checkpoint_path = candidate_dir / f"{candidate_id}_model.pth.gz"
+        params_path = candidate_dir / f"{candidate_id}_params.pth.gz"
+        graphons_path = candidate_graphon_dir / f"{candidate_id}.pt"
+        candidate_metadata = {
+            **dict(params),
+            "candidate_id": candidate_id,
+            "best_epoch": result["best_epoch"],
+            "best_validation_loss": result["best_validation_loss"],
+            "training": training_config,
+            "split_seed": training_config["split_seed"],
+        }
+        save_gzip_torch(result["state_dict"], checkpoint_path)
+        save_gzip_torch(candidate_metadata, params_path)
+        generate_graphons_from_checkpoint(
+            result["state_dict"],
+            dict(params),
+            graphons_path,
+            seed=training_config["split_seed"],
+        )
         summary = {
+            "candidate_id": candidate_id,
             "params": dict(params),
             "best_epoch": result["best_epoch"],
             "best_validation_loss": result["best_validation_loss"],
+            "checkpoint_path": str(checkpoint_path.resolve()),
+            "params_path": str(params_path.resolve()),
+            "graphons_path": str(graphons_path.resolve()),
         }
         candidate_summaries.append(summary)
+        candidate_manifest.append(summary)
         append_metrics_jsonl(
             run_dir,
             {
@@ -305,6 +370,20 @@ if __name__ == "__main__":
 
     if best_result is None or best_params is None:
         raise RuntimeError("The D3PM parameter grid produced no candidate")
+
+    candidate_manifest_path = candidate_dir / "candidates.json"
+    candidate_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    candidate_manifest_path.write_text(
+        json.dumps(
+            {
+                "selection_enabled": bool(graph_selection_config),
+                "graph_selection": graph_selection_config,
+                "candidates": candidate_manifest,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     checkpoint_metadata = {
         **best_params,
@@ -330,6 +409,7 @@ if __name__ == "__main__":
         "best_epoch": best_result["best_epoch"],
         "best_validation_loss": best_result["best_validation_loss"],
         "candidates": candidate_summaries,
+        "candidate_manifest_path": str(candidate_manifest_path.resolve()),
     }
     update_run_manifest(run_dir, final_metadata)
     append_metrics_jsonl(
