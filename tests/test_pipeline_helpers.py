@@ -262,13 +262,15 @@ class ParallelSchedulerTests(unittest.TestCase):
             )
             self.assertEqual(status["status"], "complete")
 
-    def test_run_script_mounts_generated_experiment_directory(self):
+    def test_run_script_uses_run_local_experiment_config(self):
         script_path = ROOT / "scripts" / "run_ogad_experiment.sh"
         script = script_path.read_text(encoding="utf-8")
 
-        self.assertIn('EXP_DIR="$(dirname "$EXP_ABS")"', script)
-        self.assertIn('-v "$EXP_DIR:/app/experiments:ro"', script)
+        self.assertIn('cp "$EXP_ABS" "$RUN_DIR/experiment.json"', script)
+        self.assertIn('CONTAINER_CONFIG="/app/runs/current/experiment.json"', script)
+        self.assertIn('--config "$CONTAINER_CONFIG"', script)
         self.assertNotIn('-v "$ROOT/experiments:/app/experiments:ro"', script)
+        self.assertNotIn('-v "$EXP_DIR:/app/experiments:ro"', script)
 
 
 class GraphonHelperTests(unittest.TestCase):

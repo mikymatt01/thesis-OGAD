@@ -47,7 +47,7 @@ runs/parallel_<timestamp>/
 
 Ogni run usa artifact separati per `graphons`, `models` e `predictions`, quindi due run parallele non dovrebbero sovrascriversi.
 Ogni run usa anche un project name Docker Compose dedicato (`ogad_<run_id>`), così i network Docker non collidono tra run seriali/parallele.
-Le configurazioni generate dalla run parallela vengono montate nel container come `/app/experiments`, quindi i job leggono i JSON isolati sotto `runs/parallel_<timestamp>/experiments/`.
+La configurazione attiva viene copiata nella run dir e letta nel container da `/app/runs/current/experiment.json`, evitando collisioni con il mount Compose di `/app/experiments`.
 
 Se su una vecchia checkout compare:
 

@@ -18,8 +18,6 @@ if [[ ! -f "$EXP_ABS" ]]; then
   exit 1
 fi
 
-EXP_BASENAME="$(basename "$EXP_REL")"
-EXP_DIR="$(dirname "$EXP_ABS")"
 RUN_ID="$(date -u +%Y%m%d_%H%M%S)"
 if [[ -n "$SLUG" ]]; then
   RUN_ID="${RUN_ID}_${SLUG}"
@@ -33,6 +31,9 @@ mkdir -p \
   "$RUN_DIR/data/models"
 
 python3 "$ROOT/scripts/ogad_write_manifest.py" "$EXP_ABS" "$RUN_DIR" "$RUN_ID"
+cp "$EXP_ABS" "$RUN_DIR/experiment.json"
+
+CONTAINER_CONFIG="/app/runs/current/experiment.json"
 
 COMPOSE_PROJECT_NAME="${OGAD_COMPOSE_PROJECT_NAME:-ogad_${RUN_ID}}"
 COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.ogad-only.yml")
@@ -42,15 +43,15 @@ if [[ -n "$OGAD_GPU_ID" ]]; then
 fi
 
 SIGL_CMD=(poetry run python Main.py
-  --config "/app/experiments/$EXP_BASENAME"
+  --config "$CONTAINER_CONFIG"
 )
 
 D3PM_CMD=(bash -lc
-  "poetry run python ogad_model_finetune.py --config /app/experiments/$EXP_BASENAME && poetry run python ogad_model_inference.py"
+  "poetry run python ogad_model_finetune.py --config $CONTAINER_CONFIG && poetry run python ogad_model_inference.py"
 )
 
 GGME_CMD=(poetry run python main.py
-  --config "/app/experiments/$EXP_BASENAME"
+  --config "$CONTAINER_CONFIG"
   --skip-digress
 )
 
@@ -64,7 +65,6 @@ run_stage() {
     -e OGAD_RUN_DIR=/app/runs/current \
     "${GPU_ENV[@]}" \
     -v "$RUN_DIR:/app/runs/current" \
-    -v "$EXP_DIR:/app/experiments:ro" \
     -v "$RUN_DIR/data/train/graphons:/app/data/train/graphons" \
     -v "$RUN_DIR/data/predictions/graphons:/app/data/predictions/graphons" \
     -v "$RUN_DIR/data/models:/app/data/models" \
