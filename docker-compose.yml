@@ -22,7 +22,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              device_ids: ["${OGAD_GPU_ID:-0}"]
               capabilities: [gpu]
 
   train_model_a:
@@ -41,7 +41,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              device_ids: ["${OGAD_GPU_ID:-0}"]
               capabilities: [gpu]
 
   train_model_b:
@@ -58,7 +58,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              device_ids: ["${OGAD_GPU_ID:-0}"]
               capabilities: [gpu]
 
   eval_metrics:
@@ -77,5 +77,5 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              device_ids: ["${OGAD_GPU_ID:-0}"]
               capabilities: [gpu]

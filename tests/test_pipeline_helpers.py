@@ -265,10 +265,13 @@ class ParallelSchedulerTests(unittest.TestCase):
     def test_run_script_uses_run_local_experiment_config(self):
         script_path = ROOT / "scripts" / "run_ogad_experiment.sh"
         script = script_path.read_text(encoding="utf-8")
+        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 
         self.assertIn('cp "$EXP_ABS" "$RUN_DIR/experiment.json"', script)
         self.assertIn('CONTAINER_CONFIG="/app/runs/current/experiment.json"', script)
         self.assertIn('--config "$CONTAINER_CONFIG"', script)
+        self.assertIn('-e "CUDA_VISIBLE_DEVICES=0"', script)
+        self.assertIn('device_ids: ["${OGAD_GPU_ID:-0}"]', compose)
         self.assertNotIn('-v "$ROOT/experiments:/app/experiments:ro"', script)
         self.assertNotIn('-v "$EXP_DIR:/app/experiments:ro"', script)
 

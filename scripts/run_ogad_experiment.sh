@@ -39,7 +39,7 @@ COMPOSE_PROJECT_NAME="${OGAD_COMPOSE_PROJECT_NAME:-ogad_${RUN_ID}}"
 COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.ogad-only.yml")
 GPU_ENV=()
 if [[ -n "$OGAD_GPU_ID" ]]; then
-  GPU_ENV=(-e "NVIDIA_VISIBLE_DEVICES=$OGAD_GPU_ID")
+  GPU_ENV=(-e "NVIDIA_VISIBLE_DEVICES=$OGAD_GPU_ID" -e "CUDA_VISIBLE_DEVICES=0")
 fi
 
 SIGL_CMD=(poetry run python Main.py

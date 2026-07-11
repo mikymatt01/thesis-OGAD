@@ -48,6 +48,7 @@ runs/parallel_<timestamp>/
 Ogni run usa artifact separati per `graphons`, `models` e `predictions`, quindi due run parallele non dovrebbero sovrascriversi.
 Ogni run usa anche un project name Docker Compose dedicato (`ogad_<run_id>`), così i network Docker non collidono tra run seriali/parallele.
 La configurazione attiva viene copiata nella run dir e letta nel container da `/app/runs/current/experiment.json`, evitando collisioni con il mount Compose di `/app/experiments`.
+Il compose pinna la GPU fisica con `OGAD_GPU_ID` (`device_ids`), mentre dentro al container PyTorch vede quella singola GPU come `cuda:0`.
 
 Se su una vecchia checkout compare:
 
