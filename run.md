@@ -46,6 +46,15 @@ runs/parallel_<timestamp>/
 ```
 
 Ogni run usa artifact separati per `graphons`, `models` e `predictions`, quindi due run parallele non dovrebbero sovrascriversi.
+Ogni run usa anche un project name Docker Compose dedicato (`ogad_<run_id>`), così i network Docker non collidono tra run seriali/parallele.
+
+Se su una vecchia checkout compare:
+
+```text
+network ogad_default is ambiguous
+```
+
+ci sono network Docker residui con lo stesso nome. Con questa versione le nuove run non usano più il project name Compose globale `ogad`.
 
 ## tmux
 

@@ -33,7 +33,8 @@ mkdir -p \
 
 python3 "$ROOT/scripts/ogad_write_manifest.py" "$EXP_ABS" "$RUN_DIR" "$RUN_ID"
 
-COMPOSE=(docker compose -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.ogad-only.yml")
+COMPOSE_PROJECT_NAME="${OGAD_COMPOSE_PROJECT_NAME:-ogad_${RUN_ID}}"
+COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.ogad-only.yml")
 GPU_ENV=()
 if [[ -n "$OGAD_GPU_ID" ]]; then
   GPU_ENV=(-e "NVIDIA_VISIBLE_DEVICES=$OGAD_GPU_ID")
@@ -70,6 +71,7 @@ run_stage() {
 }
 
 cleanup() {
+  "${COMPOSE[@]}" down --remove-orphans >/dev/null 2>&1 || true
   if [[ "$OGAD_CLEANUP" == "1" ]]; then
     OGAD_ROOT="$ROOT" bash "$ROOT/scripts/cleanup_ogad_run.sh" || true
   fi
