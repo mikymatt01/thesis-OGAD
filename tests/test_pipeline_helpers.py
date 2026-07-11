@@ -1,5 +1,6 @@
 import ast
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -12,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src" / "d3pm"))
 sys.path.insert(0, str(ROOT / "src" / "ggme"))
 sys.path.insert(0, str(ROOT / "src" / "sigl"))
+sys.path.insert(0, str(ROOT / "scripts"))
 
 from bootstrap_utils import (  # noqa: E402
     build_cluster_bootstrap_plan,
@@ -31,6 +33,8 @@ from training_utils import (  # noqa: E402
     load_experiment_config,
 )
 from selection_utils import select_best_candidate  # noqa: E402
+from experiment_grid import assign_gpu, expand_merged_experiment  # noqa: E402
+import run_from_merged_parallel as parallel_runner  # noqa: E402
 
 
 class D3PMHelperTests(unittest.TestCase):
@@ -193,6 +197,70 @@ class GGMECandidateSelectionTests(unittest.TestCase):
         best, ranked = select_best_candidate(candidates)
         self.assertEqual(best["candidate_id"], "b")
         self.assertLess(ranked[0]["ggme_score"], ranked[-1]["ggme_score"])
+
+
+class ParallelSchedulerTests(unittest.TestCase):
+    def test_merged_expansion_and_gpu_assignment_are_deterministic(self):
+        raw = {
+            "name": "base",
+            "shared": {},
+            "sigl": {"Res": [64, 128], "n_clusters": [50]},
+            "d3pm": {"image_size": [64], "num_classes": [8]},
+        }
+        experiments = expand_merged_experiment(raw)
+        self.assertEqual(len(experiments), 2)
+        self.assertEqual(experiments[0]["name"], "test_nc0")
+        self.assertEqual(experiments[0]["d3pm"]["image_size"], [64])
+        self.assertEqual(experiments[1]["d3pm"]["image_size"], [128])
+        self.assertEqual(assign_gpu(0, ["0", "1"]), "0")
+        self.assertEqual(assign_gpu(1, ["0", "1"]), "1")
+        self.assertEqual(assign_gpu(2, ["0", "1"]), "0")
+
+    def test_parallel_retry_state_is_written_and_bounded(self):
+        original_run_sh = parallel_runner.RUN_SH
+        with tempfile.TemporaryDirectory(dir=ROOT) as temp_dir:
+            temp = Path(temp_dir)
+            fake_runner = temp / "fake_runner.sh"
+            fake_runner.write_text(
+                "#!/usr/bin/env bash\n"
+                "set -euo pipefail\n"
+                "marker=\"$OGAD_RUNS_ROOT/retry_marker\"\n"
+                "if [[ ! -f \"$marker\" ]]; then\n"
+                "  mkdir -p \"$(dirname \"$marker\")\"\n"
+                "  touch \"$marker\"\n"
+                "  exit 7\n"
+                "fi\n"
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            os.chmod(fake_runner, 0o755)
+            parallel_runner.RUN_SH = fake_runner
+            try:
+                exp_path = temp / "test_nc0.json"
+                exp_path.write_text("{}", encoding="utf-8")
+                job = {
+                    "index": 0,
+                    "slug": "nc0",
+                    "experiment_path": exp_path,
+                    "experiment_rel": exp_path.relative_to(ROOT),
+                }
+                result = parallel_runner.run_job(
+                    job,
+                    gpu_id="0",
+                    runs_root=temp / "runs",
+                    max_retries=1,
+                )
+            finally:
+                parallel_runner.RUN_SH = original_run_sh
+
+            self.assertEqual(result["status"], "complete")
+            self.assertEqual(len(result["attempts"]), 2)
+            status = json.loads(
+                (temp / "runs" / "queue" / "nc0" / "status.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(status["status"], "complete")
 
 
 class GraphonHelperTests(unittest.TestCase):

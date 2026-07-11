@@ -8,7 +8,9 @@ cd "$ROOT"
 
 EXP_REL="${1:-experiments/example.json}"
 SLUG="${2:-}"
-OGAD_CLEANUP="${OGAD_CLEANUP:-1}"
+OGAD_CLEANUP="${OGAD_CLEANUP:-0}"
+OGAD_GPU_ID="${OGAD_GPU_ID:-}"
+RUNS_ROOT="${OGAD_RUNS_ROOT:-$ROOT/runs}"
 
 EXP_ABS="$ROOT/$EXP_REL"
 if [[ ! -f "$EXP_ABS" ]]; then
@@ -22,12 +24,20 @@ if [[ -n "$SLUG" ]]; then
   RUN_ID="${RUN_ID}_${SLUG}"
 fi
 
-RUN_DIR="$ROOT/runs/$RUN_ID"
+RUN_DIR="$RUNS_ROOT/$RUN_ID"
 mkdir -p "$RUN_DIR"
+mkdir -p \
+  "$RUN_DIR/data/train/graphons" \
+  "$RUN_DIR/data/predictions/graphons" \
+  "$RUN_DIR/data/models"
 
 python3 "$ROOT/scripts/ogad_write_manifest.py" "$EXP_ABS" "$RUN_DIR" "$RUN_ID"
 
 COMPOSE=(docker compose -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.ogad-only.yml")
+GPU_ENV=()
+if [[ -n "$OGAD_GPU_ID" ]]; then
+  GPU_ENV=(-e "NVIDIA_VISIBLE_DEVICES=$OGAD_GPU_ID")
+fi
 
 SIGL_CMD=(poetry run python Main.py
   --config "/app/experiments/$EXP_BASENAME"
@@ -50,8 +60,12 @@ run_stage() {
   "${COMPOSE[@]}" run --rm --no-deps \
     -e "OGAD_RUN_ID=$RUN_ID" \
     -e OGAD_RUN_DIR=/app/runs/current \
+    "${GPU_ENV[@]}" \
     -v "$RUN_DIR:/app/runs/current" \
     -v "$ROOT/experiments:/app/experiments:ro" \
+    -v "$RUN_DIR/data/train/graphons:/app/data/train/graphons" \
+    -v "$RUN_DIR/data/predictions/graphons:/app/data/predictions/graphons" \
+    -v "$RUN_DIR/data/models:/app/data/models" \
     "$service" "$@" 2>&1 | tee "$logfile"
 }
 
