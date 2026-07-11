@@ -1,57 +1,111 @@
-### Delete images
+# Esecuzione pipeline OGAD
 
-- docker compose down -v --rmi all --remove-orphans
+Requisiti sulla macchina GPU: Linux, Docker Compose v2, driver NVIDIA, `python3`.
 
-### How to execute
-
-- tmux
-- docker compose up
-- control + B and D
-
-### OGAD-only pipeline (SIGL → D3PM → GGME, no DiGress)
-
-Gli script in `scripts/` sono pensati per **Linux**: bash recente (>= 4.1 per `run_all_experiments.sh`), Docker Compose plugin v2, `python3` sul PATH.
+## Build immagini
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.ogad-only.yml build
 ```
 
-End-to-end run with unified experiment JSON, local logs under `runs/<run_id>/`, and DiGress skipped in GGME:
+## Esecuzione seriale
+
+Singola configurazione:
 
 ```bash
-./scripts/run_ogad_experiment.sh experiments/example.json
+./scripts/run_ogad_experiment.sh experiments/test_nc0.json nc0
 ```
 
-Optional second argument sets a slug in the run id (e.g. `mytrial`).
-
-Run every top-level `experiments/*.json` in sorted order (one full pipeline per file; stops on first error):
+Espansione ed esecuzione seriale di `experiments/test_merged.json`:
 
 ```bash
-t
+python3 scripts/run_from_merged.py
 ```
 
-### Delete tmux session
+## Esecuzione parallela su più GPU
 
-- tmux ls
-- tmux kill-session -t <id>
-
-### Delete data dir
-
-docker run --rm -v $(pwd):/app alpine rm -rf /app/data/predictions/graphons
-docker run --rm -v $(pwd):/app alpine rm /app/data/predictions/graphs/digress/generated_samples1.txt
-cd data/train/graphons && docker run --rm -v $(pwd):/app alpine rm -rf /app
-
-### Cleanup automatico a fine esperimento
-
-Lo script `scripts/run_ogad_experiment.sh` esegue automaticamente la pulizia (generazioni + cache dataset) a fine run.
-
-Per disabilitarla temporaneamente:
+Dry-run, senza lanciare Docker:
 
 ```bash
-OGAD_CLEANUP=0 ./scripts/run_ogad_experiment.sh experiments/example.json
+python3 scripts/run_from_merged_parallel.py --dry-run --gpus 0,1
 ```
 
-### Copy results from server
+Esecuzione reale su due GPU, con un retry massimo per run fallita:
+
+```bash
+python3 scripts/run_from_merged_parallel.py --gpus 0,1 --max-retries 1
+```
+
+Gli output vengono isolati in:
+
+```text
+runs/parallel_<timestamp>/
+├── experiments/
+├── queue/
+└── runs/
+```
+
+Ogni run usa artifact separati per `graphons`, `models` e `predictions`, quindi due run parallele non dovrebbero sovrascriversi.
+
+## tmux
+
+Avvio:
+
+```bash
+tmux
+```
+
+Detach:
+
+```text
+Ctrl+B, poi D
+```
+
+Riattacco:
+
+```bash
+tmux a
+```
+
+Lista/kill sessioni:
+
+```bash
+tmux ls
+tmux kill-session -t <id>
+```
+
+## Cleanup
+
+Il cleanup globale è disabilitato di default nelle run isolate.
+
+Pulizia completa di container, volumi, immagini e orfani Docker:
+
+```bash
+docker compose down -v --rmi all --remove-orphans
+```
+
+Se serve pulire manualmente gli artifact globali vecchi:
+
+```bash
+bash scripts/cleanup_ogad_run.sh
+```
+
+Pulizia manuale delle directory globali con Docker:
+
+```bash
+docker run --rm -v "$(pwd):/app" alpine rm -rf /app/data/predictions/graphons
+docker run --rm -v "$(pwd):/app" alpine rm -f /app/data/predictions/graphs/digress/generated_samples1.txt
+docker run --rm -v "$(pwd):/app" alpine rm -f /app/data/predictions/graphs/digress/generated_samples2.txt
+docker run --rm -v "$(pwd):/app" alpine rm -rf /app/data/train/graphons
+```
+
+Per forzare il cleanup a fine singola run seriale:
+
+```bash
+OGAD_CLEANUP=1 ./scripts/run_ogad_experiment.sh experiments/test_nc0.json nc0
+```
+
+## Copia risultati dal server
 
 ```bash
 scp -r thesis_unipi:/raid/m.mattiello/OGAD/runs ./
