@@ -262,6 +262,14 @@ class ParallelSchedulerTests(unittest.TestCase):
             )
             self.assertEqual(status["status"], "complete")
 
+    def test_run_script_mounts_generated_experiment_directory(self):
+        script_path = ROOT / "scripts" / "run_ogad_experiment.sh"
+        script = script_path.read_text(encoding="utf-8")
+
+        self.assertIn('EXP_DIR="$(dirname "$EXP_ABS")"', script)
+        self.assertIn('-v "$EXP_DIR:/app/experiments:ro"', script)
+        self.assertNotIn('-v "$ROOT/experiments:/app/experiments:ro"', script)
+
 
 class GraphonHelperTests(unittest.TestCase):
     def test_probability_matrix_reuses_one_latent_index_vector(self):

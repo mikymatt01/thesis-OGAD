@@ -19,6 +19,7 @@ if [[ ! -f "$EXP_ABS" ]]; then
 fi
 
 EXP_BASENAME="$(basename "$EXP_REL")"
+EXP_DIR="$(dirname "$EXP_ABS")"
 RUN_ID="$(date -u +%Y%m%d_%H%M%S)"
 if [[ -n "$SLUG" ]]; then
   RUN_ID="${RUN_ID}_${SLUG}"
@@ -63,7 +64,7 @@ run_stage() {
     -e OGAD_RUN_DIR=/app/runs/current \
     "${GPU_ENV[@]}" \
     -v "$RUN_DIR:/app/runs/current" \
-    -v "$ROOT/experiments:/app/experiments:ro" \
+    -v "$EXP_DIR:/app/experiments:ro" \
     -v "$RUN_DIR/data/train/graphons:/app/data/train/graphons" \
     -v "$RUN_DIR/data/predictions/graphons:/app/data/predictions/graphons" \
     -v "$RUN_DIR/data/models:/app/data/models" \
