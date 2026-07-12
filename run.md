@@ -108,6 +108,12 @@ docker run --rm -v "$(pwd):/app" alpine rm -rf /app/data/predictions/graphons
 docker run --rm -v "$(pwd):/app" alpine rm -f /app/data/predictions/graphs/digress/generated_samples1.txt
 docker run --rm -v "$(pwd):/app" alpine rm -f /app/data/predictions/graphs/digress/generated_samples2.txt
 docker run --rm -v "$(pwd):/app" alpine rm -rf /app/data/train/graphons
+docker run --rm -v "$(pwd):/app" alpine rm -rf /app/runs
+
+bash scripts/cleanup_ogad_parallel_runs.sh runs/parallel_20260711_201704
+
+# one-liner equivalente (senza script):
+# P=runs/parallel_20260711_201704; for d in "$P"/runs/*; do docker run --rm -v "$(pwd):/app" alpine sh -c "rm -rf /app/$d/data && rm -f /app/$d/model_train_graphs.pickle /app/$d/ggme_validation_graphs.pickle"; done
 ```
 
 Per forzare il cleanup a fine singola run seriale:
