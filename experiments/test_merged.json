@@ -1,5 +1,5 @@
 {
-  "name": "test_1",
+  "name": "d3pm_digress_target",
   "shared": {},
   "sigl": {
     "n_epoch": [100],
@@ -8,17 +8,17 @@
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
     "n_clusters": [50],
-    "bootstrap_replicates": [10, 12, 14, 16],
+    "bootstrap_replicates": [12, 14],
     "bootstrap_seed": [0],
     "include_original_clusters": [false]
   },
   "d3pm": {
     "batch_size": [32],
-    "dim": [256],
-    "lr": [3e-5, 5e-5, 7e-5],
-    "num_classes": [10, 12, 14],
+    "dim": [256, 512],
+    "lr": [1e-5, 2e-5, 3e-5, 5e-5],
+    "num_classes": [8, 10, 12],
     "image_size": [128],
-    "hybrid_loss_coeff": [0.01],
+    "hybrid_loss_coeff": [0.001, 0.003, 0.01],
     "num_workers": [0]
   },
   "d3pm_training": {
@@ -31,7 +31,7 @@
   "graph_selection": {
     "validation_fraction": 0.2,
     "split_seed": 0,
-    "selection_metric": "mean_rank"
+    "selection_metric": "digress_target_ratio"
   },
   "ggme": {
     "test_graphs": "/app/data/test/graphs/CommunityGraphs.pickle",

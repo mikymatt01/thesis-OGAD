@@ -32,7 +32,7 @@ from training_utils import (  # noqa: E402
     load_graph_selection_config,
     load_experiment_config,
 )
-from selection_utils import select_best_candidate  # noqa: E402
+from selection_utils import digress_target_ratio_scores, select_best_candidate  # noqa: E402
 from experiment_grid import assign_gpu, expand_merged_experiment  # noqa: E402
 import run_from_merged_parallel as parallel_runner  # noqa: E402
 
@@ -103,12 +103,12 @@ class D3PMHelperTests(unittest.TestCase):
         self.assertEqual(config["sigl"]["n_epoch"], [100])
         self.assertEqual(config["sigl"]["Res"], [128])
         self.assertEqual(config["sigl"]["n_clusters"], [50])
-        self.assertEqual(config["sigl"]["bootstrap_replicates"], [12, 15, 20])
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [10, 12, 14, 16])
         self.assertEqual(config["sigl"]["bootstrap_seed"], [0])
         self.assertEqual(config["sigl"]["include_original_clusters"], [False])
         self.assertEqual(grid["dim"], [256])
-        self.assertEqual(grid["lr"], [5e-5])
-        self.assertEqual(grid["num_classes"], [12, 16])
+        self.assertEqual(grid["lr"], [3e-5, 5e-5, 7e-5])
+        self.assertEqual(grid["num_classes"], [10, 12, 14])
         self.assertEqual(grid["image_size"], [128])
         self.assertEqual(grid["hybrid_loss_coeff"], [0.01])
         self.assertEqual(training["validation_fraction"], 0.2)
@@ -122,6 +122,20 @@ class D3PMHelperTests(unittest.TestCase):
         validate_generation_request(
             config["ggme"]["num_generated_graphs"], [45] * 100
         )
+
+    def test_digress_target_experiment_uses_target_selection(self):
+        config_path = ROOT / "experiments" / "5_d3pm_digress_target.json"
+        grid, training = load_experiment_config(str(config_path))
+        graph_selection = load_graph_selection_config(str(config_path))
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [12, 14])
+        self.assertEqual(grid["dim"], [256, 512])
+        self.assertEqual(grid["lr"], [1e-5, 2e-5, 3e-5, 5e-5])
+        self.assertEqual(grid["num_classes"], [8, 10, 12])
+        self.assertEqual(grid["hybrid_loss_coeff"], [0.001, 0.003, 0.01])
+        self.assertEqual(training["max_epochs"], 300)
+        self.assertEqual(graph_selection["selection_metric"], "digress_target_ratio")
 
 
 class SIGLBootstrapTests(unittest.TestCase):
@@ -197,6 +211,63 @@ class GGMECandidateSelectionTests(unittest.TestCase):
         best, ranked = select_best_candidate(candidates)
         self.assertEqual(best["candidate_id"], "b")
         self.assertLess(ranked[0]["ggme_score"], ranked[-1]["ggme_score"])
+
+    def test_digress_target_ratio_selects_nearest_target_candidate(self):
+        candidates = [
+            {
+                "candidate_id": "degree_only",
+                "validation_loss": 0.01,
+                "mmd": {
+                    "degree_distribution": 0.0125,
+                    "clustering_coefficient": 500.0,
+                    "normalised_laplacian_spectrum": 10.0,
+                },
+            },
+            {
+                "candidate_id": "balanced",
+                "validation_loss": 0.2,
+                "mmd": {
+                    "degree_distribution": 0.025,
+                    "clustering_coefficient": 120.0,
+                    "normalised_laplacian_spectrum": 2.0,
+                },
+            },
+        ]
+
+        best, ranked = select_best_candidate(
+            candidates,
+            selection_metric="digress_target_ratio",
+        )
+
+        self.assertEqual(best["candidate_id"], "balanced")
+        self.assertIn("descriptor_target_ratios", ranked[0])
+        self.assertLess(ranked[0]["ggme_score"], ranked[1]["ggme_score"])
+
+    def test_digress_target_ratio_breaks_ties_with_loss(self):
+        candidates = [
+            {
+                "candidate_id": "slow",
+                "validation_loss": 0.2,
+                "mmd": {
+                    "degree_distribution": 0.0125,
+                    "clustering_coefficient": 99.7936,
+                    "normalised_laplacian_spectrum": 1.8530,
+                },
+            },
+            {
+                "candidate_id": "fast",
+                "validation_loss": 0.1,
+                "mmd": {
+                    "degree_distribution": 0.0125,
+                    "clustering_coefficient": 99.7936,
+                    "normalised_laplacian_spectrum": 1.8530,
+                },
+            },
+        ]
+
+        ranked = digress_target_ratio_scores(candidates)
+
+        self.assertEqual(ranked[0]["candidate_id"], "fast")
 
 
 class ParallelSchedulerTests(unittest.TestCase):

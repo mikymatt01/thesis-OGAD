@@ -1,0 +1,44 @@
+{
+  "name": "d3pm_digress_target_smoke",
+  "shared": {},
+  "sigl": {
+    "n_epoch": [100],
+    "lr": [0.06],
+    "Res": [128],
+    "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
+    "output_dir": ["/app/data/train/graphons"],
+    "n_clusters": [50],
+    "bootstrap_replicates": [12],
+    "bootstrap_seed": [0],
+    "include_original_clusters": [false]
+  },
+  "d3pm": {
+    "batch_size": [32],
+    "dim": [512],
+    "lr": [2e-5],
+    "num_classes": [8],
+    "image_size": [128],
+    "hybrid_loss_coeff": [0.001],
+    "num_workers": [0]
+  },
+  "d3pm_training": {
+    "validation_fraction": 0.2,
+    "split_seed": 0,
+    "patience": 25,
+    "min_delta": 0.00005,
+    "max_epochs": 300
+  },
+  "graph_selection": {
+    "validation_fraction": 0.2,
+    "split_seed": 0,
+    "selection_metric": "digress_target_ratio"
+  },
+  "ggme": {
+    "test_graphs": "/app/data/test/graphs/CommunityGraphs.pickle",
+    "paper_graphs": "/app/data/predictions/graphs/ggme_paper/CommunityGraphs.pickle",
+    "graphons_pt": "/app/data/predictions/graphons/tensors.pt",
+    "digress_samples": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+    "num_generated_graphs": 100,
+    "seed": 0
+  }
+}

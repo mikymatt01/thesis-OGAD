@@ -9,6 +9,17 @@ DESCRIPTORS = (
     "normalised_laplacian_spectrum",
 )
 
+DIGRESS_TARGET_MMD = {
+    "degree_distribution": 0.0125,
+    "clustering_coefficient": 99.7936,
+    "normalised_laplacian_spectrum": 1.8530,
+}
+
+SUPPORTED_SELECTION_METRICS = (
+    "mean_rank",
+    "digress_target_ratio",
+)
+
 
 def mean_rank_scores(
     candidates: Iterable[Dict[str, object]],
@@ -62,9 +73,54 @@ def mean_rank_scores(
     )
 
 
+def digress_target_ratio_scores(
+    candidates: Iterable[Dict[str, object]],
+    descriptors: Iterable[str] = DESCRIPTORS,
+    targets: Dict[str, float] = DIGRESS_TARGET_MMD,
+) -> List[Dict[str, object]]:
+    """Add mean candidate/DiGress-target ratios to candidate rows."""
+    rows = [dict(candidate) for candidate in candidates]
+    descriptor_names = list(descriptors)
+    if not rows:
+        raise ValueError("At least one candidate is required")
+    if not descriptor_names:
+        raise ValueError("At least one descriptor is required")
+
+    for descriptor in descriptor_names:
+        if descriptor not in targets or targets[descriptor] == 0:
+            raise ValueError(f"Missing non-zero DiGress target for {descriptor}")
+
+    for row in rows:
+        ratios = {
+            descriptor: float(row["mmd"][descriptor]) / float(targets[descriptor])
+            for descriptor in descriptor_names
+        }
+        row["descriptor_target_ratios"] = ratios
+        row["ggme_score"] = sum(ratios.values()) / len(ratios)
+
+    return sorted(
+        rows,
+        key=lambda row: (
+            float(row["ggme_score"]),
+            float(row.get("validation_loss", 0.0)),
+        ),
+    )
+
+
 def select_best_candidate(
     candidates: Iterable[Dict[str, object]],
     descriptors: Iterable[str] = DESCRIPTORS,
+    selection_metric: str = "mean_rank",
 ) -> Tuple[Dict[str, object], List[Dict[str, object]]]:
-    ranked = mean_rank_scores(candidates, descriptors)
+    if selection_metric == "mean_rank":
+        ranked = mean_rank_scores(candidates, descriptors)
+    elif selection_metric == "digress_target_ratio":
+        ranked = digress_target_ratio_scores(candidates, descriptors)
+    else:
+        raise ValueError(
+            "Unsupported selection metric '{}'. Supported values: {}".format(
+                selection_metric,
+                ", ".join(SUPPORTED_SELECTION_METRICS),
+            )
+        )
     return ranked[0], ranked

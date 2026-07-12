@@ -8,6 +8,11 @@ import random
 from pathlib import Path
 from typing import Any
 
+SUPPORTED_GRAPH_SELECTION_METRICS = {
+    "mean_rank",
+    "digress_target_ratio",
+}
+
 
 DEFAULT_PARAM_GRID = {
     "dim": [128, 256],
@@ -131,8 +136,13 @@ def load_graph_selection_config(config_path: str | None) -> dict:
     graph_selection["split_seed"] = int(graph_selection["split_seed"])
     if not 0.0 < graph_selection["validation_fraction"] < 1.0:
         raise ValueError("graph_selection.validation_fraction must be between 0 and 1")
-    if graph_selection["selection_metric"] != "mean_rank":
-        raise ValueError("Only graph_selection.selection_metric='mean_rank' is supported")
+    if graph_selection["selection_metric"] not in SUPPORTED_GRAPH_SELECTION_METRICS:
+        raise ValueError(
+            "Unsupported graph_selection.selection_metric '{}'. Supported values: {}".format(
+                graph_selection["selection_metric"],
+                ", ".join(sorted(SUPPORTED_GRAPH_SELECTION_METRICS)),
+            )
+        )
     return graph_selection
 
 

@@ -305,9 +305,12 @@ def maybe_select_candidate_with_ggme(args, run_dir: str | None, run_id: str | No
             },
         )
 
+    graph_selection = candidate_manifest.get("graph_selection") or {}
+    selection_metric = graph_selection.get("selection_metric", "mean_rank")
     best_candidate, ranked_candidates = select_best_candidate(
         candidate_rows,
         descriptors=DESCRIPTORS,
+        selection_metric=selection_metric,
     )
     Path(args.graphons_pt).parent.mkdir(parents=True, exist_ok=True)
     Path(args.best_model_out).parent.mkdir(parents=True, exist_ok=True)
@@ -316,7 +319,7 @@ def maybe_select_candidate_with_ggme(args, run_dir: str | None, run_id: str | No
     shutil.copyfile(best_candidate["checkpoint_path"], args.best_model_out)
     shutil.copyfile(best_candidate["params_path"], args.best_params_out)
     selection_payload = {
-        "selection_metric": "mean_rank",
+        "selection_metric": selection_metric,
         "validation_graphs_path": str(validation_graphs_path),
         "best_candidate": best_candidate,
         "ranked_candidates": ranked_candidates,
