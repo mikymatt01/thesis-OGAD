@@ -103,37 +103,37 @@ class D3PMHelperTests(unittest.TestCase):
         self.assertEqual(config["sigl"]["n_epoch"], [100])
         self.assertEqual(config["sigl"]["Res"], [128])
         self.assertEqual(config["sigl"]["n_clusters"], [50])
-        self.assertEqual(config["sigl"]["bootstrap_replicates"], [10, 12, 14, 16])
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [12, 14])
         self.assertEqual(config["sigl"]["bootstrap_seed"], [0])
         self.assertEqual(config["sigl"]["include_original_clusters"], [False])
-        self.assertEqual(grid["dim"], [256])
-        self.assertEqual(grid["lr"], [3e-5, 5e-5, 7e-5])
-        self.assertEqual(grid["num_classes"], [10, 12, 14])
+        self.assertEqual(grid["dim"], [256, 512])
+        self.assertEqual(grid["lr"], [1e-5, 2e-5, 3e-5, 5e-5])
+        self.assertEqual(grid["num_classes"], [8, 10, 12])
         self.assertEqual(grid["image_size"], [128])
-        self.assertEqual(grid["hybrid_loss_coeff"], [0.01])
+        self.assertEqual(grid["hybrid_loss_coeff"], [0.001, 0.003, 0.01])
         self.assertEqual(training["validation_fraction"], 0.2)
         self.assertEqual(training["patience"], 25)
         self.assertEqual(training["max_epochs"], 300)
         graph_selection = load_graph_selection_config(str(config_path))
         self.assertEqual(graph_selection["validation_fraction"], 0.2)
         self.assertEqual(graph_selection["split_seed"], 0)
-        self.assertEqual(graph_selection["selection_metric"], "mean_rank")
+        self.assertEqual(graph_selection["selection_metric"], "digress_target_ratio")
         self.assertEqual(config["ggme"]["num_generated_graphs"], 100)
         validate_generation_request(
             config["ggme"]["num_generated_graphs"], [45] * 100
         )
 
-    def test_digress_target_experiment_uses_target_selection(self):
-        config_path = ROOT / "experiments" / "5_d3pm_digress_target.json"
+    def test_refined_digress_target_experiment_uses_target_selection(self):
+        config_path = ROOT / "experiments" / "6_d3pm_digress_refined.json"
         grid, training = load_experiment_config(str(config_path))
         graph_selection = load_graph_selection_config(str(config_path))
         config = json.loads(config_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(config["sigl"]["bootstrap_replicates"], [12, 14])
-        self.assertEqual(grid["dim"], [256, 512])
-        self.assertEqual(grid["lr"], [1e-5, 2e-5, 3e-5, 5e-5])
-        self.assertEqual(grid["num_classes"], [8, 10, 12])
-        self.assertEqual(grid["hybrid_loss_coeff"], [0.001, 0.003, 0.01])
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [13, 14, 15, 16])
+        self.assertEqual(grid["dim"], [512])
+        self.assertEqual(grid["lr"], [2e-5, 3e-5, 4e-5, 5e-5])
+        self.assertEqual(grid["num_classes"], [10, 12, 14])
+        self.assertEqual(grid["hybrid_loss_coeff"], [0.006, 0.01, 0.015])
         self.assertEqual(training["max_epochs"], 300)
         self.assertEqual(graph_selection["selection_metric"], "digress_target_ratio")
 

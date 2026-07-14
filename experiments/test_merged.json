@@ -1,5 +1,5 @@
 {
-  "name": "d3pm_digress_target",
+  "name": "d3pm_digress_refined",
   "shared": {},
   "sigl": {
     "n_epoch": [100],
@@ -8,17 +8,17 @@
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
     "n_clusters": [50],
-    "bootstrap_replicates": [12, 14],
+    "bootstrap_replicates": [13, 14, 15, 16],
     "bootstrap_seed": [0],
     "include_original_clusters": [false]
   },
   "d3pm": {
     "batch_size": [32],
-    "dim": [256, 512],
-    "lr": [1e-5, 2e-5, 3e-5, 5e-5],
-    "num_classes": [8, 10, 12],
+    "dim": [512],
+    "lr": [2e-5, 3e-5, 4e-5, 5e-5],
+    "num_classes": [10, 12, 14],
     "image_size": [128],
-    "hybrid_loss_coeff": [0.001, 0.003, 0.01],
+    "hybrid_loss_coeff": [0.006, 0.01, 0.015],
     "num_workers": [0]
   },
   "d3pm_training": {
