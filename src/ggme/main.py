@@ -408,6 +408,8 @@ if __name__ == "__main__":
         for key, val in (cfg.get("ggme") or {}).items():
             if hasattr(args, key):
                 setattr(args, key, val)
+    if os.environ.get("OGAD_GRAPHON_GENERATOR") == "digress":
+        args.graphons_pt = "/app/data/predictions/graphons/digress/tensors.pt"
 
     test_graphs = load_graphs(args.test_graphs)
     test_sizes = _test_node_sizes(test_graphs)

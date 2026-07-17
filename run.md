@@ -16,10 +16,56 @@ Singola configurazione:
 ./scripts/run_ogad_experiment.sh experiments/test_nc0.json nc0
 ```
 
+Per usare DiGress graphon al posto di D3PM nello stage generatore:
+
+```bash
+OGAD_GRAPHON_GENERATOR=digress ./scripts/run_ogad_experiment.sh experiments/test_merged_digress.json digress
+```
+
+`OGAD_GRAPHON_GENERATOR` accetta `d3pm` o `digress`; il default resta `d3pm`.
+Entrambi producono tensori graphon compatibili con GGME, con shape `[N,1,128,128]`.
+Gli output sono separati:
+
+```text
+D3PM:    data/predictions/graphons/tensors.pt
+DiGress: data/predictions/graphons/digress/tensors.pt
+```
+
+Con DiGress viene salvata anche la diagnostica density-matching:
+
+```text
+data/predictions/graphons/digress/stats.json
+```
+
+Per DiGress si può aggiungere al JSON esperimento una sezione opzionale:
+
+```json
+{
+  "digress_graphons": {
+    "num_bins": 10,
+    "resolution": 128,
+    "batch_size": 2,
+    "accumulate_grad_batches": 16,
+    "final_samples": 100,
+    "max_epochs": 200,
+    "match_training_density": true
+  }
+}
+```
+
 Espansione ed esecuzione seriale di `experiments/test_merged.json`:
 
 ```bash
 python3 scripts/run_from_merged.py
+```
+
+Esecuzione parallela DiGress usando il merged dedicato:
+
+```bash
+OGAD_GRAPHON_GENERATOR=digress python3 scripts/run_from_merged_parallel.py \
+  --merged experiments/test_merged_digress.json \
+  --gpus 0,1 \
+  --max-retries 1
 ```
 
 ## Esecuzione parallela su più GPU
@@ -126,4 +172,10 @@ OGAD_CLEANUP=1 ./scripts/run_ogad_experiment.sh experiments/test_nc0.json nc0
 
 ```bash
 scp -r thesis_unipi:/raid/m.mattiello/OGAD/runs ./
+```
+
+## DiGress
+
+```
+python3 scripts/run_from_merged_parallel.py   --merged experiments/test_merged_digress.json   --gpus 0,2   --max-retries 1
 ```

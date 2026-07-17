@@ -11,6 +11,16 @@ SLUG="${2:-}"
 OGAD_CLEANUP="${OGAD_CLEANUP:-0}"
 OGAD_GPU_ID="${OGAD_GPU_ID:-}"
 RUNS_ROOT="${OGAD_RUNS_ROOT:-$ROOT/runs}"
+GRAPHON_GENERATOR="${OGAD_GRAPHON_GENERATOR:-d3pm}"
+
+case "$GRAPHON_GENERATOR" in
+  d3pm|digress)
+    ;;
+  *)
+    echo "Invalid OGAD_GRAPHON_GENERATOR=$GRAPHON_GENERATOR; expected d3pm or digress" >&2
+    exit 2
+    ;;
+esac
 
 EXP_ABS="$ROOT/$EXP_REL"
 if [[ ! -f "$EXP_ABS" ]]; then
@@ -37,6 +47,9 @@ CONTAINER_CONFIG="/app/runs/current/experiment.json"
 
 COMPOSE_PROJECT_NAME="${OGAD_COMPOSE_PROJECT_NAME:-ogad_${RUN_ID}}"
 COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.ogad-only.yml")
+if [[ "$GRAPHON_GENERATOR" == "digress" ]]; then
+  COMPOSE+=(-f "$ROOT/docker-compose.digress-graphons.yml")
+fi
 GPU_ENV=()
 if [[ -n "$OGAD_GPU_ID" ]]; then
   GPU_ENV=(-e "NVIDIA_VISIBLE_DEVICES=$OGAD_GPU_ID" -e "CUDA_VISIBLE_DEVICES=0")
@@ -50,10 +63,26 @@ D3PM_CMD=(bash -lc
   "poetry run python ogad_model_finetune.py --config $CONTAINER_CONFIG && poetry run python ogad_model_inference.py"
 )
 
+TRAIN_MODEL_B_CMD=("${D3PM_CMD[@]}")
+TRAIN_MODEL_B_LOG="$RUN_DIR/d3pm.log"
+if [[ "$GRAPHON_GENERATOR" == "digress" ]]; then
+  mapfile -t DIGRESS_OVERRIDES < <(python3 "$ROOT/scripts/digress_graphons_overrides.py" "$EXP_ABS")
+  TRAIN_MODEL_B_CMD=(python src/main.py +experiment=graphons
+    dataset.data_root=/app/data
+    dataset.graphon_dir=train/graphons
+    dataset.output_path=predictions/graphons/digress/tensors.pt
+    "${DIGRESS_OVERRIDES[@]}"
+  )
+  TRAIN_MODEL_B_LOG="$RUN_DIR/digress_graphons.log"
+fi
+
 GGME_CMD=(poetry run python main.py
   --config "$CONTAINER_CONFIG"
   --skip-digress
 )
+if [[ "$GRAPHON_GENERATOR" == "digress" ]]; then
+  GGME_CMD+=(--graphons_pt /app/data/predictions/graphons/digress/tensors.pt)
+fi
 
 run_stage() {
   local service="$1"
@@ -63,6 +92,7 @@ run_stage() {
   "${COMPOSE[@]}" run --rm --no-deps \
     -e "OGAD_RUN_ID=$RUN_ID" \
     -e OGAD_RUN_DIR=/app/runs/current \
+    -e "OGAD_GRAPHON_GENERATOR=$GRAPHON_GENERATOR" \
     "${GPU_ENV[@]}" \
     -v "$RUN_DIR:/app/runs/current" \
     -v "$RUN_DIR/data/train/graphons:/app/data/train/graphons" \
@@ -81,7 +111,7 @@ cleanup() {
 trap cleanup EXIT
 
 run_stage prep_data "$RUN_DIR/sigl.log" "${SIGL_CMD[@]}"
-run_stage train_model_b "$RUN_DIR/d3pm.log" "${D3PM_CMD[@]}"
+run_stage train_model_b "$TRAIN_MODEL_B_LOG" "${TRAIN_MODEL_B_CMD[@]}"
 run_stage eval_metrics "$RUN_DIR/ggme.log" "${GGME_CMD[@]}"
 
 echo "Run complete: $RUN_DIR"

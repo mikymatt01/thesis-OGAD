@@ -1,0 +1,19 @@
+# Merge with base + ogad-only to replace the D3PM graphon generator with
+# DiGress graphon diffusion.
+#
+#   OGAD_GRAPHON_GENERATOR=digress ./scripts/run_ogad_experiment.sh ...
+
+services:
+  train_model_b:
+    depends_on:
+      prep_data:
+        condition: service_completed_successfully
+    image: mikymatt/ogad-train-model-b-digress:latest
+    build:
+      context: ./src/DiGress
+      dockerfile: dockerfile
+    shm_size: 4gb
+    volumes:
+      - ./data:/app/data
+      - ./experiments:/app/experiments:ro
+    command: ["python", "src/main.py", "+experiment=graphons"]

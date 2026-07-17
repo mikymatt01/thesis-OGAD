@@ -1,0 +1,53 @@
+# @package _global_
+dataset:
+  name: graphons
+  remove_h: null
+  data_root: ${oc.env:OGAD_DATA_DIR,../../../data}
+  graphon_dir: train/graphons
+  output_path: predictions/graphons/digress/tensors.pt
+  stats_output_path: predictions/graphons/digress/stats.json
+  resolution: 128
+  num_bins: 10
+  match_training_density: true
+  split_seed: 0
+  pin_memory: true
+
+general:
+  name: graphons
+  gpus: 1
+  wandb: offline
+  resume: null
+  test_only: null
+  check_val_every_n_epochs: 10
+  sample_every_val: 1000000
+  samples_to_generate: 0
+  samples_to_save: 0
+  chains_to_save: 0
+  final_model_samples_to_generate: 16
+  final_model_samples_to_save: 0
+  final_model_chains_to_save: 0
+  number_chain_steps: 10
+
+train:
+  n_epochs: 200
+  batch_size: 2
+  accumulate_grad_batches: 16
+  save_model: true
+
+model:
+  type: discrete
+  transition: uniform
+  diffusion_steps: 1000
+  diffusion_noise_schedule: cosine
+  n_layers: 5
+  lambda_train: [5, 0]
+  extra_features: null
+  hidden_mlp_dims: {X: 128, E: 64, y: 128}
+  hidden_dims:
+    dx: 256
+    de: 64
+    dy: 64
+    n_head: 8
+    dim_ffX: 256
+    dim_ffE: 64
+    dim_ffy: 128

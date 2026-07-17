@@ -35,6 +35,7 @@ from training_utils import (  # noqa: E402
 from selection_utils import digress_target_ratio_scores, select_best_candidate  # noqa: E402
 from experiment_grid import assign_gpu, expand_merged_experiment  # noqa: E402
 import run_from_merged_parallel as parallel_runner  # noqa: E402
+from digress_graphons_overrides import hydra_overrides  # noqa: E402
 
 
 class D3PMHelperTests(unittest.TestCase):
@@ -103,14 +104,14 @@ class D3PMHelperTests(unittest.TestCase):
         self.assertEqual(config["sigl"]["n_epoch"], [100])
         self.assertEqual(config["sigl"]["Res"], [128])
         self.assertEqual(config["sigl"]["n_clusters"], [50])
-        self.assertEqual(config["sigl"]["bootstrap_replicates"], [12, 14])
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [13, 14, 15, 16])
         self.assertEqual(config["sigl"]["bootstrap_seed"], [0])
         self.assertEqual(config["sigl"]["include_original_clusters"], [False])
-        self.assertEqual(grid["dim"], [256, 512])
-        self.assertEqual(grid["lr"], [1e-5, 2e-5, 3e-5, 5e-5])
-        self.assertEqual(grid["num_classes"], [8, 10, 12])
+        self.assertEqual(grid["dim"], [512])
+        self.assertEqual(grid["lr"], [2e-5, 3e-5, 4e-5, 5e-5])
+        self.assertEqual(grid["num_classes"], [10, 12, 14])
         self.assertEqual(grid["image_size"], [128])
-        self.assertEqual(grid["hybrid_loss_coeff"], [0.001, 0.003, 0.01])
+        self.assertEqual(grid["hybrid_loss_coeff"], [0.006, 0.01, 0.015])
         self.assertEqual(training["validation_fraction"], 0.2)
         self.assertEqual(training["patience"], 25)
         self.assertEqual(training["max_epochs"], 300)
@@ -122,6 +123,23 @@ class D3PMHelperTests(unittest.TestCase):
         validate_generation_request(
             config["ggme"]["num_generated_graphs"], [45] * 100
         )
+
+    def test_digress_merged_experiment_is_separate_from_d3pm(self):
+        config_path = ROOT / "experiments" / "test_merged_digress.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        experiments = expand_merged_experiment(config)
+
+        self.assertNotIn("d3pm", config)
+        self.assertNotIn("d3pm_training", config)
+        self.assertIn("digress_graphons", config)
+        self.assertEqual(config["ggme"]["graphons_pt"], "/app/data/predictions/graphons/digress/tensors.pt")
+        self.assertEqual(len(experiments), 4)
+        self.assertTrue(all("d3pm" not in experiment for experiment in experiments))
+        self.assertTrue(all("digress_graphons" in experiment for experiment in experiments))
+        self.assertEqual(experiments[0]["sigl"]["Res"], 128)
+        self.assertEqual(experiments[0]["digress_graphons"]["num_bins"], 10)
+        self.assertEqual(experiments[0]["digress_graphons"]["final_samples"], 100)
+        self.assertTrue(experiments[0]["digress_graphons"]["match_training_density"])
 
     def test_refined_digress_target_experiment_uses_target_selection(self):
         config_path = ROOT / "experiments" / "6_d3pm_digress_refined.json"
@@ -345,6 +363,52 @@ class ParallelSchedulerTests(unittest.TestCase):
         self.assertIn('device_ids: ["${OGAD_GPU_ID:-0}"]', compose)
         self.assertNotIn('-v "$ROOT/experiments:/app/experiments:ro"', script)
         self.assertNotIn('-v "$EXP_DIR:/app/experiments:ro"', script)
+
+    def test_digress_graphon_generator_switch_is_wired(self):
+        script_path = ROOT / "scripts" / "run_ogad_experiment.sh"
+        script = script_path.read_text(encoding="utf-8")
+        ggme_main = (ROOT / "src" / "ggme" / "main.py").read_text(encoding="utf-8")
+        compose = (ROOT / "docker-compose.digress-graphons.yml").read_text(encoding="utf-8")
+
+        self.assertIn('GRAPHON_GENERATOR="${OGAD_GRAPHON_GENERATOR:-d3pm}"', script)
+        self.assertIn("Invalid OGAD_GRAPHON_GENERATOR", script)
+        self.assertIn("docker-compose.digress-graphons.yml", script)
+        self.assertIn("digress_graphons.log", script)
+        self.assertIn("predictions/graphons/digress/tensors.pt", script)
+        self.assertIn('-e "OGAD_GRAPHON_GENERATOR=$GRAPHON_GENERATOR"', script)
+        self.assertIn('OGAD_GRAPHON_GENERATOR") == "digress"', ggme_main)
+        self.assertIn("src/DiGress", compose)
+        self.assertIn("mikymatt/ogad-train-model-b-digress:latest", compose)
+
+    def test_digress_graphons_json_section_becomes_hydra_overrides(self):
+        config = {
+            "digress_graphons": {
+                "num_bins": 12,
+                "resolution": 128,
+                "batch_size": 4,
+                "accumulate_grad_batches": 8,
+                "final_samples": 32,
+                "max_epochs": 5,
+                "match_training_density": True,
+            }
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "experiment.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            overrides = hydra_overrides(str(path))
+
+        self.assertEqual(
+            overrides,
+            [
+                "dataset.num_bins=12",
+                "dataset.resolution=128",
+                "train.batch_size=4",
+                "train.accumulate_grad_batches=8",
+                "general.final_model_samples_to_generate=32",
+                "train.n_epochs=5",
+                "dataset.match_training_density=true",
+            ],
+        )
 
 
 class GraphonHelperTests(unittest.TestCase):
