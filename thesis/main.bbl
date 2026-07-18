@@ -1,0 +1,98 @@
+\begin{thebibliography}{10}
+
+\bibitem{austin2021structured}
+Jacob Austin, Daniel~D. Johnson, Jonathan Ho, Daniel Tarlow, and Rianne van~den
+  Berg.
+\newblock Structured denoising diffusion models in discrete state-spaces.
+\newblock {\em Advances in Neural Information Processing Systems},
+  34:17981--17993, 2021.
+
+\bibitem{azizpour2025sigl}
+Ali Azizpour, Nicolas Zilberstein, and Santiago Segarra.
+\newblock Scalable implicit graphon learning.
+\newblock In {\em International Conference on Artificial Intelligence and
+  Statistics}, pages 3952--3960, 2025.
+
+\bibitem{borgs2017graphons}
+Christian Borgs and Jennifer Chayes.
+\newblock Graphons: A nonparametric method to model, estimate, and design
+  algorithms for massive networks.
+\newblock Microsoft Research preprint, 2017.
+
+\bibitem{de2018molgan}
+Nicola De~Cao and Thomas Kipf.
+\newblock Molgan: An implicit generative model for small molecular graphs,
+  2018.
+
+\bibitem{diaconis2008graph}
+Persi Diaconis and Svante Janson.
+\newblock Graph limits and exchangeable random graphs.
+\newblock {\em Rendiconti di Matematica e delle sue Applicazioni},
+  28(1):33--61, 2008.
+
+\bibitem{gao2015rate}
+Chao Gao, Yu~Lu, and Harrison~H. Zhou.
+\newblock Rate-optimal graphon estimation.
+\newblock {\em The Annals of Statistics}, 43(6):2624--2652, 2015.
+
+\bibitem{ho2020denoising}
+Jonathan Ho, Ajay Jain, and Pieter Abbeel.
+\newblock Denoising diffusion probabilistic models.
+\newblock In {\em Advances in Neural Information Processing Systems},
+  volume~33, pages 6840--6851, 2020.
+
+\bibitem{lovasz2012large}
+Laszlo Lovasz.
+\newblock {\em Large Networks and Graph Limits}, volume~60 of {\em American
+  Mathematical Society Colloquium Publications}.
+\newblock American Mathematical Society, 2012.
+
+\bibitem{lovasz2006limits}
+Laszlo Lovasz and Balazs Szegedy.
+\newblock Limits of dense graph sequences.
+\newblock {\em Journal of Combinatorial Theory, Series B}, 96(6):933--957,
+  2006.
+
+\bibitem{obray2022evaluation}
+Leslie O'Bray, Max Horn, Bastian Rieck, and Karsten Borgwardt.
+\newblock Evaluation metrics for graph generative models: Problems, pitfalls,
+  and practical solutions.
+\newblock In {\em International Conference on Learning Representations}, 2022.
+
+\bibitem{d3pm_pytorch}
+Simo Ryu.
+\newblock Minimal implementation of a d3pm (structured denoising diffusion
+  models in discrete state-spaces), in pytorch.
+\newblock \url{https://github.com/cloneofsimo/d3pm}, 2024.
+\newblock Repository used as implementation reference.
+
+\bibitem{simonovsky2018graphvae}
+Martin Simonovsky and Nikos Komodakis.
+\newblock Graphvae: Towards generation of small graphs using variational
+  autoencoders.
+\newblock In {\em Artificial Neural Networks and Machine Learning -- ICANN
+  2018}, pages 412--422. Springer, 2018.
+
+\bibitem{song2021scorebased}
+Yang Song, Jascha Sohl-Dickstein, Diederik~P. Kingma, Abhishek Kumar, Stefano
+  Ermon, and Ben Poole.
+\newblock Score-based generative modeling through stochastic differential
+  equations.
+\newblock In {\em International Conference on Learning Representations}, 2021.
+
+\bibitem{vignac2023digress}
+Clement Vignac, Igor Krawczuk, Antoine Siraudin, Bohan Wang, Volkan Cevher, and
+  Pascal Frossard.
+\newblock Digress: Discrete denoising diffusion for graph generation.
+\newblock In {\em The Eleventh International Conference on Learning
+  Representations}, 2023.
+
+\bibitem{you2018graphrnn}
+Jiaxuan You, Rex Ying, Xiang Ren, William Hamilton, and Jure Leskovec.
+\newblock Graphrnn: Generating realistic graphs with deep auto-regressive
+  models.
+\newblock In {\em Proceedings of the 35th International Conference on Machine
+  Learning}, volume~80 of {\em Proceedings of Machine Learning Research}, pages
+  5708--5717. PMLR, 2018.
+
+\end{thebibliography}

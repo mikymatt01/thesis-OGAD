@@ -6,7 +6,6 @@ __pycache__
 data/models/d3pm.pkl
 src/vanilla/outputs
 data/predictions/graphs/digress
-thesis/
 
 # Local experiment runs (logs + metrics)
 runs/
