@@ -66,12 +66,13 @@ D3PM_CMD=(bash -lc
 TRAIN_MODEL_B_CMD=("${D3PM_CMD[@]}")
 TRAIN_MODEL_B_LOG="$RUN_DIR/d3pm.log"
 if [[ "$GRAPHON_GENERATOR" == "digress" ]]; then
+  DIGRESS_OVERRIDES=()
   mapfile -t DIGRESS_OVERRIDES < <(python3 "$ROOT/scripts/digress_graphons_overrides.py" "$EXP_ABS")
   TRAIN_MODEL_B_CMD=(python src/main.py +experiment=graphons
     dataset.data_root=/app/data
     dataset.graphon_dir=train/graphons
     dataset.output_path=predictions/graphons/digress/tensors.pt
-    "${DIGRESS_OVERRIDES[@]}"
+    ${DIGRESS_OVERRIDES[@]+"${DIGRESS_OVERRIDES[@]}"}
   )
   TRAIN_MODEL_B_LOG="$RUN_DIR/digress_graphons.log"
 fi

@@ -36,6 +36,8 @@ class TestGraphonDataset(unittest.TestCase):
                 stats_output_path="predictions/graphons/digress/stats.json",
                 resolution=4,
                 num_bins=10,
+                quantization="uniform",
+                codebook_path=None,
                 match_training_density=False,
                 split_seed=0,
                 pin_memory=False,
@@ -56,6 +58,8 @@ class TestGraphonDataset(unittest.TestCase):
                     "stats_output_path": "predictions/graphons/digress/stats.json",
                     "resolution": 4,
                     "num_bins": 10,
+                    "quantization": "uniform",
+                    "codebook_path": None,
                     "match_training_density": False,
                     "split_seed": 0,
                     "pin_memory": False,
@@ -64,6 +68,7 @@ class TestGraphonDataset(unittest.TestCase):
                     "name": "graphon-smoke",
                     "log_every_steps": 1000,
                     "number_chain_steps": 1,
+                    "val_loss_repeats": 1,
                 },
                 "train": {
                     "batch_size": 1,
@@ -235,11 +240,14 @@ class TestGraphonHydraConfig(unittest.TestCase):
             cfg = compose(config_name="config", overrides=["+experiment=graphons"])
 
         self.assertEqual(cfg.dataset.name, "graphons")
-        self.assertEqual(cfg.dataset.num_bins, 10)
-        self.assertTrue(cfg.dataset.match_training_density)
+        self.assertEqual(cfg.dataset.num_bins, 16)
+        self.assertEqual(cfg.dataset.quantization, "codebook")
+        self.assertFalse(cfg.dataset.match_training_density)
         self.assertEqual(cfg.dataset.stats_output_path, "predictions/graphons/digress/stats.json")
-        self.assertEqual(cfg.model.transition, "uniform")
-        self.assertEqual(cfg.train.accumulate_grad_batches, 16)
+        self.assertEqual(cfg.model.transition, "marginal")
+        self.assertEqual(cfg.model.extra_features, "all")
+        self.assertEqual(cfg.general.monitor_metric, "val/E_CE")
+        self.assertEqual(cfg.train.accumulate_grad_batches, 1)
 
 
 if __name__ == "__main__":

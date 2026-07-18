@@ -99,6 +99,8 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         self.number_chain_steps = cfg.general.number_chain_steps
         self.best_val_nll = 1e8
         self.val_counter = 0
+        self.val_ce_sum = 0.0
+        self.val_ce_batches = 0
 
     def training_step(self, data, i):
         if data.edge_index.numel() == 0:
@@ -155,6 +157,8 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         self.val_X_logp.reset()
         self.val_E_logp.reset()
         self.sampling_metrics.reset()
+        self.val_ce_sum = 0.0
+        self.val_ce_batches = 0
 
     def validation_step(self, data, i):
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
@@ -163,7 +167,35 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         extra_data = self.compute_extra_data(noisy_data)
         pred = self.forward(noisy_data, extra_data, node_mask)
         nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y,  node_mask, test=False)
+        self.accumulate_val_ce(pred, dense_data, data.y, node_mask)
         return {'loss': nll}
+
+    def accumulate_val_ce(self, pred, dense_data, y, node_mask):
+        """Track the denoising cross-entropy on the validation split.
+
+        Same quantity the training loss optimises, so it is directly comparable
+        across epochs, and it is bounded (~log K) rather than being T * KL. That
+        makes it a usable checkpoint-selection signal where val NLL is too noisy.
+        Repeats average over several noise draws; one draw is the default so
+        other datasets keep their original validation cost.
+        """
+        repeats = max(int(getattr(self.cfg.general, 'val_loss_repeats', 1)), 1)
+        total = self.val_ce_loss(pred, dense_data.E)
+        for _ in range(repeats - 1):
+            extra_noisy = self.apply_noise(dense_data.X, dense_data.E, y, node_mask)
+            extra_pred = self.forward(extra_noisy, self.compute_extra_data(extra_noisy), node_mask)
+            total = total + self.val_ce_loss(extra_pred, dense_data.E)
+        self.val_ce_sum += float(total) / repeats
+        self.val_ce_batches += 1
+
+    def val_ce_loss(self, pred, E):
+        """Edge cross-entropy, masked exactly like TrainLossDiscrete."""
+        true_E = torch.reshape(E, (-1, E.size(-1)))
+        pred_E = torch.reshape(pred.E, (-1, pred.E.size(-1)))
+        keep = (true_E != 0.).any(dim=-1)
+        if not bool(keep.any()):
+            return torch.zeros((), device=E.device)
+        return F.cross_entropy(pred_E[keep], torch.argmax(true_E[keep], dim=-1))
 
     def on_validation_epoch_end(self) -> None:
         metrics = [self.val_nll.compute(), self.val_X_kl.compute() * self.T, self.val_E_kl.compute() * self.T,
@@ -181,6 +213,12 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         # Log val nll with default Lightning logger, so it can be monitored by checkpoint callback
         val_nll = metrics[0]
         self.log("val/epoch_NLL", val_nll, sync_dist=True)
+
+        val_ce = self.val_ce_sum / self.val_ce_batches if self.val_ce_batches else float('inf')
+        self.log("val/E_CE", val_ce, sync_dist=True)
+        if wandb.run:
+            wandb.log({"val/E_CE": val_ce}, commit=False)
+        self.print(f"Epoch {self.current_epoch}: Val E_CE {val_ce :.4f}")
 
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll
@@ -264,7 +302,11 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         while samples_left_to_generate > 0:
             self.print(f'Samples left to generate: {samples_left_to_generate}/'
                        f'{self.cfg.general.final_model_samples_to_generate}', end='', flush=True)
-            bs = 2 * self.cfg.train.batch_size
+            # Sampling holds a full denoising step for every graph at once, so
+            # it needs a much smaller batch than training once the graphs are
+            # dense 128-node graphons. Decoupled from train.batch_size to keep a
+            # large training batch from causing an OOM after training finished.
+            bs = int(getattr(self.cfg.general, 'samples_batch_size', 0)) or 2 * self.cfg.train.batch_size
             to_generate = min(samples_left_to_generate, bs)
             to_save = min(samples_left_to_save, bs)
             chains_save = min(chains_left_to_save, bs)
@@ -465,7 +507,12 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         # Compute L0 term : -log p (X, E, y | z_0) = reconstruction loss
         prob0 = self.reconstruction_logp(t, X, E, node_mask)
 
-        loss_term_0 = self.val_X_logp(X * prob0.X.log()) + self.val_E_logp(E * prob0.E.log())
+        # These accumulators must follow the test/val split like every other
+        # metric above, otherwise test/*_logp is never updated (compute() then
+        # returns 0/0 = nan) and test batches corrupt the validation averages.
+        X_logp = self.test_X_logp if test else self.val_X_logp
+        E_logp = self.test_E_logp if test else self.val_E_logp
+        loss_term_0 = X_logp(X * prob0.X.log()) + E_logp(E * prob0.E.log())
 
         # Combine terms
         nlls = - log_pN + kl_prior + loss_all_t - loss_term_0

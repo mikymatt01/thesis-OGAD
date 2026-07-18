@@ -1,0 +1,36 @@
+{
+  "name": "digress_graphon_smoke",
+  "shared": {},
+  "sigl": {
+    "n_epoch": [5],
+    "lr": [0.06],
+    "Res": [128],
+    "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
+    "output_dir": ["/app/data/train/graphons"],
+    "n_clusters": [50],
+    "bootstrap_replicates": [2],
+    "bootstrap_seed": [0],
+    "include_original_clusters": [false]
+  },
+  "digress_graphons": {
+    "num_bins": 16,
+    "quantization": "codebook",
+    "resolution": 128,
+    "batch_size": 16,
+    "accumulate_grad_batches": 2,
+    "final_samples": 8,
+    "samples_batch_size": 8,
+    "max_epochs": 12,
+    "transition": "marginal",
+    "extra_features": "all",
+    "match_training_density": false
+  },
+  "ggme": {
+    "test_graphs": "/app/data/test/graphs/CommunityGraphs.pickle",
+    "paper_graphs": "/app/data/predictions/graphs/ggme_paper/CommunityGraphs.pickle",
+    "graphons_pt": "/app/data/predictions/graphons/digress/tensors.pt",
+    "digress_samples": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+    "num_generated_graphs": 100,
+    "seed": 0
+  }
+}

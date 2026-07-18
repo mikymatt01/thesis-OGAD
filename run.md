@@ -42,16 +42,37 @@ Per DiGress si può aggiungere al JSON esperimento una sezione opzionale:
 ```json
 {
   "digress_graphons": {
-    "num_bins": 10,
+    "num_bins": 16,
+    "quantization": "codebook",
     "resolution": 128,
-    "batch_size": 2,
-    "accumulate_grad_batches": 16,
+    "batch_size": 32,
+    "accumulate_grad_batches": 1,
     "final_samples": 100,
-    "max_epochs": 200,
-    "match_training_density": true
+    "max_epochs": 600,
+    "transition": "marginal",
+    "extra_features": "all",
+    "match_training_density": false
   }
 }
 ```
+
+Ogni campo è opzionale e sovrascrive il default di `configs/experiment/graphons.yaml`.
+Un campo non riconosciuto ora fa fallire il run invece di essere ignorato in silenzio.
+
+`quantization` sceglie come le classi discrete di DiGress mappano sulle probabilità del graphon:
+
+- `codebook` (default): livelli stimati sulla distribuzione dei valori dello split di training (Lloyd-Max).
+- `uniform`: livelli equispaziati in `[0,1]`, il comportamento originale.
+
+Con `uniform` e `num_bins=10` la probabilità inter-comunità (~0.01) viene arrotondata
+esattamente a 0, quindi ogni grafo generato si spezza in una componente connessa per
+comunità. Il codebook stimato mantiene entrambi i modi con lo stesso numero di classi.
+I livelli usati vengono salvati in `data/predictions/graphons/digress/codebook.json`
+e ripetuti in `stats.json`.
+
+Per le ablazioni basta cambiare un campo alla volta: `quantization`, `transition`
+(`uniform`/`marginal`) ed `extra_features` (`all`/`cycles`/`eigenvalues`/`null`)
+sono tutti sovrascrivibili da qui.
 
 Espansione ed esecuzione seriale di `experiments/test_merged.json`:
 

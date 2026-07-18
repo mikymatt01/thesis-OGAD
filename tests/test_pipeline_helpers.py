@@ -133,13 +133,16 @@ class D3PMHelperTests(unittest.TestCase):
         self.assertNotIn("d3pm_training", config)
         self.assertIn("digress_graphons", config)
         self.assertEqual(config["ggme"]["graphons_pt"], "/app/data/predictions/graphons/digress/tensors.pt")
-        self.assertEqual(len(experiments), 4)
+        # One run per bootstrap replicate; asserting a literal count here only
+        # broke every time the grid was retuned.
+        self.assertEqual(len(experiments), len(config["sigl"]["bootstrap_replicates"]))
         self.assertTrue(all("d3pm" not in experiment for experiment in experiments))
         self.assertTrue(all("digress_graphons" in experiment for experiment in experiments))
         self.assertEqual(experiments[0]["sigl"]["Res"], 128)
-        self.assertEqual(experiments[0]["digress_graphons"]["num_bins"], 10)
+        self.assertEqual(experiments[0]["digress_graphons"]["quantization"], "codebook")
+        self.assertEqual(experiments[0]["digress_graphons"]["transition"], "marginal")
         self.assertEqual(experiments[0]["digress_graphons"]["final_samples"], 100)
-        self.assertTrue(experiments[0]["digress_graphons"]["match_training_density"])
+        self.assertFalse(experiments[0]["digress_graphons"]["match_training_density"])
 
     def test_refined_digress_target_experiment_uses_target_selection(self):
         config_path = ROOT / "experiments" / "6_d3pm_digress_refined.json"

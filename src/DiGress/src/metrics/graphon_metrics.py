@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 from src.graphon_utils import (
+    as_codebook,
     density_summary,
     discover_graphon_images,
     generated_samples_to_graphons,
@@ -16,13 +17,14 @@ from src.graphon_utils import (
     mean_graphon_density,
     off_diagonal_density,
     resolve_data_root,
+    uniform_codebook,
 )
 
 
 class GraphonSamplingMetrics(nn.Module):
     """Export final categorical samples using the tensor contract expected by GGME."""
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, codebook=None):
         super().__init__()
         digress_root = Path(__file__).resolve().parents[2]
         data_root = resolve_data_root(cfg.dataset.data_root, digress_root)
@@ -41,7 +43,13 @@ class GraphonSamplingMetrics(nn.Module):
             else data_root / configured_stats_output
         )
         self.graphon_dir = data_root / cfg.dataset.graphon_dir
-        self.num_bins = int(cfg.dataset.num_bins)
+        # The codebook must be the one the data module encoded with, otherwise
+        # classes decode to the wrong probabilities.
+        self.codebook = (
+            uniform_codebook(int(cfg.dataset.num_bins)) if codebook is None
+            else as_codebook(codebook)
+        )
+        self.num_bins = int(self.codebook.numel())
         self.match_training_density = bool(getattr(cfg.dataset, "match_training_density", False))
 
     def reset(self):
@@ -67,7 +75,7 @@ class GraphonSamplingMetrics(nn.Module):
         if not test or local_rank != 0:
             return {}
 
-        graphons = generated_samples_to_graphons(generated_graphs, self.num_bins)
+        graphons = generated_samples_to_graphons(generated_graphs, self.codebook)
         densities_before = off_diagonal_density(graphons)
         target_density = None
         if self.match_training_density:
@@ -87,6 +95,7 @@ class GraphonSamplingMetrics(nn.Module):
             "generated_density_before": density_summary(densities_before),
             "generated_density_after": density_summary(densities_after),
             "match_training_density": self.match_training_density,
+            "codebook": [round(level, 6) for level in self.codebook.tolist()],
         }
         self._write_stats(stats)
         print(

@@ -5,17 +5,31 @@
 \usepackage[italian]{babel}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{amsthm}
 \usepackage{mathtools}
 \usepackage{booktabs}
+\usepackage{longtable}
 \usepackage{csquotes}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage[hidelinks]{hyperref}
 
 \DeclareMathOperator{\Bernoulli}{Bernoulli}
 \DeclareMathOperator{\Uniform}{Uniform}
+\DeclareMathOperator{\Cat}{Cat}
 \DeclareMathOperator{\MMD}{MMD}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
 \newcommand{\Graphs}{\mathcal{G}}
 \newcommand{\GraphDist}{\mathbb{P}}
 \newcommand{\Real}{\mathbb{R}}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\one}{\mathbf{1}}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definizione}[chapter]
+\newtheorem{proposition}[definition]{Proposizione}
+\newtheorem{remark}[definition]{Osservazione}
 
 \title{Generazione e valutazione di grafi mediante stima e diffusione di graphon}
 \author{TODO: Nome Cognome}
@@ -37,42 +51,78 @@ alla permutazione dei nodi. Questa natura rende non banale sia la definizione di
 modelli generativi efficaci, sia la loro valutazione quantitativa.
 
 Il presente lavoro considera una pipeline sperimentale per la generazione di grafi
-basata su graphon. Un graphon puo' essere interpretato come una funzione simmetrica
-\(W : [0,1]^2 \to [0,1]\), dalla quale e' possibile campionare grafi scegliendo
-variabili latenti associate ai nodi e generando archi indipendenti con probabilita'
-data dal valore di \(W\). In questa prospettiva, il graphon fornisce una
-rappresentazione continua e non parametrica della struttura probabilistica di una
-famiglia di grafi.
+che introduce una \emph{rappresentazione intermedia} basata su graphon. Un graphon
+puo' essere interpretato come una funzione simmetrica \(W : [0,1]^2 \to [0,1]\),
+dalla quale e' possibile campionare grafi scegliendo variabili latenti associate ai
+nodi e generando archi indipendenti con probabilita' data dal valore di \(W\). In
+questa prospettiva, il graphon fornisce una rappresentazione continua e non
+parametrica della struttura probabilistica di una famiglia di grafi.
 
-La pipeline studiata in questa tesi, indicata nel repository come OGAD, combina tre
-blocchi principali. In primo luogo, a partire da grafi osservati, SIGL stima
-graphon mediante rappresentazioni neurali implicite e reti neurali su grafi
-\cite{azizpour2025sigl}. In secondo luogo, i graphon stimati sono usati come dati di training
-per un modello generativo discreto: nella configurazione corrente sono considerate
-sia una variante D3PM, basata su modelli di diffusione in spazi di stati discreti
-\cite{austin2021structured,d3pm_pytorch}, sia una variante DiGress adattata alla
-generazione di graphon discretizzati \cite{vignac2023digress}. Infine, i graphon
-generati vengono convertiti in grafi e valutati con metriche MMD su descrittori
-strutturali, seguendo le indicazioni metodologiche di GGME
-\cite{obray2022evaluation}.
+L'idea alla base della pipeline studiata in questa tesi, indicata nel repository
+come \textbf{OGAD}, e' che il modello generativo profondo non debba apprendere
+direttamente una distribuzione su matrici di adiacenza, ma una distribuzione
+\emph{sui graphon}. Il vantaggio atteso e' duplice. In primo luogo, la
+rappresentazione a graphon e' invariante rispetto alla dimensione del grafo: un
+unico oggetto \(128\times 128\) puo' generare grafi di qualunque numero di nodi.
+In secondo luogo, la rappresentazione e' gia' allineata (i nodi sono ordinati in
+base alle variabili latenti stimate), il che elimina il problema della
+permutazione dal modello generativo e lo riduce a un problema di modellazione di
+un tensore denso a valori in \([0,1]\).
+
+\section{Struttura della pipeline e contributi}
+
+La pipeline si articola in quattro stadi, illustrati in dettaglio nel
+Capitolo~\ref{ch:pipeline}:
+
+\begin{enumerate}
+    \item \textbf{Stima dei graphon.} A partire da un insieme di grafi osservati,
+    SIGL (\emph{Scalable Implicit Graphon Learning}) stima graphon mediante
+    rappresentazioni neurali implicite (INR) e reti neurali su grafi
+    \cite{azizpour2025sigl}. Una modifica introdotta in questo lavoro consente di
+    ottenere da un singolo dataset non un unico graphon ma un intero
+    \emph{campione} di graphon, tramite clustering dei grafi seguito da bootstrap
+    non parametrico.
+    \item \textbf{Modellazione generativa dei graphon.} I graphon stimati sono
+    usati come dataset di training per un modello di diffusione in spazio discreto.
+    Sono implementate due varianti alternative e mutuamente esclusive:
+    \begin{itemize}
+        \item \textbf{OGAD--D3PM}, che tratta il graphon quantizzato come
+        un'immagine categoriale \(128\times 128\) e applica il framework D3PM
+        \cite{austin2021structured} con un denoiser di tipo Diffusion Transformer
+        \cite{d3pm_pytorch};
+        \item \textbf{OGAD--DiGress}, che tratta il graphon quantizzato come un
+        \emph{grafo completo} su \(128\) nodi con etichette d'arco categoriali, e
+        applica il modello DiGress \cite{vignac2023digress} senza modifiche al
+        nucleo diffusivo.
+    \end{itemize}
+    \item \textbf{Campionamento dei grafi.} I graphon generati vengono sanificati
+    e usati come kernel di Bernoulli per campionare grafi, con numero di nodi
+    estratto dalla distribuzione empirica del test set.
+    \item \textbf{Valutazione.} I grafi generati sono confrontati con il test set
+    tramite MMD su descrittori strutturali, seguendo il protocollo di selezione di
+    kernel e iperparametri proposto da GGME \cite{obray2022evaluation}.
+\end{enumerate}
+
+Il contributo principale di questa tesi non e' la proposta di un nuovo modello
+diffusivo, ma la \emph{costruzione e la caratterizzazione precisa} di una pipeline
+composita che collega quattro lavori indipendenti (SIGL, D3PM, DiGress, GGME) in
+un protocollo sperimentale riproducibile, insieme all'analisi delle scelte di
+progetto --- in particolare della discretizzazione dei valori del graphon --- che
+determinano la qualita' del risultato finale.
 
 \section{Obiettivi}
-
-L'obiettivo del lavoro e' analizzare se una rappresentazione intermedia basata su
-graphon possa migliorare o rendere piu' controllabile la generazione di grafi. In
-particolare, la pipeline non genera direttamente matrici di adiacenza, ma apprende
-una distribuzione sui graphon stimati dai dati. I grafi finali sono poi ottenuti
-campionando da tali graphon e scegliendo il numero di nodi dalla distribuzione
-empirica del test set.
 
 Gli obiettivi sperimentali possono essere riassunti come segue:
 
 \begin{itemize}
-    \item stimare graphon rappresentativi del training set mediante SIGL;
-    \item addestrare un generatore discreto sui graphon stimati;
-    \item confrontare il generatore OGAD con baseline disponibili, tra cui
-    DiGress e i risultati indicati come \enquote{Paper} nella pipeline di
-    valutazione;
+    \item stimare un insieme di graphon rappresentativi del training set mediante
+    SIGL, con una procedura di clustering e bootstrap che ne aumenti la
+    cardinalita' fino a rendere possibile l'addestramento di un modello generativo;
+    \item addestrare un generatore diffusivo discreto sui graphon stimati, nelle
+    due varianti D3PM e DiGress;
+    \item confrontare la pipeline OGAD con due riferimenti: DiGress applicato
+    direttamente ai grafi (baseline), e i grafi indicati come \enquote{Paper},
+    ossia le predizioni di esempio distribuite con il repository GGME;
     \item valutare i grafi generati tramite MMD su distribuzione dei gradi,
     coefficiente di clustering e spettro del laplaciano normalizzato.
 \end{itemize}
@@ -94,8 +144,10 @@ ottimali per la stima di graphon e mettono in evidenza il legame con modelli a
 blocchi stocastici e regressione non parametrica \cite{gao2015rate}. Borgs e
 Chayes presentano invece una prospettiva piu' ampia sull'uso dei graphon per
 modellare, stimare e progettare algoritmi su reti massive \cite{borgs2017graphons}.
-SIGL si inserisce in questa linea introducendo una stima continua e scalabile
-basata su implicit neural representations e GNN \cite{azizpour2025sigl}.
+Chan e Airoldi introducono lo stimatore a istogramma consistente su grafi ordinati
+\cite{chan2014histogram} che costituisce il secondo stadio di SIGL, mentre IGNR
+\cite{xia2023ignr} e SIGL \cite{azizpour2025sigl} sostituiscono la matrice a
+risoluzione fissa con una rappresentazione neurale implicita continua.
 
 Per quanto riguarda la generazione di grafi, GraphRNN rappresenta un riferimento
 classico per i modelli autoregressivi e ha contribuito a rendere comune la
@@ -103,398 +155,1395 @@ valutazione tramite MMD su descrittori strutturali \cite{you2018graphrnn}.
 Altri lavori, come GraphVAE e MolGAN, mostrano approcci alternativi basati
 rispettivamente su autoencoder variazionali e modelli avversari
 \cite{simonovsky2018graphvae,de2018molgan}. La componente diffusiva della tesi
-si collega invece ai diffusion probabilistic models \cite{ho2020denoising}, alla
-formulazione score-based tramite equazioni differenziali stocastiche
-\cite{song2021scorebased}, e alla loro estensione a spazi discreti tramite D3PM
-\cite{austin2021structured}.
+si collega ai diffusion probabilistic models \cite{sohl2015deep,ho2020denoising},
+alla formulazione score-based tramite equazioni differenziali stocastiche
+\cite{song2021scorebased}, e alla loro estensione a spazi discreti tramite
+multinomial diffusion \cite{hoogeboom2021argmax} e D3PM
+\cite{austin2021structured}, di cui DiGress \cite{vignac2023digress} costituisce
+la specializzazione al dominio dei grafi.
 
 \chapter{Contesto teorico}
+\label{ch:teoria}
+
+Questo capitolo raccoglie la formalizzazione dei quattro componenti della
+pipeline. L'obiettivo e' fissare la notazione che verra' usata nel
+Capitolo~\ref{ch:pipeline}, dove ciascun componente viene specializzato al caso
+concreto implementato nel repository.
 
 \section{Graphon e generazione di grafi}
+\label{sec:graphon}
 
+\begin{definition}[Graphon]
 Un graphon e' una funzione misurabile, simmetrica e limitata
 \[
     W : [0,1]^2 \to [0,1],
     \qquad
-    W(u,v) = W(v,u).
+    W(u,v) = W(v,u)
+    \quad\text{per quasi ogni } (u,v).
 \]
+\end{definition}
+
 Dato un intero \(M \in \mathbb{N}\), il graphon induce una distribuzione su grafi
-semplici non orientati con \(M\) nodi. Il modello generativo associato puo'
-essere scritto come
-\[
+semplici non orientati con \(M\) nodi. Il modello generativo associato, detto
+\emph{\(W\)-random graph}, e'
+\begin{equation}
+    \label{eq:graphon-sampling}
     \begin{aligned}
-        u_1,\ldots,u_M
-        &\overset{\mathrm{i.i.d.}}{\sim} \Uniform(0,1),\\
-        A_{ij} \mid u_i,u_j,W
-        &\sim \Bernoulli(W(u_i,u_j)),
+        \eta_1,\ldots,\eta_M
+        &\overset{\mathrm{i.i.d.}}{\sim} \Uniform([0,1]),\\
+        A_{ij} \mid \eta_i,\eta_j,W
+        &\sim \Bernoulli\bigl(W(\eta_i,\eta_j)\bigr),
         \qquad 1 \leq i < j \leq M,
     \end{aligned}
-\]
-con \(A_{ji}=A_{ij}\) e \(A_{ii}=0\). In altre parole, condizionatamente alle
-variabili latenti dei nodi, gli archi sono indipendenti e la probabilita' di un
-arco dipende solo dal valore del graphon nella coppia di coordinate latenti:
+\end{equation}
+con \(A_{ji}=A_{ij}\) e \(A_{ii}=0\). Condizionatamente alle variabili latenti dei
+nodi, gli archi sono indipendenti e la probabilita' di un arco dipende solo dal
+valore del graphon nella coppia di coordinate latenti:
 \[
-    \mathbb{P}(A_{ij}=1 \mid u_i,u_j,W) = W(u_i,u_j).
+    \GraphDist(A_{ij}=1 \mid \eta_i,\eta_j,W) = W(\eta_i,\eta_j).
 \]
+Il teorema di Aldous--Hoover garantisce che ogni distribuzione scambiabile su
+grafi infiniti ammette una rappresentazione di questa forma \cite{diaconis2008graph},
+il che giustifica l'uso del graphon come modello non parametrico universale per
+famiglie di grafi scambiabili.
 
-Nel caso implementativo, \(W\) non e' rappresentato come funzione continua ma
-come matrice \(R \times R\), con \(R=128\). Indicando con
+\subsection{Non identificabilita' e problema dell'ordinamento}
+
+La rappresentazione~\eqref{eq:graphon-sampling} non e' identificabile. Se
+\(\varphi:[0,1]\to[0,1]\) e' una trasformazione misura-preservante, allora
+\begin{equation}
+    \label{eq:graphon-equivalence}
+    W'(u,v) = W(\varphi(u),\varphi(v))
+    \quad \text{q.o.}
+\end{equation}
+induce esattamente la stessa distribuzione su grafi. Ne segue che la classe di
+equivalenza \([W]\), e non \(W\) stesso, e' l'oggetto identificabile.
+
+Questo fatto ha due conseguenze operative centrali per la pipeline OGAD:
+
+\begin{enumerate}
+    \item \textbf{Lato stima.} Uno stimatore di graphon deve fissare un
+    rappresentante della classe, cioe' scegliere un \emph{ordinamento} dei nodi.
+    I metodi classici (SAS, USVT) ordinano per grado empirico
+    \cite{chan2014histogram,azizpour2025sigl}; SIGL apprende invece l'ordinamento
+    tramite una GNN, il che gli consente di trattare anche graphon non monotoni
+    come i modelli a blocchi stocastici, dove tutti i nodi hanno lo stesso grado
+    atteso.
+    \item \textbf{Lato generazione.} Poiche' il modello diffusivo apprende una
+    distribuzione su \emph{matrici} \(128\times128\) e non su classi di
+    equivalenza, la coerenza dell'ordinamento prodotto da SIGL sui diversi graphon
+    del training set e' un prerequisito: se due graphon equivalenti fossero
+    rappresentati con permutazioni latenti diverse, il modello dovrebbe spendere
+    capacita' per apprendere l'orbita della permutazione anziche' la struttura.
+\end{enumerate}
+
+\subsection{Discretizzazione}
+
+Nell'implementazione, \(W\) non e' rappresentato come funzione continua ma come
+matrice \(R \times R\), con \(R=128\). Indicando con
 \(\widehat{W} \in [0,1]^{R \times R}\) tale discretizzazione, il campionamento
-viene approssimato scegliendo indici
-\[
-    z_i = \left\lfloor R u_i \right\rfloor,
+di~\eqref{eq:graphon-sampling} viene approssimato scegliendo indici
+\begin{equation}
+    \label{eq:latent-index}
+    z_i = \bigl\lfloor R\,\eta_i \bigr\rfloor \wedge (R-1),
     \qquad z_i \in \{0,\ldots,R-1\},
-\]
+\end{equation}
 e ponendo
 \[
     A_{ij} \mid z_i,z_j,\widehat{W}
-    \sim \Bernoulli(\widehat{W}_{z_i,z_j}).
+    \sim \Bernoulli\bigl(\widehat{W}_{z_i z_j}\bigr).
 \]
-Prima del campionamento, la pipeline applica una proiezione
-\(\Pi : \Real^{R \times R} \to [0,1]^{R \times R}\) che impone vincoli
-strutturali:
-\[
+Prima del campionamento si applica una proiezione
+\(\Pi : \Real^{R \times R} \to [0,1]^{R \times R}\) che impone i vincoli
+strutturali di grafo semplice non orientato:
+\begin{equation}
+    \label{eq:sanitize}
     \Pi(X)_{ij}
     =
     \begin{cases}
-        0, & i=j,\\
-        \min\{1,\max\{0,(X_{ij}+X_{ji})/2\}\}, & i \neq j.
+        0, & i=j,\\[2pt]
+        \min\bigl\{1,\max\{0,(X_{ij}+X_{ji})/2\}\bigr\}, & i \neq j.
     \end{cases}
-\]
-Questa operazione rende espliciti i vincoli di grafo semplice non orientato:
-probabilita' valide, simmetria e assenza di self-loop.
+\end{equation}
+Ossia: simmetrizzazione, clipping in \([0,1]\), diagonale nulla. Questa proiezione
+ricorre in tre punti distinti della pipeline (uscita di SIGL, uscita del
+generatore, ingresso del campionatore) ed e' l'unico meccanismo che garantisce la
+validita' strutturale del graphon, dal momento che nessuno dei due modelli
+generativi impone la simmetria a livello architetturale.
 
-Questa rappresentazione e' utile perche' separa due problemi: la stima di una
-struttura probabilistica continua a partire da grafi osservati e la generazione
-di nuove istanze discrete a partire da tale struttura. Nel repository, SIGL e'
-usato per il primo passaggio: dato un insieme di grafi, produce graphon su griglia
-che vengono salvati come immagini o tensori e poi usati dal modello generativo.
-Poiche' la rappresentazione tramite graphon e' definita a meno di trasformazioni
-misura-preservanti dello spazio latente, la stima richiede anche un problema di
-allineamento o ordinamento dei nodi. Questo aspetto e' rilevante nella pipeline
-OGAD, perche' la qualita' del generatore successivo dipende dalla coerenza dei
-graphon stimati nella fase SIGL.
+\section{Stima del graphon: SIGL}
+\label{sec:sigl-theory}
 
-Formalmente, due graphon \(W\) e \(W'\) rappresentano lo stesso modello limite se
-esiste una trasformazione misura-preservante \(\varphi:[0,1]\to[0,1]\) tale che
+SIGL \cite{azizpour2025sigl} risolve il seguente problema: dato un insieme di
+grafi \(\mathcal{D}=\{A_t\}_{t=1}^{M}\) generati da un graphon incognito \(\omega\),
+stimare \(\omega\). Rispetto a IGNR \cite{xia2023ignr}, che minimizza la distanza
+di Gromov--Wasserstein e ha complessita' cubica nel numero di nodi, SIGL
+sostituisce la GW con un MSE puntuale, il che richiede pero' di risolvere
+esplicitamente il problema di allineamento. La procedura si articola in tre passi.
+
+\paragraph{Passo 1: apprendimento dell'ordinamento.}
+Si stimano le variabili latenti \(\hat{\eta}_t = \{\hat\eta_i\}_{i=1}^{n_t}\) di
+ogni grafo mediante una GNN \(g_{\phi_1}\), e simultaneamente un
+\emph{graphon ausiliario} \(h_{\phi_2}\), rappresentato da una INR, che funge da
+riferimento comune per tutti i grafi:
+\begin{equation}
+    \label{eq:sigl-step1}
+    \mathcal{L}(\phi)
+    =
+    \sum_{t=1}^{M}
+    \frac{1}{n_t^2}
+    \sum_{i,j=1}^{n_t}
+    \bigl[
+        A_t(i,j) - h_{\phi_2}\bigl(\hat\eta_t(i),\hat\eta_t(j)\bigr)
+    \bigr]^2 ,
+    \qquad
+    \hat{\eta}_t = g_{\phi_1}(A_t, X_t).
+\end{equation}
+Le feature di nodo \(X_t\) sono rumore gaussiano, cosicche' l'informazione usata
+per l'ordinamento e' interamente strutturale. Si definisce quindi la permutazione
+\(\hat\pi\) che ordina i nodi per valore decrescente di \(\hat\eta\), e si ottiene
+la matrice di adiacenza ordinata \(\hat{A}_t(i,j) = A_t(\hat\pi(i),\hat\pi(j))\).
+
+\paragraph{Passo 2: approssimazione a istogramma.}
+Seguendo Chan e Airoldi \cite{chan2014histogram}, si applica un average pooling non
+sovrapposto di finestra \(h\) alla matrice ordinata:
+\begin{equation}
+    \label{eq:sigl-hist}
+    \hat{H}_t(i,j)
+    =
+    \frac{1}{h^2}
+    \sum_{s_1=1}^{h}\sum_{s_2=1}^{h}
+    \hat{A}_t\bigl((i-1)h+s_1,\;(j-1)h+s_2\bigr),
+    \qquad
+    \hat{H}_t \in [0,1]^{k_t \times k_t},
+\end{equation}
+con \(k_t = \lfloor n_t / h \rfloor\). Ciascun \(\hat{H}_t\) e' una realizzazione
+rumorosa del graphon vero, osservata a una risoluzione diversa.
+
+\paragraph{Passo 3: regressione INR.}
+Si costruisce il dataset supervisionato
 \[
-    W'(u,v) = W(\varphi(u),\varphi(v))
-    \quad \text{quasi ovunque}.
+    \mathcal{C}
+    =
+    \Bigl\{
+        \bigl(\tfrac{i}{k_t},\tfrac{j}{k_t},\hat{H}_t(i,j)\bigr)
+        \;:\;
+        i,j \in \{1,\ldots,k_t\},\;
+        t \in \{1,\ldots,M\}
+    \Bigr\},
 \]
-Ne segue che il problema di apprendere una distribuzione sui graphon stimati non
-riguarda solo la qualita' punto per punto della matrice \(\widehat{W}\), ma anche
-la stabilita' della rappresentazione scelta per l'ordinamento latente.
+e si addestra una INR \(f_\theta : [0,1]^2 \to [0,1]\) minimizzando un MSE pesato:
+\begin{equation}
+    \label{eq:sigl-step3}
+    \theta^\star
+    =
+    \argmin_\theta
+    \sum_{t=1}^{M} w_t
+    \sum_{i=1}^{k_t}\sum_{j=1}^{k_t}
+    \left(
+        \hat{H}_t(i,j)
+        - f_\theta\!\left(\tfrac{i}{k_t},\tfrac{j}{k_t}\right)
+    \right)^2 ,
+    \qquad
+    w_t = \frac{|G_t|}{\sum_{i=1}^{M}|G_i|}.
+\end{equation}
+Il peso \(w_t\) proporzionale al numero di nodi privilegia i grafi piu' grandi, la
+cui risoluzione fornisce una stima migliore del graphon vero. La INR e' una rete
+SIREN \cite{sitzmann2020siren}, cioe' un MLP con attivazioni sinusoidali
+\(\phi_i(x) = \sin(\omega_0 W_i x + b_i)\), scelta per la capacita' di
+rappresentare segnali ad alta frequenza. Essendo \(f_\theta\) definita
+sull'intero dominio continuo, il graphon stimato e' \emph{resolution-free}: puo'
+essere campionato a qualunque risoluzione \(R\).
 
-\section{Diffusione in spazi discreti}
+La Proposizione~1 di SIGL stabilisce che, se \(\omega\) e' Lipschitz con costante
+\(\mathcal{L}\) e si sceglie \(h = \log n\), allora
+\begin{equation}
+    \label{eq:sigl-consistency}
+    \lim_{n\to\infty}
+    \mathbb{E}\bigl[\|f_\theta - \omega\|_2^2\bigr]
+    \leq
+    \varepsilon_{\mathrm{tr}} + 4\mathcal{L}^2\tau^2,
+\end{equation}
+dove \(\varepsilon_{\mathrm{tr}}\) e' l'errore massimo di regressione della INR sui
+punti di \(\mathcal{C}\) e \(\tau\) e' l'errore massimo della GNN nella stima delle
+variabili latenti. L'errore asintotico e' quindi controllato \emph{solo} dalla
+capacita' espressiva dei due moduli: architetture piu' espressive producono
+stimatori piu' consistenti.
+
+\section{Diffusione in spazi discreti: il framework D3PM}
+\label{sec:d3pm-theory}
 
 I modelli di diffusione apprendono a invertire un processo di corruzione
-progressiva dei dati. Nei modelli continui, la corruzione e' spesso descritta
-come aggiunta di rumore gaussiano; nei contesti discreti, invece, e' necessario
-definire transizioni tra stati discreti. D3PM formalizza questa idea introducendo
-processi di diffusione per variabili categoriali e mostrando come modellare la
-dinamica inversa in spazi di stati discreti \cite{austin2021structured}.
-La scelta di un modello discreto e' coerente con la natura dei grafi e con la
-discretizzazione dei valori del graphon: invece di perturbare direttamente valori
-continui, si apprende una dinamica su classi di probabilita'.
+progressiva dei dati \cite{sohl2015deep,ho2020denoising}. Nei modelli continui la
+corruzione e' aggiunta di rumore gaussiano; in spazi discreti occorre invece
+definire transizioni tra stati categoriali. D3PM \cite{austin2021structured}
+fornisce il framework generale.
 
-Sia \(x_0 \in \{1,\ldots,K\}^d\) una rappresentazione categoriale di un graphon
-discretizzato, dove \(K\) e' il numero di bin di probabilita' e \(d\) e' il
-numero di celle modellate. Un processo diffusivo discreto definisce una catena di
-Markov in avanti
-\[
-    q(x_{1:T}\mid x_0)
-    =
-    \prod_{t=1}^{T} q(x_t \mid x_{t-1}),
-\]
-dove ogni transizione e' descritta da una matrice stocastica
-\(Q_t \in [0,1]^{K \times K}\):
-\[
-    q(x_t \mid x_{t-1})
-    =
-    \mathrm{Cat}\!\left(x_t; x_{t-1} Q_t\right).
-\]
-Il modello generativo apprende invece una catena inversa parametrica
-\[
-    p_\theta(x_{0:T})
-    =
-    p(x_T)
-    \prod_{t=1}^{T} p_\theta(x_{t-1}\mid x_t),
-\]
-con l'obiettivo di approssimare la distribuzione dei graphon osservati dopo la
-fase SIGL. In forma variazionale, l'addestramento minimizza una decomposizione
-del negative log-likelihood:
-\[
-    \begin{aligned}
-        -\log p_\theta(x_0)
-        \leq
-        \mathbb{E}_{q(x_{1:T}\mid x_0)}
-        \Bigg[
-            &-\log p_\theta(x_0\mid x_1)\\
-            &+
-            \sum_{t=2}^{T}
-            D_{\mathrm{KL}}
-            \bigl(
-                q(x_{t-1}\mid x_t,x_0)
-                \,\|\, p_\theta(x_{t-1}\mid x_t)
-            \bigr)
-        \Bigg]
-        + C,
-    \end{aligned}
-\]
-dove \(C\) non dipende da \(\theta\). Questa scrittura mette in evidenza il ruolo
-del modello neurale: stimare, per ogni livello di rumore, la distribuzione del
-passo inverso.
+\subsection{Processo diretto}
 
-Nel contesto di questa tesi, i graphon sono rappresentati su una griglia
-\(128 \times 128\) e i valori di probabilita' possono essere discretizzati in un
-numero finito di classi. Cio' consente di trattare la generazione del graphon come
-un problema discreto, compatibile sia con l'implementazione D3PM presente nel
-repository, sia con l'adattamento di DiGress ai graphon. Nella configurazione
-DiGress, ogni cella fuori diagonale del graphon e' trattata come una classe
-categoriale; l'output e' poi ricondotto a un tensore simmetrico in \([0,1]\) con
-diagonale nulla.
-
-In termini di pipeline, si parte da un insieme di graphon stimati
-\[
-    \widehat{\mathcal{W}}
-    =
-    \{\widehat{W}_1,\ldots,\widehat{W}_n\},
+Sia \(x_0 \in \{1,\ldots,K\}\) una variabile categoriale e \(\boldsymbol{x}_0\) la
+sua codifica one-hot come vettore riga. Il processo diretto e' una catena di Markov
+\begin{equation}
+    q(x_{1:T}\mid x_0) = \prod_{t=1}^{T} q(x_t \mid x_{t-1}),
     \qquad
-    \widehat{W}_i \in [0,1]^{R \times R},
-\]
-li si quantizza tramite una funzione
-\[
-    b : [0,1] \to \{1,\ldots,K\},
-\]
-e si addestra il modello sulla collezione
-\[
-    x_i = b(\widehat{W}_i).
-\]
-La fase di generazione produce campioni \(\widetilde{x}\), che vengono
-dequantizzati in \(\widetilde{W}\) e successivamente usati come kernel di
-campionamento per ottenere grafi discreti.
+    q(x_t \mid x_{t-1}) = \Cat\bigl(x_t;\, \boldsymbol{x}_{t-1} Q_t\bigr),
+\end{equation}
+dove \([Q_t]_{ij} = q(x_t=j \mid x_{t-1}=i)\) e' una matrice stocastica per riga.
+Poiche' la catena e' markoviana, la marginale a \(t\) passi e la posterior sono
+disponibili in forma chiusa:
+\begin{align}
+    \label{eq:d3pm-marginal}
+    q(x_t\mid x_0) &= \Cat\bigl(x_t;\, \boldsymbol{x}_0 \overline{Q}_t\bigr),
+    \qquad \overline{Q}_t = Q_1 Q_2 \cdots Q_t,\\[4pt]
+    \label{eq:d3pm-posterior}
+    q(x_{t-1}\mid x_t, x_0)
+    &=
+    \Cat\!\left(
+        x_{t-1};\,
+        \frac{\boldsymbol{x}_t Q_t^{\top} \odot \boldsymbol{x}_0 \overline{Q}_{t-1}}
+             {\boldsymbol{x}_0 \overline{Q}_t \boldsymbol{x}_t^{\top}}
+    \right),
+\end{align}
+con \(\odot\) prodotto puntuale. Sono le due proprieta' che rendono possibile
+l'addestramento efficiente: \eqref{eq:d3pm-marginal} consente di campionare
+direttamente \(x_t\) da \(x_0\) per un \(t\) arbitrario (training parallelo sui
+timestep), \eqref{eq:d3pm-posterior} consente di calcolare analiticamente le
+divergenze KL della loss.
 
-\section{Generazione di grafi con DiGress}
+\subsection{Scelta della matrice di transizione}
 
-DiGress e' un modello di diffusione discreta progettato per la generazione di
-grafi \cite{vignac2023digress}. Il suo interesse per questo lavoro deriva dal
-fatto che opera naturalmente su strutture discrete e puo' essere usato come
-baseline per la generazione diretta di grafi. Nel repository OGAD e' presente
-anche una modalita' alternativa in cui DiGress viene usato non per generare
-direttamente grafi, ma per generare graphon discretizzati. Tale variante legge i
-graphon prodotti da SIGL, usa un numero configurabile di bin di probabilita' e
-scrive tensori compatibili con lo stadio GGME.
+D3PM mostra che la scelta di \(Q_t\) e' una decisione di progetto rilevante.
+Le due varianti pertinenti a questo lavoro sono:
 
-\section{Valutazione tramite MMD}
+\begin{itemize}
+    \item \textbf{Uniforme} \cite{hoogeboom2021argmax}:
+    \begin{equation}
+        \label{eq:q-uniform}
+        Q_t = (1-\beta_t) I + \frac{\beta_t}{K}\,\one\one^{\top},
+        \qquad
+        [Q_t]_{ij} =
+        \begin{cases}
+            1 - \frac{K-1}{K}\beta_t, & i=j,\\[2pt]
+            \frac{\beta_t}{K}, & i \neq j.
+        \end{cases}
+    \end{equation}
+    La matrice e' doppiamente stocastica a entrate strettamente positive, quindi
+    per il teorema di Perron--Frobenius la distribuzione stazionaria e' uniforme
+    su \(\{1,\ldots,K\}\). E' questa la variante usata in \emph{entrambe} le
+    configurazioni OGAD.
+    \item \textbf{Marginale} \cite{vignac2023digress}:
+    \(Q_t = \alpha^t I + \beta^t \one \boldsymbol{m}^{\top}\), con
+    \(\boldsymbol{m}\) la distribuzione marginale empirica delle classi nel
+    training set. La distribuzione limite e' \(\boldsymbol{m}\) anziche' uniforme;
+    l'idea e' che una prior piu' vicina alla distribuzione dei dati renda il
+    training piu' facile. Il Teorema 4.1 di DiGress mostra che il prodotto delle
+    marginali e' la proiezione ortogonale della distribuzione vera sulla classe
+    delle distribuzioni prodotto.
+\end{itemize}
+
+\subsection{Schedule di rumore}
+
+Lo schedule determina \(\beta_t\). La pipeline usa in entrambe le varianti uno
+schedule di tipo coseno, ispirato a Nichol e Dhariwal \cite{nichol2021improved},
+che fissa la probabilita' cumulata di non-transizione \(\bar\alpha_t\) e ne deduce
+\(\beta_t\):
+\begin{equation}
+    \label{eq:cosine}
+    \bar\alpha(s) = \cos\!\left(\frac{s+s_0}{1+s_0}\cdot\frac{\pi}{2}\right)^{p},
+    \qquad
+    \beta_t = 1 - \frac{\bar\alpha(t/T)}{\bar\alpha((t-1)/T)},
+    \qquad s_0 = 0.008 .
+\end{equation}
+Le due implementazioni differiscono nell'esponente \(p\) (Sezione~\ref{sec:d3pm-impl}
+e Sezione~\ref{sec:digress-impl}): D3PM nel repository usa \(p=1\), DiGress usa
+\(p=2\) come nella formulazione originale.
+
+\subsection{Parametrizzazione inversa e loss}
+
+Invece di predire direttamente i logit di \(p_\theta(x_{t-1}\mid x_t)\), si segue
+la \(x_0\)-parametrizzazione: una rete \(\mathrm{nn}_\theta\) predice i logit di
+\(\tilde{p}_\theta(\tilde{x}_0 \mid x_t)\), che vengono combinati con la posterior
+esatta:
+\begin{equation}
+    \label{eq:x0-param}
+    p_\theta(x_{t-1}\mid x_t)
+    \;\propto\;
+    \sum_{\tilde{x}_0}
+    q(x_{t-1}, x_t \mid \tilde{x}_0)\,
+    \tilde{p}_\theta(\tilde{x}_0\mid x_t).
+\end{equation}
+Questa scelta ha tre vantaggi: (i) la KL in \eqref{eq:d3pm-elbo} si annulla
+esattamente quando \(\tilde{p}_\theta\) concentra tutta la massa su \(x_0\);
+(ii) il pattern di sparsita' di \(Q_t\) e' automaticamente ereditato da
+\(p_\theta\); (iii) consente inferenza a \(k\) passi alla volta,
+\(p_\theta(x_{t-k}\mid x_t) = \sum q(x_{t-k},x_t\mid \tilde{x}_0)
+\tilde{p}_\theta(\tilde{x}_0\mid x_t)\).
+
+L'addestramento minimizza un bound variazionale sulla negative log-likelihood:
+\begin{equation}
+    \label{eq:d3pm-elbo}
+    L_{\mathrm{vb}}
+    =
+    \mathbb{E}_{q(x_0)}
+    \Biggl[
+        \underbrace{\KL\bigl(q(x_T\mid x_0)\,\|\,p(x_T)\bigr)}_{L_T}
+        +
+        \sum_{t=2}^{T}
+        \underbrace{\mathbb{E}_{q(x_t\mid x_0)}
+        \KL\bigl(q(x_{t-1}\mid x_t,x_0)\,\|\,p_\theta(x_{t-1}\mid x_t)\bigr)}_{L_{t-1}}
+        \underbrace{-\,\mathbb{E}_{q(x_1\mid x_0)}\log p_\theta(x_0\mid x_1)}_{L_0}
+    \Biggr].
+\end{equation}
+Il termine \(L_T\) non dipende da \(\theta\) se la prior e' fissata alla
+distribuzione stazionaria del processo diretto. D3PM introduce inoltre una loss
+ibrida che aggiunge un termine ausiliario di cross-entropy sulla predizione di
+\(x_0\):
+\begin{equation}
+    \label{eq:d3pm-hybrid}
+    L_\lambda
+    =
+    L_{\mathrm{vb}}
+    + \lambda\,
+    \mathbb{E}_{q(x_0)}\mathbb{E}_{q(x_t\mid x_0)}
+    \bigl[-\log \tilde{p}_\theta(x_0\mid x_t)\bigr].
+\end{equation}
+Il termine ausiliario coincide con \(L_0\) per \(t=1\) ed e' minimizzato dalla
+stessa configurazione che minimizza \(L_{\mathrm{vb}}\); la sua funzione e'
+stabilizzare il gradiente, la cui varianza in \(L_{\mathrm{vb}}\) dipende
+fortemente da \(t\). Nel repository \(\lambda\) e' l'iperparametro
+\texttt{hybrid\_loss\_coeff}.
+
+Nel caso multivariato --- che e' il caso di interesse, dato che un graphon ha
+\(R^2\) celle --- si assume che \(Q_t\) sia applicata indipendentemente a ogni
+componente e che sia \(q\) sia \(p_\theta\) fattorizzino sulle componenti. Le KL
+si calcolano dunque componente per componente e si sommano.
+
+\section{Diffusione discreta su grafi: DiGress}
+\label{sec:digress-theory}
+
+DiGress \cite{vignac2023digress} specializza il framework precedente al caso in
+cui il dato e' un grafo con attributi categoriali su nodi e archi. Un grafo con
+\(n\) nodi e' rappresentato dalla coppia \(G = (X, E)\), con
+\(X \in \Real^{n\times a}\) matrice delle codifiche one-hot dei tipi di nodo
+(\(a\) classi) ed \(E \in \Real^{n\times n\times b}\) tensore delle codifiche
+one-hot dei tipi di arco (\(b\) classi, dove l'assenza di arco e' trattata come un
+tipo particolare).
+
+\subsection{Processo diretto fattorizzato}
+
+Il rumore viene applicato indipendentemente a ogni nodo e a ogni arco, tramite due
+matrici di transizione distinte \(Q_X^t \in \Real^{a\times a}\) e
+\(Q_E^t \in \Real^{b\times b}\):
+\begin{equation}
+    \label{eq:digress-forward}
+    q(G^t \mid G^{t-1}) = \bigl(X^{t-1}Q_X^t,\; E^{t-1}Q_E^t\bigr),
+    \qquad
+    q(G^t \mid G) = \bigl(X\overline{Q}_X^t,\; E\overline{Q}_E^t\bigr).
+\end{equation}
+Nel caso di grafi non orientati il rumore e' applicato solo alla parte
+triangolare superiore di \(E\), che viene poi simmetrizzata. Si noti che lo
+spazio degli stati su cui e' definita la matrice di transizione non e' lo spazio
+dei grafi (che sarebbe di cardinalita' proibitiva) ma solo l'insieme dei tipi di
+nodo e di arco.
+
+\subsection{Rete di denoising e loss}
+
+La rete \(\varphi_\theta\) riceve \(G^t\) e predice una distribuzione
+\(\hat{p}^G = (\hat{p}^X, \hat{p}^E)\) sul grafo pulito. L'addestramento
+minimizza una cross-entropy che si decompone su nodi e archi:
+\begin{equation}
+    \label{eq:digress-loss}
+    l(\hat{p}^G, G)
+    =
+    \sum_{1\leq i\leq n} \mathrm{CE}\bigl(x_i, \hat{p}^X_i\bigr)
+    \;+\;
+    \lambda \sum_{1\leq i,j\leq n} \mathrm{CE}\bigl(e_{ij}, \hat{p}^E_{ij}\bigr),
+\end{equation}
+con \(\lambda \in \Real^{+}\) che bilancia il peso relativo di nodi e archi.
+Il campionamento inverso marginalizza sulle predizioni della rete:
+\begin{equation}
+    \label{eq:digress-reverse}
+    p_\theta(G^{t-1}\mid G^t)
+    =
+    \prod_{i} p_\theta(x_i^{t-1}\mid G^t)
+    \prod_{i,j} p_\theta(e_{ij}^{t-1}\mid G^t),
+\end{equation}
+\begin{equation}
+    p_\theta(x_i^{t-1}\mid G^t)
+    =
+    \sum_{x\in\mathcal{X}}
+    q\bigl(x_i^{t-1}\mid x_i = x,\, x_i^t\bigr)\,\hat{p}^X_i(x),
+\end{equation}
+e analogamente per gli archi.
+
+\subsection{Proprieta' di equivarianza}
+
+Tre lemmi di DiGress garantiscono la correttezza rispetto alle permutazioni:
+l'architettura e' equivariante (Lemma 3.1), la loss~\eqref{eq:digress-loss} e'
+invariante perche' decomponibile per nodo e per arco (Lemma 3.2), e la
+distribuzione generata e' scambiabile (Lemma 3.3), poiche' la prior e' un prodotto
+di distribuzioni i.i.d. e le transizioni sono equivarianti. In particolare il
+Lemma 3.2 implica che non e' necessario alcun graph matching tra grafo predetto e
+grafo target, a differenza degli approcci basati su VAE.
+
+\begin{remark}
+Nella variante OGAD--DiGress (Sezione~\ref{sec:digress-impl}) queste proprieta'
+restano valide ma perdono rilevanza pratica: il \enquote{grafo} in ingresso e' un
+grafo completo su \(128\) nodi con tipi di nodo costanti, quindi l'unica
+informazione risiede nelle etichette d'arco e la permutazione dei nodi corrisponde
+proprio alla riparametrizzazione~\eqref{eq:graphon-equivalence} che SIGL ha gia'
+fissato. L'equivarianza della rete diventa quindi un vincolo che il modello deve
+\enquote{superare}: la struttura del graphon e' \emph{ordinata}, e un modello
+equivariante non puo' sfruttare direttamente tale ordinamento se non attraverso
+i valori delle etichette.
+\end{remark}
+
+\subsection{Feature ausiliarie strutturali}
+
+Poiche' le MPNN standard hanno potere espressivo limitato (non sanno contare i
+cicli), DiGress aumenta l'input della rete con descrittori calcolati sul grafo
+rumoroso: conteggi di cicli fino a lunghezza 6, numero di componenti connesse,
+primi autovalori del laplaciano e relativi autovettori. Questa possibilita' e'
+resa disponibile proprio dalla natura discreta del rumore, che preserva la
+sparsita' del grafo rumoroso (a differenza della diffusione gaussiana, che
+produce grafi completi in cui le nozioni topologiche non sono definite).
+
+\section{Valutazione tramite MMD e il protocollo GGME}
+\label{sec:ggme-theory}
 
 La valutazione dei modelli generativi per grafi e' particolarmente delicata:
-metriche apparentemente naturali possono risultare instabili o poco informative
-se non vengono associate a descrittori strutturali e kernel appropriati.
-GGME affronta questo problema studiando l'uso della Maximum Mean Discrepancy
-(MMD) per confrontare distribuzioni di grafi \cite{obray2022evaluation}.
+diversamente dalle immagini, i grafi non possono essere valutati per ispezione
+visiva, e le metriche comunemente adottate risultano instabili se non associate a
+descrittori strutturali e kernel appropriati. GGME \cite{obray2022evaluation}
+affronta sistematicamente questo problema.
+
+\subsection{Desiderata}
+
+GGME enuncia tre requisiti per una metrica di confronto tra distribuzioni di grafi:
+\begin{itemize}
+    \item \textbf{Espressivita'}: \(d(\Graphs,\Graphs')\) deve crescere
+    monotonicamente al crescere della dissimilarita';
+    \item \textbf{Robustezza}: piccole perturbazioni della distribuzione devono
+    produrre piccole variazioni della metrica;
+    \item \textbf{Efficienza}: il costo computazionale deve scalare con il numero e
+    la dimensione dei grafi.
+\end{itemize}
+
+\subsection{Descrittori e MMD}
 
 Siano \(\mathcal{P}\) e \(\mathcal{Q}\) due distribuzioni su grafi e sia
-\(\phi : \Graphs \to \Real^m\) un descrittore strutturale, ad esempio la
-distribuzione dei gradi o lo spettro del laplaciano normalizzato. Data una
-funzione kernel positiva definita \(k : \Real^m \times \Real^m \to \Real\),
-la MMD tra le distribuzioni indotte dai descrittori e' definita come
-\[
+\(\phi : \Graphs \to \Real^m\) un descrittore strutturale. Data una funzione
+kernel positiva definita \(k : \Real^m \times \Real^m \to \Real\), la MMD tra le
+distribuzioni indotte dai descrittori e'
+\begin{equation}
+    \label{eq:mmd}
     \begin{aligned}
         \MMD^2_k(\mathcal{P},\mathcal{Q})
         &=
-        \mathbb{E}_{G,G'\sim\mathcal{P}}
-            k(\phi(G),\phi(G'))\\
-        &\quad+
-        \mathbb{E}_{H,H'\sim\mathcal{Q}}
-            k(\phi(H),\phi(H'))\\
+        \mathbb{E}_{G,G'\sim\mathcal{P}}\,k(\phi(G),\phi(G'))
+        +
+        \mathbb{E}_{H,H'\sim\mathcal{Q}}\,k(\phi(H),\phi(H'))\\
         &\quad-
-        2\mathbb{E}_{G\sim\mathcal{P},H\sim\mathcal{Q}}
-            k(\phi(G),\phi(H)).
+        2\,\mathbb{E}_{G\sim\mathcal{P},H\sim\mathcal{Q}}\,k(\phi(G),\phi(H)).
     \end{aligned}
-\]
-Dato un campione osservato \(\{G_i\}_{i=1}^{n}\) e un campione generato
-\(\{H_j\}_{j=1}^{m}\), la stima empirica usata nella valutazione ha la forma
-\[
+\end{equation}
+Dato un campione osservato \(\{G_i\}_{i=1}^{n}\) e uno generato
+\(\{H_j\}_{j=1}^{m}\), lo stimatore \emph{non distorto}
+\cite{gretton2012kernel} rimuove i termini diagonali di auto-confronto:
+\begin{equation}
+    \label{eq:mmd-unbiased}
     \begin{aligned}
         \widehat{\MMD}^2_k
         &=
-        \frac{1}{n^2}
-        \sum_{i=1}^{n}\sum_{i'=1}^{n}
-            k(\phi(G_i),\phi(G_{i'}))\\
-        &\quad+
-        \frac{1}{m^2}
-        \sum_{j=1}^{m}\sum_{j'=1}^{m}
-            k(\phi(H_j),\phi(H_{j'}))\\
+        \frac{1}{n(n-1)}
+        \sum_{i \neq i'} k(\phi(G_i),\phi(G_{i'}))
+        +
+        \frac{1}{m(m-1)}
+        \sum_{j \neq j'} k(\phi(H_j),\phi(H_{j'}))\\
         &\quad-
         \frac{2}{nm}
         \sum_{i=1}^{n}\sum_{j=1}^{m}
             k(\phi(G_i),\phi(H_j)).
     \end{aligned}
-\]
-Nella pipeline sono considerati kernel lineari e gaussiani; nel secondo caso,
-per descrittori \(a,b \in \Real^m\),
+\end{equation}
+Essendo non distorto, lo stimatore \eqref{eq:mmd-unbiased} puo' assumere valori
+negativi; e' inoltre uno stimatore di \(\MMD^2\), non di \(\MMD\).
+
+I kernel considerati nella pipeline sono il kernel lineare
+\(k(a,b) = \langle a,b\rangle\), privo di iperparametri, e il kernel gaussiano
+\begin{equation}
+    \label{eq:rbf}
+    k_\sigma(a,b) = \exp\bigl(-\sigma\,\|a-b\|_2^2\bigr).
+\end{equation}
+Si noti che qui \(\sigma\) parametrizza una \emph{precisione} e non una larghezza
+di banda. GGME sconsiglia esplicitamente il kernel basato su Earth Mover's Distance
+(troppo costoso, fino a due ordini di grandezza piu' lento) e il kernel gaussiano
+basato sulla distanza di variazione totale, che non e' definito positivo perche' lo
+spazio metrico indotto dalla TV non e' piatto (Teorema 1 di GGME).
+
+\subsection{Selezione di kernel e iperparametri}
+
+Il contributo metodologico principale di GGME e' la dimostrazione che il ranking
+dei modelli e' \emph{arbitrario} rispetto alla scelta di kernel, \(\sigma\) e
+numero di bin del descrittore: qualunque modello puo' risultare primo con una
+scelta opportuna. La soluzione proposta e' selezionare tali elementi mediante un
+esperimento di perturbazione controllata che \emph{non coinvolge i modelli}:
+
+\begin{enumerate}
+    \item si genera una sequenza di versioni perturbate del test set con intensita'
+    crescente \(p_1 < p_2 < \cdots < p_L\);
+    \item per ogni combinazione (kernel, \(\sigma\)) si calcola
+    \(\widehat{\MMD}^2\) tra test set e ciascuna versione perturbata;
+    \item si sceglie la combinazione che massimizza la correlazione di Pearson tra
+    l'intensita' della perturbazione e la MMD risultante.
+\end{enumerate}
+
+La procedura e' non distorta rispetto ai modelli in confronto, perche' dipende
+solo dalla distribuzione di partenza. GGME raccomanda inoltre di riportare la MMD
+tra training e test set come \emph{scala di riferimento}, dato che la MMD non ha
+una scala intrinseca.
+
+\chapter{La pipeline OGAD}
+\label{ch:pipeline}
+
+Questo capitolo descrive la pipeline implementata, collegando ciascuna scelta
+implementativa al corrispondente formalismo del Capitolo~\ref{ch:teoria}. La
+struttura complessiva e'
 \[
-    k_\sigma(a,b)
-    =
-    \exp\left(-\frac{\|a-b\|_2^2}{2\sigma^2}\right).
+    \underbrace{\text{SIGL}}_{\text{stadio 1}}
+    \;\longrightarrow\;
+    \underbrace{\text{D3PM \emph{oppure} DiGress su graphon}}_{\text{stadio 2}}
+    \;\longrightarrow\;
+    \underbrace{\text{campionamento di grafi}}_{\text{stadio 3}}
+    \;\longrightarrow\;
+    \underbrace{\text{GGME}}_{\text{stadio 4}} .
 \]
 
-Nella pipeline OGAD, la valutazione segue tre passaggi. Per ciascun descrittore,
-vengono generate versioni perturbate del test set e viene selezionata la
-combinazione di kernel e iperparametri che massimizza la correlazione con il
-livello di perturbazione. Successivamente, la stessa configurazione viene usata
-per misurare la distanza tra il test set e le distribuzioni prodotte dai modelli.
-I descrittori attualmente usati sono:
-
-\begin{itemize}
-    \item distribuzione dei gradi;
-    \item coefficiente di clustering;
-    \item spettro del laplaciano normalizzato.
-\end{itemize}
-
-\chapter{Pipeline proposta}
-
-\section{Architettura generale}
-
-La pipeline implementata nel repository segue la sequenza:
-\[
-    \text{SIGL} \rightarrow \text{D3PM/DiGress su graphon} \rightarrow
-    \text{campionamento di grafi} \rightarrow \text{GGME}.
-\]
-Lo script principale \texttt{scripts/run\_ogad\_experiment.sh} orchestra le tre
-fasi in container separati. La prima fase prepara i dati e stima i graphon; la
-seconda addestra o esegue il generatore di graphon; la terza converte i graphon
-generati in grafi e calcola le metriche di valutazione.
-
-Indicando con
-\[
-    \mathcal{D}_{\mathrm{train}} = \{G_1,\ldots,G_N\}
-\]
-il training set di grafi, la prima fase produce una collezione
-\[
+Formalmente, indicando con
+\(\mathcal{D}_{\mathrm{train}} = \{G_1,\ldots,G_N\}\) il training set di grafi, il
+primo stadio produce una collezione di graphon stimati
+\begin{equation}
     \widehat{\mathcal{W}}
     =
     S_{\psi}(\mathcal{D}_{\mathrm{train}})
     =
     \{\widehat{W}_1,\ldots,\widehat{W}_L\},
-\]
-dove \(S_{\psi}\) rappresenta lo stimatore SIGL. Il generatore di graphon
-apprende quindi una distribuzione \(p_\theta(W)\) approssimata tramite campioni
-\(\widetilde{W}_1,\ldots,\widetilde{W}_S \sim p_\theta\). La fase finale induce
+    \qquad \widehat{W}_\ell \in [0,1]^{R\times R},
+\end{equation}
+dove \(S_\psi\) rappresenta lo stimatore SIGL. Il secondo stadio apprende una
+distribuzione \(p_\theta(W)\) su tale collezione e ne estrae campioni
+\(\widetilde{W}_1,\ldots,\widetilde{W}_S \sim p_\theta\). Il terzo stadio induce
 una distribuzione su grafi
-\[
-    \widetilde{G} \sim \mathbb{P}(\,\cdot \mid \widetilde{W}, M),
-\]
-dove \(M\) e' campionato dalla distribuzione empirica delle dimensioni dei grafi
-di test. Il confronto sperimentale puo' quindi essere formulato come minimizzare,
-implicitamente, una distanza tra la distribuzione reale dei grafi e quella
-generata:
-\[
-    \GraphDist_{\Graphs}^{\mathrm{test}}
-    \quad \text{vs.} \quad
-    \GraphDist_{\Graphs,\theta,\psi}^{\mathrm{OGAD}}.
-\]
+\begin{equation}
+    \widetilde{G} \sim \GraphDist\bigl(\,\cdot \mid \Pi(\widetilde{W}), M\bigr),
+    \qquad M \sim \hat{\mu}_M,
+\end{equation}
+con \(\hat{\mu}_M\) la distribuzione empirica delle dimensioni dei grafi di test.
+Il quarto stadio confronta
+\(\GraphDist_{\Graphs}^{\mathrm{test}}\) con
+\(\GraphDist_{\Graphs,\theta,\psi}^{\mathrm{OGAD}}\).
 
-La configurazione sperimentale e' descritta tramite file JSON. Nella
-configurazione raffinata per D3PM, SIGL usa \(100\) epoche, learning rate
-\(0.06\), risoluzione \(128\), \(50\) cluster e bootstrap replicate
-\(13,14,15,16\). La parte D3PM esplora batch size \(32\), dimensione latente
-\(512\), learning rate tra \(2\cdot10^{-5}\) e \(5\cdot10^{-5}\), numero di
-classi in \(\{10,12,14\}\) e coefficienti di loss ibrida in
-\(\{0.006,0.01,0.015\}\). L'addestramento prevede split di validazione pari a
-\(0.2\), patience \(25\) e massimo \(300\) epoche.
+\section{Dataset}
+\label{sec:dataset}
 
-La configurazione DiGress su graphon usa la stessa fase SIGL, ma sostituisce il
-generatore D3PM con una diffusione categoriale DiGress. In questa modalita' il
-modello usa \(10\) bin di probabilita', risoluzione \(128\), batch size \(2\),
-accumulo gradiente pari a \(16\), \(200\) epoche massime e produce \(16\)
-graphon finali. Entrambe le modalita' producono tensori compatibili con GGME,
-con forma \([N,1,128,128]\).
+Tutti gli esperimenti usano il dataset \emph{Community Graphs}, distribuito con il
+repository GGME e memorizzato in formato pickle:
 
-\section{Campionamento dai graphon generati}
+\begin{center}
+\begin{tabular}{lrrl}
+    \toprule
+    File & \(N\) grafi & Nodi & Formato \\
+    \midrule
+    \texttt{data/train/graphs/CommunityGraphs.pickle} & 400 & 45 & \texttt{csr\_matrix} \\
+    \texttt{data/test/graphs/CommunityGraphs.pickle} & 100 & 45 & \texttt{csr\_matrix} \\
+    \texttt{data/predictions/graphs/ggme\_paper/} & 400 & 44--45 & \texttt{ndarray} \\
+    \bottomrule
+\end{tabular}
+\end{center}
 
-Dopo la generazione, ogni graphon viene sanificato imponendo simmetria, valori
-nel range \([0,1]\) e diagonale nulla. Per produrre un insieme fissato di grafi,
-la pipeline seleziona ciclicamente i graphon disponibili e campiona il numero di
-nodi dalla distribuzione empirica dei grafi nel test set. Questo accorgimento
-riduce il rischio che differenze nelle metriche siano dovute soltanto a una
-distribuzione diversa delle dimensioni dei grafi.
+La densita' media di archi e' \(\approx 0.234\) sul training set e
+\(\approx 0.232\) sul test set. Il fatto che \emph{tutti} i grafi abbiano
+esattamente 45 nodi ha una conseguenza importante sul terzo stadio: la
+distribuzione empirica \(\hat\mu_M\) e' degenere in \(45\), quindi tutti i grafi
+generati hanno 45 nodi e le differenze nelle metriche non possono essere imputate
+a una diversa distribuzione delle dimensioni.
+
+Il terzo file, indicato nel confronto come \enquote{Paper}, contiene le predizioni
+di esempio distribuite con il repository GGME: sono i grafi prodotti da un modello
+generativo di riferimento, e fungono da soglia di qualita' esterna.
+
+\section{Stadio 1: stima dei graphon con SIGL}
+\label{sec:sigl-impl}
+
+\subsection{Il problema della cardinalita' del training set}
+
+SIGL, come formulato in \cite{azizpour2025sigl}, produce \emph{un solo} graphon a
+partire da un insieme di grafi. Questo e' incompatibile con lo stadio 2, che
+richiede un dataset di graphon sufficientemente numeroso per addestrare un modello
+di diffusione. La pipeline OGAD risolve il problema con una procedura in due
+passi: \emph{clustering} dei grafi seguito da \emph{bootstrap non parametrico}
+all'interno di ciascun cluster.
+
+\paragraph{Clustering.}
+Ogni grafo \(G_i\) e' mappato in un vettore di feature ottenuto concatenando i
+\emph{medesimi tre descrittori} usati nella valutazione GGME, in forma
+normalizzata:
+\begin{equation}
+    \label{eq:cluster-features}
+    \mathbf{f}(G) =
+    \bigl[\,
+        \phi_{\mathrm{deg}}(G)
+        \;\Vert\;
+        \phi_{\mathrm{clust}}(G)
+        \;\Vert\;
+        \phi_{\mathrm{lap}}(G)
+    \,\bigr].
+\end{equation}
+I vettori vengono zero-padded a lunghezza comune, standardizzati, e partizionati
+con \(k\)-means in \(C\) cluster (\(C=50\) nella configurazione principale,
+\(C=200\) in un test preliminare). Si ottiene una partizione
+\(\{\mathcal{I}_1,\ldots,\mathcal{I}_C\}\) degli indici dei grafi.
+
+\paragraph{Bootstrap.}
+Per ogni cluster \(c\) e per ogni replica \(r = 1,\ldots,B\) si estrae un campione
+bootstrap di indici
+\begin{equation}
+    \label{eq:bootstrap}
+    \mathcal{I}_c^{(r)}
+    =
+    \bigl(
+        i_1^{(r)},\ldots,i_{|\mathcal{I}_c|}^{(r)}
+    \bigr),
+    \qquad
+    i_s^{(r)} \overset{\mathrm{i.i.d.}}{\sim} \Uniform(\mathcal{I}_c),
+\end{equation}
+cioe' \(|\mathcal{I}_c|\) estrazioni \emph{con reinserimento} dai membri del
+cluster. Il numero totale di graphon prodotti e'
+\begin{equation}
+    \label{eq:L-count}
+    L =
+    \begin{cases}
+        C, & B = 1,\\
+        C \cdot B + C\,\mathbb{1}[\text{include\_original}], & B > 1.
+    \end{cases}
+\end{equation}
+Con \(C=50\) e \(B \in \{12,13,14,15,16\}\) si ottengono \(L \in \{600, 650, 700,
+750, 800\}\) graphon. Ogni job di bootstrap innesca una stima SIGL
+\emph{completamente indipendente}: sia la GCN sia la SIREN sono reinizializzate da
+zero, cosicche' i \(L\) graphon sono \(L\) stime distinte e non \(L\) viste dello
+stesso oggetto.
+
+\begin{remark}[Interpretazione statistica]
+La procedura puo' essere letta come una stima della \emph{distribuzione
+campionaria} dello stimatore SIGL, condizionata alla struttura locale del
+dataset. Il clustering identifica sottopopolazioni omogenee rispetto ai descrittori
+strutturali; il bootstrap all'interno di ciascuna genera la variabilita' che il
+modello diffusivo deve poi apprendere. Senza bootstrap, il modello vedrebbe \(C\)
+graphon quasi deterministici; senza clustering, la variabilita' bootstrap sarebbe
+dominata dall'eterogeneita' globale del dataset.
+\end{remark}
+
+\paragraph{Split di validazione.}
+Prima del clustering, il training set viene suddiviso in modo deterministico
+(seed \(0\), frazione \(0.2\)) in \(320\) grafi usati per la stima dei graphon e
+\(80\) grafi tenuti da parte come \emph{validation set GGME}, impiegato nello
+stadio 4 per la selezione del candidato migliore (Sezione~\ref{sec:selection}).
+Questo evita che la selezione del modello usi il test set.
+
+\subsection{Iperparametri e architettura effettivi}
+
+\begin{center}
+\begin{tabular}{lll}
+    \toprule
+    Componente & Iperparametro & Valore \\
+    \midrule
+    GCN \(g_{\phi_1}\) & strati \texttt{GCNConv} & 3, con 8 unita' ciascuno \\
+      & attivazione & ReLU, poi \(\mathrm{Linear}(8\to1)\) + sigmoide \\
+      & normalizzazione & min--max per grafo, in \([0,1]\) \\
+      & feature di nodo & \(x_i \sim \mathcal{N}(0,1)\), scalari \\
+    SIREN \(h_{\phi_2}, f_\theta\) & strati nascosti & 2, con 20 unita' \\
+      & \(\omega_0\) primo strato & 10 \\
+      & \(\omega_0\) strati successivi & 1 \\
+      & attivazione finale & sigmoide \\
+    Ottimizzazione & epoche (passi 1 e 3) & 100 \\
+      & learning rate & 0.06 (Adam) \\
+      & batch (passo 1) & 1 grafo \\
+      & batch (passo 3) & 1024 coordinate \\
+    Discretizzazione & finestra di pooling \(h\) & \(\lfloor \ln n \rfloor = 3\) \\
+      & risoluzione istogramma \(k\) & \(\lfloor 45/3\rfloor = 15\) \\
+      & risoluzione di uscita \(R\) & 128 \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+Per \(n=45\) nodi il passo 2 produce quindi istogrammi \(15\times 15\), ossia
+\(225\) coppie \((x,y,\hat{H})\) per grafo. Poiche' tutti i grafi hanno la stessa
+dimensione, i pesi \(w_t\) di~\eqref{eq:sigl-step3} sono uniformi e la loss pesata
+degenera in un MSE ordinario.
+
+\subsection{Formato di uscita}
+
+Il graphon stimato viene campionato dalla INR su una griglia regolare di celle
+centrate,
+\begin{equation}
+    \widehat{W}_{ij} = f_{\theta^\star}\!\left(\frac{i+\tfrac12}{R}, \frac{j+\tfrac12}{R}\right),
+    \qquad i,j = 0,\ldots,R-1,
+\end{equation}
+quindi sanificato secondo~\eqref{eq:sanitize} e salvato come immagine PNG in scala
+di grigio a 8 bit, con nome \texttt{sample\_\{$\ell$\}.png}. Un file
+\texttt{bootstrap\_metadata.json} registra, per ciascun graphon, il cluster di
+origine, l'identificativo di replica e gli indici dei grafi effettivamente usati.
+
+\begin{remark}[Quantizzazione implicita a 8 bit]
+\label{rem:png}
+Il passaggio attraverso il formato PNG introduce una quantizzazione non
+documentata nella formulazione teorica: i valori vengono arrotondati a
+\(\mathrm{round}(255\,\widehat{W}_{ij})/255\). Poiche' lo stadio 2 applica una
+seconda quantizzazione a \(K \approx 10\) livelli, la risoluzione a 8 bit non e'
+il fattore limitante; resta tuttavia una scelta implementativa da segnalare,
+perche' rende il formato di scambio tra stadio 1 e stadio 2 lossy e non
+esattamente invertibile.
+\end{remark}
+
+\section{Stadio 2, variante A: OGAD--D3PM}
+\label{sec:d3pm-impl}
+
+\subsection{Rappresentazione del dato}
+
+Il graphon e' trattato come un'\emph{immagine categoriale} a canale singolo. Dato
+\(\widehat{W}\in[0,1]^{R\times R}\), la quantizzazione e'
+\begin{equation}
+    \label{eq:d3pm-quant}
+    b(w) = \mathrm{clip}\Bigl(\bigl\lfloor w\,(K-1) \bigr\rceil,\; 0,\; K-1\Bigr)
+    \;\in\; \{0,\ldots,K-1\},
+\end{equation}
+dove \(\lfloor\cdot\rceil\) denota l'arrotondamento al pari intero piu' vicino. La
+dequantizzazione e' esattamente l'inversa:
+\begin{equation}
+    \label{eq:d3pm-dequant}
+    b^{-1}(k) = \frac{k}{K-1}.
+\end{equation}
+Si osservi che questa non e' una discretizzazione a bin di uguale ampiezza, ma un
+arrotondamento al piu' vicino fra \(K\) \emph{livelli equispaziati} su \([0,1]\).
+I livelli sono \(\{0, \tfrac{1}{K-1}, \ldots, 1\}\) e i confini impliciti sono i
+punti medi \(\tfrac{2k+1}{2(K-1)}\); i due bin estremi hanno quindi ampiezza
+dimezzata rispetto a quelli interni.
+
+Il modello opera sull'intera matrice \(R\times R = 128\times128\): non vi e'
+estrazione del triangolo superiore ne' mascheramento della diagonale. Le
+\(16\,384\) celle sono trattate come variabili categoriali condizionalmente
+indipendenti dato \(x_t\), e la simmetria e' un vincolo \emph{soft}, ereditato dai
+dati e reimposto a posteriori tramite~\eqref{eq:sanitize}. Questo comporta uno
+spreco di capacita' pari a circa un fattore 2, ed e' una delle direzioni di
+miglioramento piu' immediate della pipeline.
+
+\subsection{Processo diffusivo}
+
+\begin{itemize}
+    \item \textbf{Matrice di transizione}: uniforme, secondo~\eqref{eq:q-uniform},
+    con \(K\) classi. La prior a \(t=T\) e' dunque uniforme su \(\{0,\ldots,K-1\}\),
+    coerentemente con la distribuzione stazionaria del processo.
+    \item \textbf{Schedule}: coseno secondo~\eqref{eq:cosine} con esponente
+    \(p=1\), troncato superiormente:
+    \[
+        \beta_t = \min\!\left(1 - \frac{\bar\alpha(t/T)}{\bar\alpha((t-1)/T)},\; 0.999\right).
+    \]
+    \item \textbf{Passi}: \(T = 1000\), fissato nel codice e non esposto come
+    iperparametro di configurazione.
+    \item \textbf{Cumulate}: le \(\overline{Q}_t\) sono precalcolate esplicitamente
+    come prodotti di matrici \(K\times K\) e memorizzate come buffer; il costo di
+    memoria e' \(O(TK^2)\), trascurabile per \(K \leq 14\).
+    \item \textbf{Campionamento}: sia in avanti che all'indietro il campionamento
+    categoriale e' realizzato con il \emph{Gumbel-max trick},
+    \(x = \argmax_i (\log \pi_i + g_i)\) con \(g_i \sim \text{Gumbel}(0,1)\).
+    All'ultimo passo (\(t=1\)) il rumore di Gumbel viene azzerato, rendendo
+    l'ultima transizione deterministica.
+\end{itemize}
+
+Durante l'addestramento i timestep sono estratti uniformemente in
+\(\{1,\ldots,T-1\}\), quindi \(t=T\) non viene mai visitato.
+
+\subsection{Rete di denoising}
+
+Il denoiser e' un \emph{Diffusion Transformer} in stile DiT
+\cite{peebles2023dit} con blocchi di tipo LLaMA \cite{touvron2023llama},
+denominato \texttt{DiT\_Llama} nel repository \cite{d3pm_pytorch}:
+
+\begin{center}
+\begin{tabular}{ll}
+    \toprule
+    Componente & Configurazione \\
+    \midrule
+    Stem convoluzionale & 2 \(\times\) \texttt{Conv2d}(\(k=5\)) + SiLU + GroupNorm, \(1 \to d/2\) canali \\
+    Patchify & patch \(2\times2\) \(\Rightarrow\) \(64^2 = 4096\) token \\
+    Larghezza \(d\) & 512 \\
+    Blocchi transformer & 5, con 16 teste \\
+    Attenzione posizionale & RoPE \cite{su2024roformer} \\
+    Feed-forward & SwiGLU \\
+    Condizionamento su \(t\) & adaLN-Zero da embedding sinusoidale (256 frequenze) + MLP \\
+    Testa finale & \texttt{Linear} inizializzata a zero, \(d \to 4\cdot 2K\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+L'input intero viene riscalato in \([-1,1]\) tramite
+\(\tilde{x} = 2x/(K-1) - 1\), e l'uscita e' sommata a una versione \emph{gated}
+della codifica one-hot dell'input:
+\begin{equation}
+    \label{eq:dit-skip}
+    \mathrm{logits}(x_t)
+    =
+    \mathrm{nn}_\theta(x_t)
+    + \mathrm{onehot}(x_t)\odot\bigl|1 + \gamma_\theta(x_t)\bigr|,
+\end{equation}
+cioe' la rete apprende un residuo attorno al denoiser identita'. Le shape sono:
+input \((B,1,128,128)\) interi, output \((B,1,128,128,K)\) logit.
+
+\subsection{Addestramento}
+
+La loss e' quella ibrida~\eqref{eq:d3pm-hybrid}, con il termine variazionale
+calcolato come media (non somma) delle KL su tutte le \(16\,384\) posizioni. La
+griglia di iperparametri esplorata e':
+
+\begin{center}
+\begin{tabular}{ll}
+    \toprule
+    Iperparametro & Valori \\
+    \midrule
+    \texttt{lr} & \(\{2,3,4,5\}\times10^{-5}\) \\
+    \texttt{num\_classes} \(K\) & \(\{10, 12, 14\}\) \\
+    \texttt{hybrid\_loss\_coeff} \(\lambda\) & \(\{0.006, 0.01, 0.015\}\) \\
+    \texttt{batch\_size} & 32 \\
+    \texttt{dim} \(d\) & 512 \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+per un totale di \(4\times3\times3 = 36\) candidati per ogni configurazione SIGL.
+L'ottimizzatore e' AdamW con clipping della norma del gradiente a \(5.0\) e mixed
+precision; non e' usata alcuna media esponenziale dei pesi. Il protocollo di
+early stopping monitora la loss di validazione (frazione \(0.2\), split
+deterministico con seed \(0\)) con \texttt{patience} \(=25\),
+\texttt{min\_delta} \(=5\times10^{-5}\) e al piu' \(300\) epoche; i pesi
+dell'epoca migliore vengono ripristinati.
+
+\begin{remark}
+La loss di validazione e' essa stessa stocastica, perche' a ogni valutazione
+vengono riestratti sia \(t\) sia il rumore di Gumbel. Il segnale di early stopping
+e' quindi rumoroso, il che suggerisce di mediare su piu' passate o di fissare i
+timestep di validazione come miglioria futura.
+\end{remark}
+
+\subsection{Generazione}
+
+Il campionamento parte da rumore uniforme
+\(x_T \sim \Uniform\{0,\ldots,K-1\}^{16\times1\times128\times128}\) e itera la
+transizione inversa~\eqref{eq:x0-param} per \(t = T-1, \ldots, 1\), cioe' \(999\)
+passi. Il tensore finale viene dequantizzato secondo~\eqref{eq:d3pm-dequant} e
+sanificato secondo~\eqref{eq:sanitize}, producendo
+\begin{center}
+\texttt{data/predictions/graphons/tensors.pt} \quad di forma \([16,1,128,128]\).
+\end{center}
+
+\section{Stadio 2, variante B: OGAD--DiGress}
+\label{sec:digress-impl}
+
+\subsection{Riduzione del graphon a un grafo etichettato}
+
+L'idea centrale di questa variante e' che un graphon quantizzato \emph{e'} un
+grafo con archi categoriali. Formalmente si definisce l'immersione
+\begin{equation}
+    \label{eq:graphon-to-graph}
+    \Phi_K : [0,1]^{R\times R} \longrightarrow \Graphs_{R,1,K},
+    \qquad
+    \Phi_K(\widehat{W}) = \bigl(X, E\bigr),
+\end{equation}
+dove:
+\begin{itemize}
+    \item il grafo sottostante e' il \emph{grafo completo} \(K_R\) su \(R=128\)
+    nodi, privo di self-loop, con \(R(R-1) = 16\,256\) archi orientati;
+    \item \(X = \one_{R\times 1}\), cioe' vi e' un \emph{unico} tipo di nodo
+    (\(a=1\)) e i nodi non portano informazione;
+    \item \(E_{ij} \in \{0,1\}^{K}\) e' la codifica one-hot della classe
+    \begin{equation}
+        \label{eq:digress-quant}
+        \ell_{ij} = \bigl\lfloor \Pi(\widehat{W})_{ij}\,(K-1) \bigr\rceil
+        \;\in\;\{0,\ldots,K-1\},
+    \end{equation}
+    con \(b = K\) tipi di arco;
+    \item \(y\) e' vuoto (\(0\) feature globali).
+\end{itemize}
+
+La quantizzazione~\eqref{eq:digress-quant} e' formalmente identica
+alla~\eqref{eq:d3pm-quant} di D3PM: entrambe le varianti condividono lo stesso
+schema di discretizzazione, il che rende il confronto tra i due generatori
+significativo. Con \(K=10\) i livelli rappresentabili sono
+\(\{0, \tfrac19, \tfrac29, \ldots, 1\}\), ossia un passo di quantizzazione
+\(\approx 0.111\).
+
+\begin{remark}[Che cosa cambia rispetto a DiGress standard]
+In DiGress applicato ai grafi molecolari, la classe di arco \(0\) rappresenta
+\emph{l'assenza di arco} e le altre classi i tipi di legame; il grafo e' sparso.
+Qui, al contrario, la classe \(0\) rappresenta la probabilita' \(W_{ij}=0\) ed e'
+una classe come le altre: il grafo di supporto e' sempre completo. Di conseguenza
+la distribuzione dei nodi e' degenere (\(n = 128\) con probabilita' 1) e il
+conteggio delle classi d'arco viene calcolato includendo esplicitamente il bin
+zero, invece di riservarlo ai non-archi come nell'implementazione originale.
+\end{remark}
+
+\subsection{Processo diffusivo}
+
+Poiche' \(a=1\), la matrice \(Q_X^t\) e' l'identita' \(1\times1\) e il ramo dei
+nodi e' inerte. Tutta la dinamica si svolge sul tensore degli archi, con
+transizione \textbf{uniforme}:
+\begin{equation}
+    \label{eq:digress-QE}
+    Q_E^t = (1-\beta_t)\,I_K + \frac{\beta_t}{K}\,\one\one^{\top},
+    \qquad
+    \overline{Q}_E^t = \bar\alpha_t\, I_K + (1-\bar\alpha_t)\,\frac{\one\one^{\top}}{K},
+\end{equation}
+con distribuzione limite uniforme sui \(K\) bin. Lo schedule e' coseno
+secondo~\eqref{eq:cosine} con esponente \(p=2\) e \(T=1000\).
+
+\begin{remark}[Uniforme anziche' marginale]
+Questa e' una deviazione consapevole dal default di DiGress, che usa la
+transizione marginale. Il codice della pipeline calcola comunque la distribuzione
+marginale empirica dei bin (includendo il bin zero, come detto sopra), ma con la
+configurazione \texttt{transition: uniform} tale quantita' non viene consumata.
+La motivazione della scelta e' la comparabilita' con OGAD--D3PM, che usa
+anch'esso una transizione uniforme; attivare la variante marginale richiede la
+sola modifica del campo di configurazione ed e' la prima ablation naturale da
+eseguire, dato che il Teorema 4.1 di DiGress ne prevede un vantaggio.
+\end{remark}
+
+Il rumore e' applicato al solo triangolo superiore di \(E\) e poi simmetrizzato,
+quindi in questa variante --- a differenza di OGAD--D3PM --- la simmetria del
+graphon e' garantita \emph{per costruzione} lungo tutta la traiettoria diffusiva.
+
+\subsection{Rete di denoising e loss}
+
+Viene usato il \texttt{GraphTransformer} di DiGress
+\cite{vignac2023digress,dwivedi2021graphtransformer} senza alcuna modifica: 5
+strati che aggiornano congiuntamente le feature di nodo \(X\), di arco \(E\) e
+globali \(y\), con condizionamento reciproco tramite layer FiLM
+\cite{perez2018film} e aggregazione PNA per le feature globali. Le dimensioni
+effettive sono \(\mathrm{hidden\_mlp} = \{X{:}128, E{:}64, y{:}128\}\) e
+\(\mathrm{hidden} = \{d_X{:}256, d_E{:}64, d_y{:}64,\ n_{\mathrm{head}}{:}8\}\).
+
+Le \textbf{feature ausiliarie strutturali e spettrali sono disattivate}. La scelta
+e' teoricamente motivata: il grafo di supporto e' una cricca su 128 nodi identica
+per tutti i campioni, dunque conteggi di cicli, numero di componenti connesse e
+spettro del laplaciano del supporto sono costanti e non veicolano alcuna
+informazione. Le dimensioni di input della rete sono quindi \(X{:}1\), \(E{:}K\),
+\(y{:}1\) (il singolo canale globale codifica il timestep normalizzato).
+
+La loss e' la~\eqref{eq:digress-loss} con \(\lambda = 5\). Poiche' \(a=1\), la
+softmax sui tipi di nodo e' degenere e \(\mathrm{CE}_X \equiv 0\); l'obiettivo
+effettivamente ottimizzato e' dunque
+\begin{equation}
+    l(\hat{p}^G, G) = 5 \sum_{1\leq i,j\leq R} \mathrm{CE}\bigl(e_{ij}, \hat{p}^E_{ij}\bigr),
+\end{equation}
+ossia una pura cross-entropy sui \(K\) bin di probabilita'. Il criterio di
+selezione del checkpoint e' invece la NLL variazionale di validazione
+(\texttt{val/epoch\_NLL}), corrispondente al bound~\eqref{eq:d3pm-elbo}.
+
+\subsection{Addestramento e generazione}
+
+\begin{center}
+\begin{tabular}{ll}
+    \toprule
+    Iperparametro & Valore \\
+    \midrule
+    \texttt{batch\_size} & 2 \\
+    \texttt{accumulate\_grad\_batches} & 16 (batch efficace 32) \\
+    \texttt{n\_epochs} & 200 \\
+    \texttt{lr} & \(2\times10^{-4}\) \\
+    ottimizzatore & AdamW, \texttt{amsgrad}, \(\text{wd} = 10^{-12}\) \\
+    \texttt{n\_layers} & 5 \\
+    \texttt{num\_bins} \(K\) & 10 \\
+    \texttt{resolution} \(R\) & 128 \\
+    campioni finali & 16 (100 nella configurazione estesa) \\
+    EMA & disattivata \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+Lo split dei graphon e' \(80/10/10\) deterministico. Il campionamento parte da
+rumore uniforme sui bin, gia' simmetrizzato con diagonale nulla, e collassa il
+tensore finale con \(\argmax\) sui \(K\) canali. La post-elaborazione consiste in:
+
+\begin{enumerate}
+    \item \textbf{dequantizzazione} \(\ell \mapsto \ell/(K-1)\) --- si usa
+    \emph{solo} il tensore degli archi \(E\), i tipi di nodo predetti sono
+    scartati;
+    \item \textbf{sanificazione} secondo~\eqref{eq:sanitize};
+    \item \textbf{correzione di densita'} opzionale, attiva nella configurazione
+    corrente: detta
+    \begin{equation}
+        \rho(W) = \frac{1}{R(R-1)}\sum_{i\neq j} W_{ij}
+    \end{equation}
+    la densita' fuori diagonale e \(\rho^\star\) la densita' media dei graphon di
+    training prodotti da SIGL, ogni graphon generato viene riscalato come
+    \begin{equation}
+        \label{eq:density-match}
+        W \;\longleftarrow\; \Pi\!\left(\frac{\rho^\star}{\rho(W)}\,W\right).
+    \end{equation}
+\end{enumerate}
+
+\begin{remark}
+La correzione~\eqref{eq:density-match} e' un intervento \emph{ad hoc} e va
+riportato come tale: essa forza un momento del primo ordine del graphon generato a
+coincidere con quello dei dati, ma non e' parte del modello probabilistico. Inoltre,
+per via del clipping in \([0,1]\) contenuto in \(\Pi\), quando il fattore di scala
+supera l'unita' la densita' ottenuta sottostima sistematicamente il bersaglio. La
+pipeline registra le densita' prima e dopo la correzione in un file
+\texttt{stats.json} per rendere l'effetto verificabile.
+\end{remark}
+
+L'uscita e' \texttt{data/predictions/graphons/digress/tensors.pt}, di forma
+\([N,1,128,128]\), formato identico a quello prodotto dalla variante D3PM: i due
+generatori sono quindi intercambiabili rispetto agli stadi 3 e 4.
+
+\section{Confronto tra le due varianti}
+
+\begin{center}
+\begin{longtable}{p{0.28\textwidth}p{0.32\textwidth}p{0.32\textwidth}}
+    \toprule
+    & \textbf{OGAD--D3PM} & \textbf{OGAD--DiGress} \\
+    \midrule
+    \endhead
+    Rappresentazione & immagine categoriale \(128\times128\) & grafo completo \(K_{128}\) con archi a \(K\) classi \\
+    Quantizzazione & \(\lfloor w(K-1)\rceil\) & \(\lfloor w(K-1)\rceil\) (identica) \\
+    \(K\) & \(\{10,12,14\}\) & \(10\) \\
+    Entita' modellate & tutte le \(16\,384\) celle & triangolo superiore, \(8\,128\) archi \\
+    Simmetria & soft, reimposta a posteriori & garantita per costruzione \\
+    Transizione \(Q_t\) & uniforme & uniforme (marginale disponibile) \\
+    Schedule & coseno, \(p=1\), \(T=1000\) & coseno, \(p=2\), \(T=1000\) \\
+    Denoiser & DiT/LLaMA, 5 blocchi, \(d=512\), RoPE & GraphTransformer, 5 strati, \(d_X=256\), \(d_E=64\) \\
+    Induttivo & localita' 2D via patch e convoluzioni & equivarianza a permutazione \\
+    Loss & \(L_{\mathrm{vb}} + \lambda\,\mathrm{CE}\) & \(5\cdot\mathrm{CE}_E\) \\
+    Feature ausiliarie & assenti & disattivate esplicitamente \\
+    Selezione modello & griglia di 36 candidati + MMD & checkpoint a NLL minima \\
+    Post-processing & sanificazione & sanificazione + density matching \\
+    \bottomrule
+\end{longtable}
+\end{center}
+
+La differenza concettuale piu' rilevante riguarda il \emph{bias induttivo}. Il
+denoiser di D3PM tratta il graphon come un segnale bidimensionale e sfrutta la
+localita' spaziale attraverso convoluzioni e patch: questo e' coerente con il
+fatto che, dopo l'ordinamento SIGL, i graphon dei grafi Community presentano una
+struttura a blocchi \emph{localmente regolare}. Il denoiser di DiGress e' invece
+equivariante a permutazione, quindi indifferente all'ordinamento delle righe e
+delle colonne; poiche' l'ordinamento e' esattamente l'informazione che SIGL ha
+faticato a produrre, l'equivarianza rappresenta in questo contesto piu' un vincolo
+che un vantaggio. Ci si attende quindi che la variante D3PM sia avvantaggiata sui
+graphon ordinati, e questa e' un'ipotesi verificabile sperimentalmente.
+
+Un secondo aspetto riguarda la scala dei dati. Con \(C=50\) e \(B=13\) SIGL
+produce \(650\) graphon, di cui \(80\%\) usati per il training. La variante D3PM,
+con batch \(32\), esegue circa \(16\) passi di ottimizzazione per epoca; la
+variante DiGress, con batch \(2\) e accumulo \(16\), ne esegue circa \(16\)
+altrettanti ma su un modello con costo per campione molto maggiore, dato che il
+GraphTransformer deve gestire un tensore di archi con \(16\,256\) entita' per
+grafo.
+
+\section{Stadio 3: campionamento dei grafi}
+\label{sec:sampling}
 
 Sia
-\[
-    \mathcal{D}_{\mathrm{test}}=\{G^{\mathrm{test}}_1,\ldots,G^{\mathrm{test}}_n\}
-\]
-il test set e siano
-\[
-    m_i = |V(G^{\mathrm{test}}_i)|
-\]
-le dimensioni dei grafi osservati. La distribuzione empirica delle dimensioni e'
-\[
-    \widehat{\mu}_M
-    =
-    \frac{1}{n}\sum_{i=1}^{n}\delta_{m_i},
-\]
-dove \(\delta_{m_i}\) indica una massa di Dirac in \(m_i\). Per generare il
-campione \(r\)-esimo, la pipeline sceglie un graphon generato
-\[
-    \widetilde{W}^{(r)}
-    =
-    \widetilde{W}_{1 + ((r-1) \bmod S)},
-\]
-campiona \(M_r \sim \widehat{\mu}_M\) e poi genera
-\[
-    \widetilde{G}_r
-    \sim
-    \mathbb{P}(\,\cdot \mid \Pi(\widetilde{W}^{(r)}), M_r).
-\]
-Il dataset generato usato in valutazione e' quindi
-\[
-    \widetilde{\mathcal{D}}
-    =
-    \{\widetilde{G}_1,\ldots,\widetilde{G}_B\},
-\]
-dove \(B\) e' il numero di grafi richiesto dalla configurazione sperimentale.
+\(\mathcal{D}_{\mathrm{test}}=\{G^{\mathrm{test}}_1,\ldots,G^{\mathrm{test}}_n\}\)
+il test set e \(m_i = |V(G^{\mathrm{test}}_i)|\) le dimensioni dei grafi
+osservati. La distribuzione empirica delle dimensioni e'
+\begin{equation}
+    \hat{\mu}_M = \frac{1}{n}\sum_{i=1}^{n}\delta_{m_i}.
+\end{equation}
+Per generare il campione \(r\)-esimo, la pipeline seleziona ciclicamente un
+graphon generato,
+\begin{equation}
+    \widetilde{W}^{(r)} = \widetilde{W}_{\,1 + ((r-1)\bmod S)},
+\end{equation}
+estrae \(M_r \sim \hat{\mu}_M\) con rigetto se \(M_r > R\), e campiona il grafo
+secondo~\eqref{eq:graphon-sampling}--\eqref{eq:latent-index}:
+\begin{equation}
+    \label{eq:sampling-proc}
+    \eta_1,\ldots,\eta_{M_r} \overset{\mathrm{i.i.d.}}{\sim} \Uniform([0,1]),
+    \quad
+    z_i = \lfloor R\eta_i\rfloor,
+    \quad
+    A^{(r)}_{ij} \sim \Bernoulli\Bigl(\Pi(\widetilde{W}^{(r)})_{z_i z_j}\Bigr)
+    \;\; (i<j),
+\end{equation}
+simmetrizzando poi \(A^{(r)}\). Il dataset generato usato in valutazione e'
+\(\widetilde{\mathcal{D}} = \{\widetilde{G}_1,\ldots,\widetilde{G}_B\}\) con
+\(B = 100\) e seed fissato a \(0\).
 
-\section{Protocollo di confronto}
+Due dettagli meritano attenzione. Primo, la selezione \emph{ciclica} anziche'
+casuale dei graphon garantisce un utilizzo bilanciato: con \(S=16\) graphon e
+\(B=100\) grafi, i primi 4 graphon vengono usati 7 volte e i restanti 6.
+Secondo, si usa un \emph{unico} vettore di variabili latenti \(\eta\) per entrambi
+gli assi, il che e' la formulazione corretta di~\eqref{eq:graphon-sampling}:
+campionare due vettori indipendenti produrrebbe una matrice non simmetrica e non
+corrisponderebbe al modello \(W\)-random graph.
+
+Poiche' nel dataset Community tutti i grafi di test hanno 45 nodi e \(R = 128\),
+si ha \(M_r = 45\) deterministicamente e il rigetto non si attiva mai.
+
+\section{Stadio 4: valutazione GGME}
+\label{sec:ggme-impl}
+
+\subsection{Descrittori}
+
+Sono implementati tre descrittori, tutti calcolati in forma normalizzata:
+
+\begin{center}
+\begin{tabular}{lll}
+    \toprule
+    Descrittore & Binning & Normalizzazione \\
+    \midrule
+    \(\phi_{\mathrm{deg}}\): istogramma dei gradi & lunghezza variabile (\(\max\deg + 1\)) & somma unitaria (pmf) \\
+    \(\phi_{\mathrm{clust}}\): coeff.\ di clustering & 200 bin su \([0,1]\) & integrale unitario \\
+    \(\phi_{\mathrm{lap}}\): spettro laplaciano norm. & 200 bin su \([0,2]\) & integrale unitario \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+L'istogramma dei gradi ha lunghezza variabile e viene zero-padded alla lunghezza
+massima prima del calcolo del kernel.
+
+\begin{remark}[Scala delle metriche]
+\label{rem:density}
+I descrittori a binning fisso sono normalizzati come \emph{densita'} e non come
+distribuzioni di probabilita': l'integrale, non la somma, e' unitario. Il fattore
+di scala e' quindi \(200\) per il coefficiente di clustering (200 bin su un
+intervallo di ampiezza 1) e \(100\) per lo spettro (200 bin su ampiezza 2), mentre
+l'istogramma dei gradi e' una pmf ordinaria. Poiche' un kernel lineare e'
+omogeneo di grado 2, i valori di MMD del clustering risultano scalati di un fattore
+\(\approx 200^2 = 4\times10^4\) rispetto a quelli del grado. \textbf{Questo spiega
+interamente} l'ordine di grandezza radicalmente diverso delle tre colonne nei
+risultati (Capitolo~\ref{ch:risultati}) e implica che i valori non sono
+confrontabili \emph{tra} descrittori, ma solo \emph{tra} modelli a parita' di
+descrittore.
+\end{remark}
+
+\subsection{Protocollo di selezione}
+
+Il protocollo GGME e' implementato come segue:
+
+\begin{enumerate}
+    \item \textbf{Perturbazione}: si applica la perturbazione \texttt{AddEdges},
+    che aggiunge ogni coppia non adiacente in modo indipendente con probabilita'
+    \(p\), a \(17\) livelli di intensita' \(p \in \{0.15, 0.20, \ldots, 0.95\}\)
+    (seed \(42\)). Ogni livello produce una copia perturbata dei 100 grafi di test.
+    \item \textbf{Griglia}: per ciascun descrittore si esplorano
+    \(\{\text{gaussiano}, \text{lineare}\} \times \{\sigma = 0.1, 1, 10\}\).
+    \item \textbf{Selezione}: si sceglie la combinazione che massimizza la
+    correlazione di Pearson fra il livello di perturbazione \(p\) e la
+    \(\widehat{\MMD}^2\) risultante.
+    \item \textbf{Valutazione}: con la configurazione selezionata si calcola
+    \(\widehat{\MMD}^2\) fra test set e ciascuno dei tre insiemi in confronto.
+\end{enumerate}
+
+Le configurazioni selezionate empiricamente sono riportate in
+Tabella~\ref{tab:kernel-selection}.
+
+\begin{table}[htbp]
+\centering
+\caption{Configurazioni di kernel selezionate dal protocollo di perturbazione.}
+\label{tab:kernel-selection}
+\begin{tabular}{lccr}
+    \toprule
+    Descrittore & Kernel & \(\sigma\) & Correlazione \\
+    \midrule
+    \(\phi_{\mathrm{deg}}\) & gaussiano & 10 & 0.8946 \\
+    \(\phi_{\mathrm{clust}}\) & lineare & --- & 0.7638 \\
+    \(\phi_{\mathrm{lap}}\) & lineare & --- & 0.7112 \\
+    \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Selezione del candidato D3PM tramite MMD}
+\label{sec:selection}
+
+Nella variante D3PM, oltre alla selezione per loss di validazione, e' previsto un
+secondo stadio di selezione basato sulle metriche. Per ciascuno dei 36 candidati
+si generano 100 grafi dai rispettivi graphon e si calcolano le tre MMD rispetto
+agli \(80\) grafi tenuti da parte nello split di Sezione~\ref{sec:sigl-impl}.
+Il punteggio usato e' il rapporto medio rispetto a un bersaglio fisso:
+\begin{equation}
+    \label{eq:selection-score}
+    \mathrm{score}(c)
+    =
+    \frac{1}{3}\sum_{d \in \{\mathrm{deg},\mathrm{clust},\mathrm{lap}\}}
+    \frac{\widehat{\MMD}^2_d(c)}{\tau_d},
+    \qquad
+    \tau = (0.0125,\; 99.7936,\; 1.8530),
+\end{equation}
+dove i valori \(\tau_d\) sono le MMD ottenute da DiGress applicato direttamente ai
+grafi. Il candidato con punteggio minimo viene promosso e i suoi graphon
+sovrascrivono \texttt{tensors.pt}.
+
+\begin{remark}
+La normalizzazione per \(\tau_d\) e' necessaria proprio a causa
+dell'Osservazione~\ref{rem:density}: senza di essa, la media aritmetica delle tre
+MMD sarebbe interamente dominata dal termine di clustering. La scelta di usare
+come normalizzatore i valori di DiGress rende il punteggio interpretabile
+(\(\mathrm{score} < 1\) significa \enquote{mediamente meglio di DiGress}), ma
+introduce anche una dipendenza da una esecuzione specifica del baseline, che
+andrebbe idealmente sostituita da una normalizzazione intrinseca, ad esempio la
+MMD fra training e test set raccomandata da GGME.
+\end{remark}
+
+\subsection{Termini di confronto}
 
 Lo stadio GGME confronta tre insiemi di grafi con il test set:
 \begin{itemize}
-    \item i grafi generati da DiGress, quando disponibili;
-    \item i grafi generati dalla pipeline OGAD a partire dai graphon;
-    \item i grafi indicati come \enquote{Paper}, usati come riferimento esterno
-    nella configurazione sperimentale.
+    \item \textbf{DiGress}: grafi generati da DiGress \emph{vanilla} applicato
+    direttamente ai grafi Community. Questa variante usa 2 classi di arco
+    (presenza/assenza), transizione marginale, 8 strati, feature ausiliarie
+    strutturali e spettrali attive, e produce 160 campioni. Nel flusso
+    orchestrato tramite script questo stadio viene saltato
+    (\texttt{-\/-skip-digress}) e la colonna corrispondente risulta vuota;
+    i valori riportati provengono da un'esecuzione dell'intero stack
+    \texttt{docker compose}.
+    \item \textbf{OGAD}: i 100 grafi campionati dai graphon generati secondo
+    Sezione~\ref{sec:sampling}.
+    \item \textbf{Paper}: i 400 grafi di riferimento distribuiti con GGME.
 \end{itemize}
-Per ciascun descrittore viene riportata la MMD rispetto al test set. Valori piu'
-bassi indicano una maggiore somiglianza secondo il descrittore e il kernel
-selezionati.
 
-L'uso di piu' descrittori e' importante perche' nessuna singola statistica
-riassume completamente una distribuzione di grafi. La distribuzione dei gradi
-cattura proprieta' locali di connettivita', il coefficiente di clustering misura
-tendenze triadiche, mentre lo spettro del laplaciano normalizzato fornisce una
-descrizione piu' globale della struttura. Questa scelta rende il confronto piu'
-robusto, ma non elimina la dipendenza della MMD dal kernel, dai parametri del
-kernel e dalla specifica funzione descrittiva; proprio per questo GGME propone di
-selezionare tali elementi rispetto a perturbazioni controllate del test set.
+\begin{remark}
+I tre insiemi non hanno la stessa cardinalita' (\(160\), \(100\), \(400\)). Lo
+stimatore non distorto~\eqref{eq:mmd-unbiased} gestisce correttamente \(n\neq m\),
+ma la varianza della stima differisce fra le tre colonne. La pipeline impone un
+controllo di consistenza fra DiGress e OGAD, ma non fra questi e il riferimento
+Paper: uniformare le cardinalita' e' una delle correzioni previste al protocollo.
+\end{remark}
 
-\chapter{Primi risultati}
+\section{Orchestrazione e riproducibilita'}
 
-I risultati preliminari presenti nel README mostrano che il comportamento varia
-sensibilmente in funzione del descrittore. Nel test con \(200\) cluster, per la
-distribuzione dei gradi la MMD riportata e' \(0.0125\) per DiGress, \(0.6301\)
-per OGAD e \(0.0034\) per il riferimento Paper. Per il coefficiente di
-clustering, i valori sono rispettivamente \(99.7936\), \(2458.3862\) e
-\(16.0080\). Per lo spettro del laplaciano normalizzato, i valori sono
-\(1.8530\), \(44.1202\) e \(0.5686\).
+Ogni stadio e' incapsulato in un servizio Docker distinto, con immagini separate:
+\texttt{ogad-prep-data} (SIGL), \texttt{ogad-train-model-b} (D3PM) oppure
+\texttt{ogad-train-model-b-digress} (DiGress su graphon),
+\texttt{ogad-train-model-a} (DiGress baseline) e \texttt{ogad-eval-metrics}
+(GGME). Lo script \texttt{scripts/run\_ogad\_experiment.sh} esegue in sequenza:
 
-Questi risultati non sono ancora sufficienti per una conclusione definitiva, ma
-indicano due direzioni di analisi. La prima riguarda la qualita' dei graphon
-stimati e generati: errori anche piccoli nella struttura probabilistica possono
-amplificarsi durante il campionamento dei grafi. La seconda riguarda la scelta
-del generatore discreto e della discretizzazione dei valori del graphon: il
-numero di classi, il tipo di rumore e la risoluzione della griglia influenzano
-direttamente la capacita' del modello di rappresentare strutture locali come
-triangoli e clustering.
+\begin{algorithm}[htbp]
+\caption{Esecuzione di un esperimento OGAD}
+\begin{algorithmic}[1]
+\State \(\texttt{RUN\_ID} \gets\) timestamp UTC; crea la directory di run
+\State scrive il manifesto e copia la configurazione JSON in \texttt{runs/current/}
+\State seleziona lo stack compose in base a \texttt{OGAD\_GRAPHON\_GENERATOR} \(\in\) \{\texttt{d3pm}, \texttt{digress}\}
+\State \textbf{stadio 1} \Comment{servizio \texttt{prep\_data}}
+\State \quad \texttt{python Main.py -{}-config \$CONFIG}
+\State \textbf{stadio 2} \Comment{servizio \texttt{train\_model\_b}}
+\If{generatore \(=\) \texttt{d3pm}}
+    \State \quad \texttt{python ogad\_model\_finetune.py -{}-config \$CONFIG}
+    \State \quad \texttt{python ogad\_model\_inference.py}
+\Else
+    \State \quad \texttt{python src/main.py +experiment=graphons \{override Hydra\}}
+\EndIf
+\State \textbf{stadi 3--4} \Comment{servizio \texttt{eval\_metrics}}
+\State \quad \texttt{python main.py -{}-config \$CONFIG -{}-skip-digress}
+\State scrive log e \texttt{metrics.jsonl} nella directory di run
+\end{algorithmic}
+\end{algorithm}
+
+La configurazione sperimentale e' descritta da un unico file JSON i cui valori
+sono liste; il blocco SIGL viene espanso in prodotto cartesiano generando run
+indipendenti, mentre il blocco D3PM resta una griglia interna a ciascuna run. Un
+driver parallelo distribuisce le run su piu' GPU con assegnazione round-robin.
+La riproducibilita' e' garantita fissando i seed di \texttt{random}, \texttt{numpy}
+e \texttt{torch} per ciascun candidato, e usando split deterministici basati su
+seed espliciti in tutti i punti di partizionamento dei dati.
+
+\chapter{Risultati preliminari}
+\label{ch:risultati}
+
+\section{Risultati riportati}
+
+La Tabella~\ref{tab:results} riporta i valori di \(\widehat{\MMD}^2\) rispetto al
+test set per la configurazione con \(C=200\) cluster, insieme a una seconda
+esecuzione con \(C=50\) e bootstrap.
+
+\begin{table}[htbp]
+\centering
+\caption{\(\widehat{\MMD}^2\) rispetto al test set. Valori piu' bassi indicano
+maggiore somiglianza. Si veda l'Osservazione~\ref{rem:density} per la scala.}
+\label{tab:results}
+\begin{tabular}{lrrr}
+    \toprule
+    Descrittore & DiGress & OGAD & Paper \\
+    \midrule
+    \multicolumn{4}{l}{\emph{Configurazione \(C=200\), senza bootstrap}} \\
+    \(\phi_{\mathrm{deg}}\) & 0.0125 & 0.6301 & 0.0034 \\
+    \(\phi_{\mathrm{clust}}\) & 99.7936 & 2458.3862 & 16.0080 \\
+    \(\phi_{\mathrm{lap}}\) & 1.8530 & 44.1202 & 0.5686 \\
+    \midrule
+    \multicolumn{4}{l}{\emph{Configurazione \(C=50\), con bootstrap}} \\
+    \(\phi_{\mathrm{deg}}\) & --- & 0.1562 & 0.0034 \\
+    \(\phi_{\mathrm{clust}}\) & --- & 215.876 & 16.008 \\
+    \(\phi_{\mathrm{lap}}\) & --- & 2.8238 & 0.5686 \\
+    \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Lettura dei risultati}
+
+Il primo dato rilevante e' che l'introduzione del clustering con bootstrap
+(\(C=50\), \(B\geq 12\)) migliora OGAD di un fattore compreso fra \(4\) e \(15\)
+su tutti e tre i descrittori rispetto alla configurazione senza bootstrap. Questo
+e' coerente con l'interpretazione della Sezione~\ref{sec:sigl-impl}: aumentare la
+cardinalita' e la variabilita' del dataset di graphon migliora la stima di
+\(p_\theta(W)\).
+
+Il secondo dato e' che OGAD resta comunque distante dal riferimento Paper di
+circa un ordine di grandezza su ciascun descrittore. Il divario e' particolarmente
+marcato sul coefficiente di clustering, che misura la tendenza triadica. Questo e'
+prevedibile dalla struttura del modello: il campionamento
+\eqref{eq:sampling-proc} genera archi \emph{condizionatamente indipendenti} dati i
+latenti, quindi il numero atteso di triangoli e' completamente determinato da
+\(W\) e la varianza triadica dei grafi generati e' quella minima compatibile con il
+modello \(W\)-random graph. Se il dataset reale contiene correlazioni di ordine
+superiore non catturabili da un graphon, nessun miglioramento del generatore
+diffusivo potra' colmarle: si tratterebbe di un limite del \emph{modello} e non
+dell'\emph{algoritmo}.
+
+Distinguere fra le due spiegazioni --- limite del graphon come modello, oppure
+errore di stima e generazione --- e' l'esperimento diagnostico piu' importante da
+eseguire. Il protocollo naturale e' calcolare la MMD fra il test set e i grafi
+campionati direttamente dai graphon \emph{stimati} da SIGL, senza passare per il
+generatore diffusivo. Tale valore costituisce un \emph{floor} raggiungibile:
+se e' vicino a quello di OGAD, il collo di bottiglia e' lo stadio 1; se e'
+molto piu' basso, lo e' lo stadio 2.
+
+\section{Ipotesi sulle sorgenti di errore}
+
+L'analisi implementativa del Capitolo~\ref{ch:pipeline} suggerisce un elenco
+ordinato di cause candidate:
+
+\begin{enumerate}
+    \item \textbf{Risoluzione della quantizzazione.} Con \(K=10\) il passo di
+    quantizzazione e' \(1/9 \approx 0.111\). Per un dataset la cui densita' media
+    e' \(0.234\), questo significa che l'intero intervallo utile di probabilita' e'
+    coperto da 2--3 livelli. La griglia esplorata (\(K \in \{10,12,14\}\)) e'
+    probabilmente troppo grossolana: valori di \(K\) sensibilmente maggiori
+    (32, 64) meritano di essere testati.
+    \item \textbf{Prior uniforme.} Con transizione uniforme e \(K=10\), la
+    distribuzione limite assegna probabilita' \(1/10\) a ciascun livello, ma la
+    distribuzione empirica dei valori del graphon e' fortemente concentrata sui
+    livelli bassi. Il modello deve quindi spendere gran parte della traiettoria
+    inversa per correggere la prior. La transizione \emph{marginale} di DiGress e'
+    progettata esattamente per questo caso ed e' gia' predisposta nel codice.
+    \item \textbf{Numero di graphon indipendenti.} Anche con \(L=800\), i graphon
+    provengono da \(C=50\) cluster: la diversita' effettiva e' limitata dal numero
+    di cluster piu' che dal numero di repliche.
+    \item \textbf{Doppia quantizzazione.} Il formato di scambio PNG a 8 bit
+    (Osservazione~\ref{rem:png}) introduce una perdita di informazione evitabile,
+    sostituibile con la serializzazione diretta dei tensori.
+    \item \textbf{Modellazione ridondante in D3PM.} Modellare tutte le
+    \(16\,384\) celle anziche' le \(8\,128\) del triangolo superiore raddoppia la
+    dimensionalita' del problema senza aggiungere informazione.
+\end{enumerate}
 
 \chapter{Conclusioni provvisorie}
 
@@ -503,13 +1552,37 @@ di grafi: prima si stimano graphon dai dati osservati, poi si apprende una
 distribuzione sui graphon, infine si campionano grafi e li si valuta con metriche
 strutturali. Questa impostazione rende esplicita la rappresentazione intermedia
 appresa dal modello e permette di confrontare generatori discreti diversi nello
-stesso protocollo sperimentale.
+stesso protocollo sperimentale, come mostrato dalle due varianti D3PM e DiGress
+che condividono lo stesso schema di quantizzazione, lo stesso stadio di
+campionamento e lo stesso protocollo di valutazione.
 
-Il prossimo passo consiste nel consolidare il protocollo sperimentale: generare
-la stessa quantita' di grafi per OGAD e DiGress, estendere la valutazione a tutte
-le funzioni descrittive disponibili, analizzare l'effetto del rumore introdotto
-sui graphon e ripetere gli esperimenti su piu' epoche e configurazioni di
-discretizzazione.
+I risultati preliminari indicano che la rappresentazione a graphon, nella forma
+attualmente implementata, non e' ancora competitiva con la generazione diretta di
+grafi. L'analisi dettagliata dell'implementazione suggerisce pero' che le cause
+piu' probabili siano scelte di discretizzazione e di prior, entrambe correggibili
+senza modifiche architetturali.
+
+Il programma di lavoro che ne deriva e' il seguente:
+
+\begin{itemize}
+    \item \textbf{Diagnostica del collo di bottiglia}: misurare la MMD dei grafi
+    campionati direttamente dai graphon stimati da SIGL, per separare l'errore di
+    stima dall'errore di generazione;
+    \item \textbf{Ablation sulla quantizzazione}: estendere la griglia di \(K\) a
+    valori significativamente maggiori, verificando il trade-off fra risoluzione
+    di probabilita' e difficolta' del problema categoriale;
+    \item \textbf{Ablation sulla transizione}: confrontare transizione uniforme e
+    marginale nella variante DiGress, dove la seconda e' gia' implementata;
+    \item \textbf{Confronto equo fra le due varianti}: eseguire OGAD--D3PM e
+    OGAD--DiGress sulla stessa configurazione SIGL, con lo stesso \(K\), lo stesso
+    numero di graphon generati e lo stesso numero di grafi valutati;
+    \item \textbf{Consolidamento del protocollo}: uniformare la cardinalita' dei
+    tre insiemi confrontati, aggiungere la MMD training--test come scala di
+    riferimento secondo la raccomandazione di GGME, ed estendere la valutazione
+    alle perturbazioni diverse da \texttt{AddEdges};
+    \item \textbf{Semplificazioni implementative}: eliminare il formato di scambio
+    PNG e modellare il solo triangolo superiore nella variante D3PM.
+\end{itemize}
 
 \bibliographystyle{plain}
 \bibliography{references}

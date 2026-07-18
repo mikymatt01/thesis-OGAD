@@ -13,10 +13,14 @@ from torchvision.transforms.functional import pil_to_tensor
 
 from src.datasets.abstract_dataset import AbstractDataModule, AbstractDatasetInfos
 from src.graphon_utils import (
+    collect_graphon_values,
     discover_graphon_images,
+    fit_codebook,
     quantize_graphon,
     resolve_data_root,
+    save_codebook,
     split_graphon_paths,
+    uniform_codebook,
 )
 
 
@@ -30,14 +34,13 @@ def complete_directed_edge_index(num_nodes: int) -> torch.Tensor:
 
 
 class GraphonDataset(Dataset):
-    def __init__(self, paths: list[Path], resolution: int, num_bins: int):
+    def __init__(self, paths: list[Path], resolution: int, codebook: torch.Tensor):
         if resolution < 2:
             raise ValueError(f"resolution must be at least 2, got {resolution}")
-        if num_bins < 2:
-            raise ValueError(f"num_bins must be at least 2, got {num_bins}")
         self.paths = list(paths)
         self.resolution = resolution
-        self.num_bins = num_bins
+        self.codebook = codebook
+        self.num_bins = int(codebook.numel())
         self.edge_index = complete_directed_edge_index(resolution)
 
     def __len__(self) -> int:
@@ -55,7 +58,7 @@ class GraphonDataset(Dataset):
                 f"expected {expected_shape}"
             )
 
-        categories = quantize_graphon(graphon, self.num_bins)
+        categories = quantize_graphon(graphon, self.codebook)
         source, target = self.edge_index
         edge_attr = F.one_hot(
             categories[source, target], num_classes=self.num_bins
@@ -78,45 +81,88 @@ class GraphonDataModule(AbstractDataModule):
         self.graphon_dir = self.data_root / cfg.dataset.graphon_dir
         self.resolution = int(cfg.dataset.resolution)
         self.num_bins = int(cfg.dataset.num_bins)
+        self.quantization = str(getattr(cfg.dataset, "quantization", "codebook"))
 
         paths = discover_graphon_images(self.graphon_dir)
         split_paths = split_graphon_paths(paths, seed=int(cfg.dataset.split_seed))
+        self.codebook = self._build_codebook(split_paths["train"])
         datasets = {
             split: GraphonDataset(
-                split_paths[split], resolution=self.resolution, num_bins=self.num_bins
+                split_paths[split], resolution=self.resolution, codebook=self.codebook
             )
             for split in ("train", "val", "test")
         }
         print(
-            "Graphons: train {} val {} test {} (resolution={}, bins={})".format(
+            "Graphons: train {} val {} test {} (resolution={}, bins={}, quantization={})".format(
                 len(datasets["train"]),
                 len(datasets["val"]),
                 len(datasets["test"]),
                 self.resolution,
                 self.num_bins,
+                self.quantization,
             )
         )
+        print("Graphon codebook: {}".format(
+            [round(level, 5) for level in self.codebook.tolist()]
+        ))
         super().__init__(cfg, datasets)
         self.inner = self.train_dataset
+        self._edge_counts = None
+
+    def _build_codebook(self, train_paths: list[Path]) -> torch.Tensor:
+        """Choose the reconstruction levels the diffusion classes stand for.
+
+        Fitted on the training split only, so val/test never leak into the
+        quantizer, and persisted next to the generated tensors so a run can be
+        decoded after the fact.
+        """
+        if self.quantization == "uniform":
+            codebook = uniform_codebook(self.num_bins)
+        elif self.quantization == "codebook":
+            codebook = fit_codebook(collect_graphon_values(train_paths), self.num_bins)
+        else:
+            raise ValueError(
+                f"dataset.quantization must be 'codebook' or 'uniform', got {self.quantization!r}"
+            )
+
+        codebook_path = getattr(self.cfg.dataset, "codebook_path", None)
+        if codebook_path:
+            path = Path(codebook_path)
+            save_codebook(codebook, path if path.is_absolute() else self.data_root / path)
+        return codebook
 
     def __getitem__(self, item):
         return self.inner[item]
 
     def edge_counts(self):
-        """Count all explicit graphon bins, including bin zero."""
+        """Marginal over all explicit graphon bins, including bin zero.
+
+        Overriding the abstract version is required, not cosmetic: it derives
+        the bin-0 count from *absent* edges, and this dense encoding has none,
+        so every bin-0 entry would be discarded.
+        """
+        if self._edge_counts is not None:
+            return self._edge_counts
+
         counts = torch.zeros(self.num_bins, dtype=torch.float32)
         for data in self.train_dataset:
             counts += data.edge_attr.sum(dim=0)
         if counts.sum() == 0:
             raise ValueError("The graphon training split contains no edge values")
-        return counts / counts.sum()
+
+        # A zero-probability class would make the marginal transition model's
+        # limit distribution contain a zero, and kl_prior takes its log.
+        counts = (counts / counts.sum()).clamp_min(1e-6)
+        self._edge_counts = counts / counts.sum()
+        return self._edge_counts
 
 
 class GraphonDatasetInfos(AbstractDatasetInfos):
     def __init__(self, datamodule: GraphonDataModule, dataset_config):
         self.datamodule = datamodule
         self.name = "graphons"
-        self.num_bins = int(dataset_config.num_bins)
+        self.codebook = datamodule.codebook
+        self.num_bins = int(self.codebook.numel())
         self.n_nodes = torch.zeros(datamodule.resolution + 1)
         self.n_nodes[datamodule.resolution] = 1
         self.node_types = torch.tensor([1.0])

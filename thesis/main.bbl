@@ -19,6 +19,13 @@ Christian Borgs and Jennifer Chayes.
   algorithms for massive networks.
 \newblock Microsoft Research preprint, 2017.
 
+\bibitem{chan2014histogram}
+Stanley~H. Chan and Edoardo~M. Airoldi.
+\newblock A consistent histogram estimator for exchangeable graph models.
+\newblock In {\em Proceedings of the 31st International Conference on Machine
+  Learning}, volume~32 of {\em Proceedings of Machine Learning Research}, pages
+  208--216. PMLR, 2014.
+
 \bibitem{de2018molgan}
 Nicola De~Cao and Thomas Kipf.
 \newblock Molgan: An implicit generative model for small molecular graphs,
@@ -30,16 +37,36 @@ Persi Diaconis and Svante Janson.
 \newblock {\em Rendiconti di Matematica e delle sue Applicazioni},
   28(1):33--61, 2008.
 
+\bibitem{dwivedi2021graphtransformer}
+Vijay~Prakash Dwivedi and Xavier Bresson.
+\newblock A generalization of transformer networks to graphs.
+\newblock In {\em AAAI Workshop on Deep Learning on Graphs: Methods and
+  Applications}, 2021.
+
 \bibitem{gao2015rate}
 Chao Gao, Yu~Lu, and Harrison~H. Zhou.
 \newblock Rate-optimal graphon estimation.
 \newblock {\em The Annals of Statistics}, 43(6):2624--2652, 2015.
+
+\bibitem{gretton2012kernel}
+Arthur Gretton, Karsten~M. Borgwardt, Malte~J. Rasch, Bernhard Sch{\"o}lkopf,
+  and Alexander Smola.
+\newblock A kernel two-sample test.
+\newblock {\em Journal of Machine Learning Research}, 13(25):723--773, 2012.
 
 \bibitem{ho2020denoising}
 Jonathan Ho, Ajay Jain, and Pieter Abbeel.
 \newblock Denoising diffusion probabilistic models.
 \newblock In {\em Advances in Neural Information Processing Systems},
   volume~33, pages 6840--6851, 2020.
+
+\bibitem{hoogeboom2021argmax}
+Emiel Hoogeboom, Didrik Nielsen, Priyank Jaini, Patrick Forr{\'e}, and Max
+  Welling.
+\newblock Argmax flows and multinomial diffusion: Learning categorical
+  distributions.
+\newblock In {\em Advances in Neural Information Processing Systems},
+  volume~34, pages 12454--12465, 2021.
 
 \bibitem{lovasz2012large}
 Laszlo Lovasz.
@@ -53,11 +80,31 @@ Laszlo Lovasz and Balazs Szegedy.
 \newblock {\em Journal of Combinatorial Theory, Series B}, 96(6):933--957,
   2006.
 
+\bibitem{nichol2021improved}
+Alexander~Quinn Nichol and Prafulla Dhariwal.
+\newblock Improved denoising diffusion probabilistic models.
+\newblock In {\em Proceedings of the 38th International Conference on Machine
+  Learning}, volume 139 of {\em Proceedings of Machine Learning Research},
+  pages 8162--8171. PMLR, 2021.
+
 \bibitem{obray2022evaluation}
 Leslie O'Bray, Max Horn, Bastian Rieck, and Karsten Borgwardt.
 \newblock Evaluation metrics for graph generative models: Problems, pitfalls,
   and practical solutions.
 \newblock In {\em International Conference on Learning Representations}, 2022.
+
+\bibitem{peebles2023dit}
+William Peebles and Saining Xie.
+\newblock Scalable diffusion models with transformers.
+\newblock In {\em Proceedings of the IEEE/CVF International Conference on
+  Computer Vision (ICCV)}, pages 4195--4205, 2023.
+
+\bibitem{perez2018film}
+Ethan Perez, Florian Strub, Harm de~Vries, Vincent Dumoulin, and Aaron
+  Courville.
+\newblock Film: Visual reasoning with a general conditioning layer.
+\newblock In {\em Proceedings of the AAAI Conference on Artificial
+  Intelligence}, volume~32, 2018.
 
 \bibitem{d3pm_pytorch}
 Simo Ryu.
@@ -73,6 +120,20 @@ Martin Simonovsky and Nikos Komodakis.
 \newblock In {\em Artificial Neural Networks and Machine Learning -- ICANN
   2018}, pages 412--422. Springer, 2018.
 
+\bibitem{sitzmann2020siren}
+Vincent Sitzmann, Julien N.~P. Martel, Alexander~W. Bergman, David~B. Lindell,
+  and Gordon Wetzstein.
+\newblock Implicit neural representations with periodic activation functions.
+\newblock In {\em Advances in Neural Information Processing Systems},
+  volume~33, pages 7462--7473, 2020.
+
+\bibitem{sohl2015deep}
+Jascha Sohl-Dickstein, Eric~A. Weiss, Niru Maheswaranathan, and Surya Ganguli.
+\newblock Deep unsupervised learning using nonequilibrium thermodynamics.
+\newblock In {\em Proceedings of the 32nd International Conference on Machine
+  Learning}, volume~37 of {\em Proceedings of Machine Learning Research}, pages
+  2256--2265. PMLR, 2015.
+
 \bibitem{song2021scorebased}
 Yang Song, Jascha Sohl-Dickstein, Diederik~P. Kingma, Abhishek Kumar, Stefano
   Ermon, and Ben Poole.
@@ -80,12 +141,27 @@ Yang Song, Jascha Sohl-Dickstein, Diederik~P. Kingma, Abhishek Kumar, Stefano
   equations.
 \newblock In {\em International Conference on Learning Representations}, 2021.
 
+\bibitem{su2024roformer}
+Jianlin Su, Murtadha Ahmed, Yu~Lu, Shengfeng Pan, Wen Bo, and Yunfeng Liu.
+\newblock Roformer: Enhanced transformer with rotary position embedding.
+\newblock {\em Neurocomputing}, 568:127063, 2024.
+
+\bibitem{touvron2023llama}
+Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, et~al.
+\newblock Llama: Open and efficient foundation language models, 2023.
+
 \bibitem{vignac2023digress}
 Clement Vignac, Igor Krawczuk, Antoine Siraudin, Bohan Wang, Volkan Cevher, and
   Pascal Frossard.
 \newblock Digress: Discrete denoising diffusion for graph generation.
 \newblock In {\em The Eleventh International Conference on Learning
   Representations}, 2023.
+
+\bibitem{xia2023ignr}
+Xinyue Xia, Gal Mishne, and Yusu Wang.
+\newblock Implicit graphon neural representation.
+\newblock In {\em International Conference on Artificial Intelligence and
+  Statistics}, pages 10619--10634, 2023.
 
 \bibitem{you2018graphrnn}
 Jiaxuan You, Rex Ying, Xiang Ren, William Hamilton, and Jure Leskovec.

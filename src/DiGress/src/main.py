@@ -144,9 +144,14 @@ def main(cfg: DictConfig):
         datamodule = GraphonDataModule(cfg)
         dataset_infos = GraphonDatasetInfos(datamodule, dataset_config)
         train_metrics = TrainAbstractMetricsDiscrete()
-        sampling_metrics = GraphonSamplingMetrics(cfg)
+        sampling_metrics = GraphonSamplingMetrics(cfg, codebook=datamodule.codebook)
         visualization_tools = None
-        extra_features = DummyExtraFeatures()
+        # Every node carries the same constant type, so without structural
+        # features the transformer sees 128 indistinguishable nodes.
+        if cfg.model.extra_features is not None:
+            extra_features = ExtraFeatures(cfg.model.extra_features, dataset_info=dataset_infos)
+        else:
+            extra_features = DummyExtraFeatures()
         domain_features = DummyExtraFeatures()
 
         dataset_infos.compute_input_output_dims(
@@ -233,9 +238,13 @@ def main(cfg: DictConfig):
     callbacks = []
     checkpoint_callback = None
     if cfg.train.save_model:
+        # With a fixed node count log_pN and kl_prior vanish, so val NLL collapses
+        # to T * E_kl: a single-sample estimate scaled by 1000, whose noise swamps
+        # the training signal. Datasets in that regime monitor val/E_CE instead.
+        monitor = getattr(cfg.general, 'monitor_metric', None) or 'val/epoch_NLL'
         checkpoint_callback = ModelCheckpoint(dirpath=f"checkpoints/{cfg.general.name}",
                                               filename='{epoch}',
-                                              monitor='val/epoch_NLL',
+                                              monitor=monitor,
                                               save_top_k=5,
                                               mode='min',
                                               every_n_epochs=1)

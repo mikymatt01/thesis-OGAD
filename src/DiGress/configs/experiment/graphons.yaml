@@ -6,9 +6,17 @@ dataset:
   graphon_dir: train/graphons
   output_path: predictions/graphons/digress/tensors.pt
   stats_output_path: predictions/graphons/digress/stats.json
+  codebook_path: predictions/graphons/digress/codebook.json
   resolution: 128
-  num_bins: 10
-  match_training_density: true
+  # 'codebook' fits the reconstruction levels to the training value
+  # distribution (Lloyd-Max). 'uniform' reproduces the original evenly spaced
+  # levels, which round the inter-community probability (~0.01) down to exactly
+  # zero and split every generated graph into one component per community.
+  quantization: codebook
+  num_bins: 16
+  # Rescaling every graphon to the mean training density also removes all
+  # density variation between samples; only useful as a diagnostic.
+  match_training_density: false
   split_seed: 0
   pin_memory: true
 
@@ -23,25 +31,44 @@ general:
   samples_to_generate: 0
   samples_to_save: 0
   chains_to_save: 0
-  final_model_samples_to_generate: 16
+  # GGME cycles through these to build its 100 graphs, so fewer graphons means
+  # less diversity for free.
+  final_model_samples_to_generate: 100
   final_model_samples_to_save: 0
   final_model_chains_to_save: 0
   number_chain_steps: 10
+  # Independent of train.batch_size: sampling is the memory peak of the run and
+  # it happens after training, so an OOM here throws the whole run away.
+  samples_batch_size: 8
+  # val NLL here is T * E_kl from a single noise draw; its noise is larger than
+  # the improvement over training, so selecting on it picks an arbitrary epoch.
+  monitor_metric: val/E_CE
+  val_loss_repeats: 4
 
 train:
-  n_epochs: 200
-  batch_size: 2
-  accumulate_grad_batches: 16
+  n_epochs: 600
+  # The old batch_size 2 / accumulate 16 peaked at 1.3 GB on a 40 GB A100 while
+  # running 16 optimizer steps per epoch. Same effective batch of 32, 8x fewer
+  # forward passes, and enough headroom left for extra_features.
+  batch_size: 16
+  accumulate_grad_batches: 2
+  # Keep at 0: main.py's ema_decay > 0 branch calls utils.EMA, which does not
+  # exist in this fork (nor upstream), so any positive value crashes at startup.
+  ema_decay: 0
   save_model: true
 
 model:
   type: discrete
-  transition: uniform
+  # The bin marginal is heavily skewed; a uniform prior starts sampling from
+  # mean value 0.5 against a data density of ~0.22.
+  transition: marginal
   diffusion_steps: 1000
   diffusion_noise_schedule: cosine
   n_layers: 5
   lambda_train: [5, 0]
-  extra_features: null
+  # With a single node type these structural features are the only thing that
+  # distinguishes one node from another.
+  extra_features: all
   hidden_mlp_dims: {X: 128, E: 64, y: 128}
   hidden_dims:
     dx: 256

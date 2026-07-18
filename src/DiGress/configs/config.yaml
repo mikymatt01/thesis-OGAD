@@ -9,4 +9,7 @@ hydra:
   job:
     chdir: True
   run:
-    dir: ${hydra:runtime.cwd}/data/predictions/graphs/digress
+    # Hydra chdirs here, so `checkpoints/<name>` lives under this directory.
+    # Without the run id, two runs sharing the /app/data mount write to the same
+    # checkpoint dir and their save_top_k pruning deletes each other's files.
+    dir: ${hydra:runtime.cwd}/data/predictions/graphs/digress/${oc.env:OGAD_RUN_ID,shared}
