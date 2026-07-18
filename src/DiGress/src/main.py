@@ -277,10 +277,27 @@ def main(cfg: DictConfig):
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
         if cfg.general.name not in ['debug', 'test']:
-            test_checkpoint = None
-            if dataset_config["name"] == 'graphons' and checkpoint_callback is not None:
-                test_checkpoint = checkpoint_callback.best_model_path or None
-            trainer.test(model, datamodule=datamodule, ckpt_path=test_checkpoint)
+            exported = None
+            if dataset_config["name"] == 'graphons':
+                from graphon_candidates import export_candidates
+
+                # Sample one graphon set per (checkpoint, seed) so GGME can rank
+                # them on its validation split, the way the D3PM branch already
+                # does. Falls through to a single test run when disabled.
+                exported = export_candidates(
+                    cfg=cfg,
+                    trainer=trainer,
+                    model=model,
+                    datamodule=datamodule,
+                    sampling_metrics=sampling_metrics,
+                    checkpoint_callback=checkpoint_callback,
+                    data_root=datamodule.data_root,
+                )
+            if exported is None:
+                test_checkpoint = None
+                if dataset_config["name"] == 'graphons' and checkpoint_callback is not None:
+                    test_checkpoint = checkpoint_callback.best_model_path or None
+                trainer.test(model, datamodule=datamodule, ckpt_path=test_checkpoint)
     else:
         # Start by evaluating test_only_path
         trainer.test(model, datamodule=datamodule, ckpt_path=cfg.general.test_only)

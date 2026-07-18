@@ -83,6 +83,8 @@ GGME_CMD=(poetry run python main.py
 )
 if [[ "$GRAPHON_GENERATOR" == "digress" ]]; then
   GGME_CMD+=(--graphons_pt /app/data/predictions/graphons/digress/tensors.pt)
+  # Without this GGME looks for the D3PM manifest and skips candidate selection.
+  GGME_CMD+=(--candidate_manifest /app/data/predictions/graphons/digress/candidates.json)
 fi
 
 run_stage() {

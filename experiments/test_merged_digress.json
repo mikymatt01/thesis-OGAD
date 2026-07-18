@@ -20,10 +20,18 @@
     "accumulate_grad_batches": 2,
     "final_samples": 100,
     "samples_batch_size": 8,
+    "candidate_checkpoints": 5,
+    "candidate_seeds": 3,
+    "candidate_samples": 24,
     "max_epochs": 600,
     "transition": "marginal",
     "extra_features": "all",
     "match_training_density": false
+  },
+  "graph_selection": {
+    "validation_fraction": 0.2,
+    "split_seed": 0,
+    "selection_metric": "mean_rank"
   },
   "ggme": {
     "test_graphs": "/app/data/test/graphs/CommunityGraphs.pickle",

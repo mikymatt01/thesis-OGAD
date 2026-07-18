@@ -74,6 +74,35 @@ Per le ablazioni basta cambiare un campo alla volta: `quantization`, `transition
 (`uniform`/`marginal`) ed `extra_features` (`all`/`cycles`/`eigenvalues`/`null`)
 sono tutti sovrascrivibili da qui.
 
+### Selezione del candidato
+
+Come lo stage D3PM, DiGress ora emette più set di grafoni candidati e lascia che
+GGME scelga il migliore sullo split di validazione, copiandolo in `tensors.pt`.
+Serve la sezione `graph_selection` nel JSON dell'esperimento, altrimenti SIGL non
+crea `ggme_validation_graphs.pickle` e la selezione resta inerte:
+
+```json
+{
+  "graph_selection": {
+    "validation_fraction": 0.2,
+    "split_seed": 0,
+    "selection_metric": "mean_rank"
+  }
+}
+```
+
+I candidati sono i `candidate_checkpoints` checkpoint migliori già salvati da
+`save_top_k`, moltiplicati per `candidate_seeds` seed di campionamento: non
+richiedono un nuovo training, solo campionamento aggiuntivo. Il costo è
+`candidate_checkpoints × candidate_seeds × candidate_samples` grafoni, a circa
+11 s l'uno: con 5 × 3 × 24 sono ~65 minuti in più per run.
+
+Quando la selezione è attiva, `candidate_samples` sostituisce `final_samples`.
+Con `candidate_checkpoints: 0` si torna al singolo campionamento di prima.
+Gli artifact finiscono in `data/predictions/graphons/digress/candidates/` e il
+manifest in `candidates.json`; GGME scrive una riga `ggme_validation_candidate`
+per candidato in `metrics.jsonl`, utile per vedere la dispersione.
+
 Espansione ed esecuzione seriale di `experiments/test_merged.json`:
 
 ```bash

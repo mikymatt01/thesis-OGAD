@@ -7,6 +7,8 @@ dataset:
   output_path: predictions/graphons/digress/tensors.pt
   stats_output_path: predictions/graphons/digress/stats.json
   codebook_path: predictions/graphons/digress/codebook.json
+  candidate_dir: predictions/graphons/digress/candidates
+  candidate_manifest_path: predictions/graphons/digress/candidates.json
   resolution: 128
   # 'codebook' fits the reconstruction levels to the training value
   # distribution (Lloyd-Max). 'uniform' reproduces the original evenly spaced
@@ -40,6 +42,14 @@ general:
   # Independent of train.batch_size: sampling is the memory peak of the run and
   # it happens after training, so an OOM here throws the whole run away.
   samples_batch_size: 8
+  # Candidate export: GGME ranks these on its validation split and copies the
+  # winner into tensors.pt, matching what the D3PM branch already gets. The
+  # checkpoints are the ones save_top_k already keeps, so this costs sampling
+  # time only (about 11 s per graphon), not training time.
+  # 0 checkpoints disables it and falls back to a single test run.
+  candidate_checkpoints: 5
+  candidate_seeds: 3
+  candidate_samples: 24
   # val NLL here is T * E_kl from a single noise draw; its noise is larger than
   # the improvement over training, so selecting on it picks an arbitrary epoch.
   monitor_metric: val/E_CE
