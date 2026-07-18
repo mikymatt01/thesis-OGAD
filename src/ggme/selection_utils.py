@@ -45,7 +45,10 @@ def mean_rank_scores(
             rows,
             key=lambda row: (
                 float(row["mmd"][descriptor]),
-                float(row.get("validation_loss", 0.0)),
+                # A generator may legitimately have no validation loss to report;
+                # the default alone does not cover an explicit null, and this
+                # only breaks ties, so treating it as 0.0 is safe.
+                float(row.get("validation_loss") or 0.0),
             ),
         )
         previous_value = None
@@ -68,7 +71,7 @@ def mean_rank_scores(
         rows,
         key=lambda row: (
             float(row["ggme_score"]),
-            float(row.get("validation_loss", 0.0)),
+            float(row.get("validation_loss") or 0.0),
         ),
     )
 
@@ -102,7 +105,7 @@ def digress_target_ratio_scores(
         rows,
         key=lambda row: (
             float(row["ggme_score"]),
-            float(row.get("validation_loss", 0.0)),
+            float(row.get("validation_loss") or 0.0),
         ),
     )
 

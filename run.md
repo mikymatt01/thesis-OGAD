@@ -110,6 +110,19 @@ checkpoint: `lambda_train` moltiplica la loss per 5, quindi il learning rate
 effettivo è 0.001 e tenuto costante per 600 epoche non converge mai. Il default
 resta `constant` per non toccare gli altri dataset.
 
+Se GGME fallisce, i grafoni e i candidati sono già su disco: non serve
+riaddestrare, basta rieseguire il solo stage di valutazione.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.ogad-only.yml build eval_metrics
+
+OGAD_GRAPHON_GENERATOR=digress ./scripts/rerun_ggme.sh \
+  runs/parallel_<timestamp>/runs/<run_id>
+```
+
+Le righe `ggme` del tentativo fallito vengono tolte da `metrics.jsonl`, che viene
+comunque salvato come `metrics.jsonl.before_rerun`.
+
 Quando la selezione è attiva, `candidate_samples` sostituisce `final_samples`.
 Con `candidate_checkpoints: 0` si torna al singolo campionamento di prima.
 Gli artifact finiscono in `data/predictions/graphons/digress/candidates/` e il

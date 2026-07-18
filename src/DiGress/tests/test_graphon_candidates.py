@@ -215,6 +215,54 @@ class TestManifestContract(unittest.TestCase):
             self.assertTrue((root / "tensors.pt").is_file())
             self.assertEqual(sampling_metrics.output_path, root / "tensors.pt")
 
+    def test_interval_snapshots_still_emit_a_numeric_validation_loss(self):
+        """Interval snapshots carry no monitored score.
+
+        GGME calls float() on validation_loss to break ties, and a null there
+        crashed selection after training had already finished.
+        """
+        import torch
+
+        from src.graphon_candidates import export_candidates
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            os.environ["OGAD_RUN_DIR"] = str(root)
+            self.addCleanup(os.environ.pop, "OGAD_RUN_DIR", None)
+            for epoch in (25, 50):
+                (root / f"interval-epoch={epoch}.ckpt").touch()
+
+            cfg = SimpleNamespace(
+                general=SimpleNamespace(candidate_checkpoints=2, candidate_seeds=1,
+                                        candidate_samples=4,
+                                        final_model_samples_to_generate=100),
+                dataset=SimpleNamespace(num_bins=16, quantization="codebook",
+                                        candidate_dir="candidates",
+                                        candidate_manifest_path="candidates.json"),
+                model=SimpleNamespace(transition="marginal", extra_features="all"),
+            )
+            sampling_metrics = SimpleNamespace(
+                output_path=root / "tensors.pt", stats_output_path=root / "stats.json"
+            )
+
+            class FakeTrainer:
+                def test(self, model, datamodule=None, ckpt_path=None):
+                    torch.save(torch.zeros(1, 1, 4, 4), sampling_metrics.output_path)
+
+            manifest_path = export_candidates(
+                cfg=cfg, trainer=FakeTrainer(), model=None, datamodule=None,
+                sampling_metrics=sampling_metrics, checkpoint_callback=None,
+                data_root=root, interval_dir=root,
+            )
+
+            candidates = json.loads(Path(manifest_path).read_text(encoding="utf-8"))["candidates"]
+            self.assertEqual(len(candidates), 2)
+            for candidate in candidates:
+                self.assertIsNotNone(candidate["best_validation_loss"])
+                # exactly what src/ggme/selection_utils.py does
+                self.assertIsInstance(float(candidate["best_validation_loss"]), float)
+            self.assertEqual(candidates[0]["best_epoch"], 50)
+
     def test_no_checkpoint_means_no_manifest_and_a_normal_test_run(self):
         from src.graphon_candidates import export_candidates
 

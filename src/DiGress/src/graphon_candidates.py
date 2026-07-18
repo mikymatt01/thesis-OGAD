@@ -175,7 +175,10 @@ def export_candidates(
             "candidate_id": candidate_id,
             "params": params,
             "best_epoch": epoch_of(checkpoint_path),
-            "best_validation_loss": None if score != score else score,
+            # GGME uses this as a tie-break and calls float() on it, so it must
+            # stay numeric. Interval snapshots carry no monitored score by
+            # design, and 0.0 for all of them leaves ties broken by MMD alone.
+            "best_validation_loss": 0.0 if score != score else score,
             "checkpoint_path": str(Path(checkpoint_path).resolve()),
             "params_path": str(params_path.resolve()),
             "graphons_path": str(graphons_path.resolve()),

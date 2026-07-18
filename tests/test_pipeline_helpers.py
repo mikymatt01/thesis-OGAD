@@ -199,6 +199,44 @@ class SIGLBootstrapTests(unittest.TestCase):
 
 
 class GGMECandidateSelectionTests(unittest.TestCase):
+    def test_selection_survives_candidates_without_a_validation_loss(self):
+        """A null loss used to crash ranking after training had finished.
+
+        The DiGress branch samples interval snapshots, which carry no monitored
+        score; validation_loss only breaks ties, so it must not be required.
+        """
+        candidates = [
+            {
+                "candidate_id": "a",
+                "validation_loss": None,
+                "mmd": {
+                    "degree_distribution": 2.0,
+                    "clustering_coefficient": 2.0,
+                    "normalised_laplacian_spectrum": 2.0,
+                },
+            },
+            {
+                "candidate_id": "b",
+                "validation_loss": None,
+                "mmd": {
+                    "degree_distribution": 1.0,
+                    "clustering_coefficient": 1.0,
+                    "normalised_laplacian_spectrum": 1.0,
+                },
+            },
+        ]
+        for metric in ("mean_rank", "digress_target_ratio"):
+            best, ranked = select_best_candidate(candidates, selection_metric=metric)
+            self.assertEqual(best["candidate_id"], "b", metric)
+            self.assertEqual(len(ranked), 2)
+
+        # a missing key must behave the same as an explicit null
+        without_key = [
+            {k: v for k, v in candidate.items() if k != "validation_loss"}
+            for candidate in candidates
+        ]
+        self.assertEqual(select_best_candidate(without_key)[0]["candidate_id"], "b")
+
     def test_mean_rank_selects_best_candidate_and_breaks_ties_with_loss(self):
         candidates = [
             {
