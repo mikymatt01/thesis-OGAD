@@ -122,8 +122,25 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         return {'loss': loss}
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=self.cfg.train.lr, amsgrad=True,
-                                 weight_decay=self.cfg.train.weight_decay)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.cfg.train.lr, amsgrad=True,
+                                      weight_decay=self.cfg.train.weight_decay)
+        schedule = str(getattr(self.cfg.train, 'lr_schedule', 'constant'))
+        if schedule == 'constant':
+            return optimizer
+        if schedule != 'cosine':
+            raise ValueError(f"train.lr_schedule must be 'constant' or 'cosine', got {schedule!r}")
+
+        # A constant lr for the whole run leaves the model bouncing between very
+        # different solutions: on the graphon runs consecutive checkpoints varied
+        # by 4x in downstream MMD, with no trend over epochs.
+        min_ratio = float(getattr(self.cfg.train, 'lr_min_ratio', 0.05))
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=max(int(self.cfg.train.n_epochs), 1),
+            eta_min=self.cfg.train.lr * min_ratio,
+        )
+        return {'optimizer': optimizer,
+                'lr_scheduler': {'scheduler': scheduler, 'interval': 'epoch'}}
 
     def on_fit_start(self) -> None:
         self.train_iterations = len(self.trainer.datamodule.train_dataloader())

@@ -91,11 +91,24 @@ crea `ggme_validation_graphs.pickle` e la selezione resta inerte:
 }
 ```
 
-I candidati sono i `candidate_checkpoints` checkpoint migliori già salvati da
-`save_top_k`, moltiplicati per `candidate_seeds` seed di campionamento: non
-richiedono un nuovo training, solo campionamento aggiuntivo. Il costo è
-`candidate_checkpoints × candidate_seeds × candidate_samples` grafoni, a circa
-11 s l'uno: con 5 × 3 × 24 sono ~65 minuti in più per run.
+I candidati vengono dagli snapshot salvati ogni `candidate_checkpoint_every`
+epoche: si prendono gli ultimi `candidate_checkpoints`, ciascuno campionato con
+`candidate_seeds` seed. Non serve un nuovo training, solo campionamento: il costo
+è `candidate_checkpoints × candidate_seeds × candidate_samples` grafoni a circa
+11 s l'uno, quindi 15 × 1 × 24 sono ~65 minuti in più per run.
+
+Il budget va su checkpoint distinti e non su seed: sul run `20260718_145730` tre
+seed dello stesso checkpoint coprivano ~20% di MMD, mentre checkpoint diversi
+coprivano un fattore 4. Per lo stesso motivo gli snapshot non sono i top-k di
+`val/E_CE`: su quel run la metrica monitorata era anti-correlata con la qualità
+dei grafi, e metteva al primo posto il checkpoint peggiore. Se non esiste nessuno
+snapshot (`candidate_checkpoint_every: 0`) si ricade sui top-k del monitor.
+
+`lr_schedule: "cosine"` (con `lr_min_ratio`, default 0.05) fa decadere il
+learning rate lungo il run. Serve a ridurre proprio quell'oscillazione tra
+checkpoint: `lambda_train` moltiplica la loss per 5, quindi il learning rate
+effettivo è 0.001 e tenuto costante per 600 epoche non converge mai. Il default
+resta `constant` per non toccare gli altri dataset.
 
 Quando la selezione è attiva, `candidate_samples` sostituisce `final_samples`.
 Con `candidate_checkpoints: 0` si torna al singolo campionamento di prima.

@@ -252,6 +252,18 @@ def main(cfg: DictConfig):
         callbacks.append(last_ckpt_save)
         callbacks.append(checkpoint_callback)
 
+        # Evenly spaced snapshots, kept regardless of the monitored score, so the
+        # candidate export can pick distinct models rather than the monitor's
+        # top-k. save_on_train_epoch_end decouples the stride from
+        # check_val_every_n_epochs.
+        interval_every = int(getattr(cfg.general, 'candidate_checkpoint_every', 0))
+        if interval_every > 0:
+            callbacks.append(ModelCheckpoint(dirpath=f"checkpoints/{cfg.general.name}",
+                                             filename='interval-{epoch}',
+                                             every_n_epochs=interval_every,
+                                             save_top_k=-1,
+                                             save_on_train_epoch_end=True))
+
     if cfg.train.ema_decay > 0:
         ema_callback = utils.EMA(decay=cfg.train.ema_decay)
         callbacks.append(ema_callback)
@@ -292,6 +304,7 @@ def main(cfg: DictConfig):
                     sampling_metrics=sampling_metrics,
                     checkpoint_callback=checkpoint_callback,
                     data_root=datamodule.data_root,
+                    interval_dir=f"checkpoints/{cfg.general.name}",
                 )
             if exported is None:
                 test_checkpoint = None

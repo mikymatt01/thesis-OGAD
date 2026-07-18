@@ -47,24 +47,50 @@ def experiment_graph_selection() -> dict:
     return config.get("graph_selection") or {}
 
 
-def checkpoint_plan(checkpoint_callback, max_checkpoints: int, seeds: int):
-    """Return ``[(checkpoint_path, monitored_score, seed), ...]``, best first."""
-    if checkpoint_callback is None or max_checkpoints < 1 or seeds < 1:
+def interval_checkpoints(directory) -> list[Path]:
+    """Checkpoints saved on a fixed epoch stride, oldest first."""
+    if not directory:
+        return []
+    directory = Path(directory)
+    if not directory.is_dir():
+        return []
+    found = []
+    for path in directory.glob("interval-epoch=*.ckpt"):
+        match = EPOCH_RE.search(path.name)
+        if match is not None:
+            found.append((int(match.group(1)), path))
+    return [path for _, path in sorted(found)]
+
+
+def checkpoint_plan(checkpoint_callback, max_checkpoints: int, seeds: int, interval_dir=None):
+    """Return ``[(checkpoint_path, monitored_score, seed), ...]``, best first.
+
+    Prefers evenly spaced checkpoints over the monitor's top-k. On the recorded
+    runs the monitored val/E_CE was anti-correlated with downstream graph
+    quality - it ranked the worst checkpoint first - while checkpoints differed
+    from each other by 4x. Distinct late checkpoints are therefore a far better
+    use of the sampling budget than extra seeds on the same few models.
+    """
+    if max_checkpoints < 1 or seeds < 1:
         return []
 
-    tracked = getattr(checkpoint_callback, "best_k_models", None) or {}
-    ranked = sorted((float(score), path) for path, score in tracked.items())
-    if not ranked:
-        fallback = getattr(checkpoint_callback, "best_model_path", "")
-        if not fallback:
+    pool = interval_checkpoints(interval_dir)
+    if pool:
+        # Newest first: after the cosine decay the late ones are the converged ones.
+        chosen = [(float("nan"), str(path)) for path in reversed(pool[-max_checkpoints:])]
+    else:
+        if checkpoint_callback is None:
             return []
-        ranked = [(float("nan"), fallback)]
+        tracked = getattr(checkpoint_callback, "best_k_models", None) or {}
+        ranked = sorted((float(score), path) for path, score in tracked.items())
+        if not ranked:
+            fallback = getattr(checkpoint_callback, "best_model_path", "")
+            if not fallback:
+                return []
+            ranked = [(float("nan"), fallback)]
+        chosen = ranked[:max_checkpoints]
 
-    return [
-        (path, score, seed)
-        for score, path in ranked[:max_checkpoints]
-        for seed in range(seeds)
-    ]
+    return [(path, score, seed) for score, path in chosen for seed in range(seeds)]
 
 
 def epoch_of(checkpoint_path: str) -> int:
@@ -80,6 +106,7 @@ def export_candidates(
     sampling_metrics,
     checkpoint_callback,
     data_root: Path,
+    interval_dir=None,
 ) -> Path | None:
     """Sample one graphon set per (checkpoint, seed) and write GGME's manifest.
 
@@ -90,6 +117,7 @@ def export_candidates(
         checkpoint_callback,
         int(getattr(cfg.general, "candidate_checkpoints", 0)),
         int(getattr(cfg.general, "candidate_seeds", 1)),
+        interval_dir=interval_dir,
     )
     if not plan:
         return None

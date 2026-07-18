@@ -54,6 +54,56 @@ class TestCheckpointPlan(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_TORCH, "torch is not installed")
+class TestIntervalCheckpointPool(unittest.TestCase):
+    def _dir_with(self, names):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        for name in names:
+            (Path(tmp.name) / name).touch()
+        return tmp.name
+
+    def test_interval_checkpoints_are_ordered_by_epoch_not_filename(self):
+        from src.graphon_candidates import interval_checkpoints
+
+        directory = self._dir_with([
+            "interval-epoch=100.ckpt", "interval-epoch=25.ckpt",
+            "interval-epoch=9.ckpt", "epoch=42.ckpt", "last.ckpt",
+        ])
+        epochs = [p.name for p in interval_checkpoints(directory)]
+        self.assertEqual(
+            epochs,
+            ["interval-epoch=9.ckpt", "interval-epoch=25.ckpt", "interval-epoch=100.ckpt"],
+        )
+
+    def test_plan_prefers_latest_interval_snapshots_over_the_monitor_topk(self):
+        from src.graphon_candidates import checkpoint_plan
+
+        directory = self._dir_with([
+            f"interval-epoch={e}.ckpt" for e in (25, 50, 75, 100)
+        ])
+        callback = SimpleNamespace(
+            best_k_models={"monitored.ckpt": 0.1}, best_model_path="monitored.ckpt"
+        )
+        plan = checkpoint_plan(callback, max_checkpoints=2, seeds=1, interval_dir=directory)
+
+        names = [Path(p).name for p, _, _ in plan]
+        self.assertEqual(names, ["interval-epoch=100.ckpt", "interval-epoch=75.ckpt"])
+        self.assertNotIn("monitored.ckpt", names)
+
+    def test_plan_falls_back_to_the_monitor_when_no_snapshots_exist(self):
+        from src.graphon_candidates import checkpoint_plan
+
+        callback = SimpleNamespace(
+            best_k_models={"a.ckpt": 0.4, "b.ckpt": 0.9}, best_model_path="a.ckpt"
+        )
+        plan = checkpoint_plan(callback, 2, 1, interval_dir=self._dir_with([]))
+        self.assertEqual([p for p, _, _ in plan], ["a.ckpt", "b.ckpt"])
+
+        plan = checkpoint_plan(callback, 2, 1, interval_dir="/does/not/exist")
+        self.assertEqual([p for p, _, _ in plan], ["a.ckpt", "b.ckpt"])
+
+
+@unittest.skipUnless(HAS_TORCH, "torch is not installed")
 class TestGraphSelectionDiscovery(unittest.TestCase):
     def _with_run_dir(self, payload):
         tmp = tempfile.TemporaryDirectory()

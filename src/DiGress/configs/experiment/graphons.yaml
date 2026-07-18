@@ -43,12 +43,17 @@ general:
   # it happens after training, so an OOM here throws the whole run away.
   samples_batch_size: 8
   # Candidate export: GGME ranks these on its validation split and copies the
-  # winner into tensors.pt, matching what the D3PM branch already gets. The
-  # checkpoints are the ones save_top_k already keeps, so this costs sampling
-  # time only (about 11 s per graphon), not training time.
+  # winner into tensors.pt, matching what the D3PM branch already gets. Costs
+  # sampling time only (about 11 s per graphon), not training time.
   # 0 checkpoints disables it and falls back to a single test run.
-  candidate_checkpoints: 5
-  candidate_seeds: 3
+  #
+  # Budget goes to distinct checkpoints rather than seeds: on the recorded runs
+  # three seeds of one checkpoint spanned ~20% in MMD while different
+  # checkpoints spanned 4x. Snapshots are taken every candidate_checkpoint_every
+  # epochs and the latest candidate_checkpoints of them are sampled.
+  candidate_checkpoint_every: 25
+  candidate_checkpoints: 15
+  candidate_seeds: 1
   candidate_samples: 24
   # val NLL here is T * E_kl from a single noise draw; its noise is larger than
   # the improvement over training, so selecting on it picks an arbitrary epoch.
@@ -65,6 +70,11 @@ train:
   # Keep at 0: main.py's ema_decay > 0 branch calls utils.EMA, which does not
   # exist in this fork (nor upstream), so any positive value crashes at startup.
   ema_decay: 0
+  # lambda_train multiplies the loss by 5, so the effective lr is 0.001. Held
+  # constant for 600 epochs that never settles; consecutive checkpoints differed
+  # by 4x downstream with no trend over epochs.
+  lr_schedule: cosine
+  lr_min_ratio: 0.05
   save_model: true
 
 model:
