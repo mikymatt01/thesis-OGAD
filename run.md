@@ -177,5 +177,14 @@ scp -r thesis_unipi:/raid/m.mattiello/OGAD/runs ./
 ## DiGress
 
 ```
-python3 scripts/run_from_merged_parallel.py   --merged experiments/test_merged_digress.json   --gpus 0,2   --max-retries 1
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.ogad-only.yml \
+  -f docker-compose.digress-graphons.yml \
+  build train_model_b
+  
+OGAD_GRAPHON_GENERATOR=digress python3 scripts/run_from_merged_parallel.py \
+  --merged experiments/test_merged_digress.json \
+  --gpus 0,2 \
+  --max-retries 1
 ```

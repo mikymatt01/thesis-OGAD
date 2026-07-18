@@ -8,7 +8,7 @@
     "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
     "output_dir": ["/app/data/train/graphons"],
     "n_clusters": [50],
-    "bootstrap_replicates": [13, 14, 15, 16],
+    "bootstrap_replicates": [13, 14],
     "bootstrap_seed": [0],
     "include_original_clusters": [false]
   },
