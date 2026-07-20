@@ -18,6 +18,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from bootstrap_utils import (  # noqa: E402
     build_cluster_bootstrap_plan,
     expected_graphon_count,
+    parse_job_ids,
+    select_graphon_jobs,
 )
 from graph_split_utils import deterministic_graph_split  # noqa: E402
 from graphon_utils import (  # noqa: E402
@@ -185,6 +187,22 @@ class SIGLBootstrapTests(unittest.TestCase):
         self.assertEqual(len(plan), 6)
         self.assertEqual(sum(1 for job in plan if job["is_original"]), 2)
 
+    def test_small_clusters_are_not_bootstrapped(self):
+        plan = build_cluster_bootstrap_plan(
+            [[0], [1, 2, 3, 4]],
+            3,
+            seed=0,
+            min_bootstrap_cluster_size=3,
+        )
+
+        self.assertEqual(len(plan), 4)
+        small_cluster_jobs = [job for job in plan if job["cluster_id"] == 0]
+        large_cluster_jobs = [job for job in plan if job["cluster_id"] == 1]
+        self.assertEqual(len(small_cluster_jobs), 1)
+        self.assertTrue(small_cluster_jobs[0]["is_original"])
+        self.assertEqual(len(large_cluster_jobs), 3)
+        self.assertFalse(any(job["is_original"] for job in large_cluster_jobs))
+
     def test_graph_selection_split_is_deterministic_disjoint_and_complete(self):
         first = deterministic_graph_split(10, 0.2, seed=0)
         second = deterministic_graph_split(10, 0.2, seed=0)
@@ -196,6 +214,35 @@ class SIGLBootstrapTests(unittest.TestCase):
             sorted(model_train_indices + ggme_validation_indices),
             list(range(10)),
         )
+
+    def test_job_sharding_is_deterministic_and_disjoint(self):
+        jobs = [{"sample_id": index} for index in range(10)]
+        shard0 = select_graphon_jobs(jobs, shard_index=0, shard_count=3)
+        shard1 = select_graphon_jobs(jobs, shard_index=1, shard_count=3)
+        shard2 = select_graphon_jobs(jobs, shard_index=2, shard_count=3)
+
+        self.assertEqual([job["sample_id"] for job in shard0], [0, 3, 6, 9])
+        self.assertEqual([job["sample_id"] for job in shard1], [1, 4, 7])
+        self.assertEqual([job["sample_id"] for job in shard2], [2, 5, 8])
+        self.assertEqual(
+            sorted(
+                job["sample_id"]
+                for shard in (shard0, shard1, shard2)
+                for job in shard
+            ),
+            list(range(10)),
+        )
+
+    def test_job_ids_filter_combines_with_sharding(self):
+        jobs = [{"sample_id": index} for index in range(8)]
+        selected = select_graphon_jobs(
+            jobs,
+            job_ids=parse_job_ids("1,2,5,6"),
+            shard_index=1,
+            shard_count=2,
+        )
+
+        self.assertEqual([job["sample_id"] for job in selected], [1, 5])
 
 
 class GGMECandidateSelectionTests(unittest.TestCase):

@@ -1,0 +1,52 @@
+{
+  "name": "sigl_h2_degree_corrected_digress",
+  "shared": {},
+  "sigl": {
+    "n_epoch": [300],
+    "lr": [0.01],
+    "Res": [128],
+    "h_size": [2],
+    "node_features": ["structural"],
+    "degree_correction": ["sorted_profile"],
+    "degree_correction_iters": [32],
+    "Adjs_dir": ["/app/data/train/graphs/CommunityGraphs.pickle"],
+    "output_dir": ["/app/data/train/graphons"],
+    "n_clusters": [10],
+    "min_cluster_size": [10],
+    "bootstrap_replicates": [8],
+    "min_bootstrap_cluster_size": [10],
+    "bootstrap_seed": [0],
+    "include_original_clusters": [true]
+  },
+  "digress_graphons": {
+    "num_bins": 16,
+    "quantization": "codebook",
+    "resolution": 128,
+    "batch_size": 16,
+    "accumulate_grad_batches": 2,
+    "final_samples": 100,
+    "samples_batch_size": 8,
+    "candidate_checkpoint_every": 25,
+    "candidate_checkpoints": 15,
+    "candidate_seeds": 1,
+    "candidate_samples": 24,
+    "lr_schedule": "cosine",
+    "max_epochs": 600,
+    "transition": "marginal",
+    "extra_features": "all",
+    "match_training_density": false
+  },
+  "graph_selection": {
+    "validation_fraction": 0.2,
+    "split_seed": 0,
+    "selection_metric": "mean_rank"
+  },
+  "ggme": {
+    "test_graphs": "/app/data/test/graphs/CommunityGraphs.pickle",
+    "paper_graphs": "/app/data/predictions/graphs/ggme_paper/CommunityGraphs.pickle",
+    "graphons_pt": "/app/data/predictions/graphons/digress/tensors.pt",
+    "digress_samples": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+    "num_generated_graphs": 100,
+    "seed": 0
+  }
+}

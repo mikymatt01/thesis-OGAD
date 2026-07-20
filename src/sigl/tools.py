@@ -128,7 +128,8 @@ class GCN(torch.nn.Module):
         x_post_fc = self.fc1(x_pre_fc)
         x_post_fc = torch.sigmoid(x_post_fc)
         # Normalize the latent variables to [0,1]
-        x_post_fc = (x_post_fc - x_post_fc.min())/(x_post_fc.max() - x_post_fc.min())        
+        denom = (x_post_fc.max() - x_post_fc.min()).clamp_min(1e-8)
+        x_post_fc = (x_post_fc - x_post_fc.min()) / denom
 
         return x_pre_fc, x_post_fc
     
@@ -154,15 +155,67 @@ class SIGL(nn.Module):
 
 
 '''Functions'''
-def nx2torch(adjacency_matrix):
+def node_features_from_adjacency(adjacency_matrix, mode="structural"):
+    mode = str(mode).lower()
+    adjacency_matrix = np.asarray(adjacency_matrix, dtype=np.float32)
+    n = adjacency_matrix.shape[0]
+
+    if mode == "random":
+        return torch.randn(n, 1)
+    if mode == "ones":
+        return torch.ones(n, 1)
+    if mode not in ("structural", "degree"):
+        raise ValueError(f"Unknown node feature mode: {mode}")
+
+    degree = adjacency_matrix.sum(axis=1)
+    max_degree = max(float(n - 1), 1.0)
+    degree_norm = degree / max_degree
+
+    if mode == "degree":
+        return torch.tensor(degree_norm[:, None], dtype=torch.float)
+
+    two_hop = adjacency_matrix @ degree
+    avg_neighbor_degree = two_hop / np.maximum(degree, 1.0)
+    avg_neighbor_degree = avg_neighbor_degree / max_degree
+
+    triangles = np.diag(adjacency_matrix @ adjacency_matrix @ adjacency_matrix) / 2.0
+    possible_triangles = degree * np.maximum(degree - 1.0, 0.0) / 2.0
+    local_clustering = triangles / np.maximum(possible_triangles, 1.0)
+    triangle_norm = triangles / max(float((n - 1) * (n - 2) / 2), 1.0)
+
+    features = np.column_stack(
+        [
+            degree_norm,
+            degree_norm ** 2,
+            avg_neighbor_degree,
+            local_clustering,
+            triangle_norm,
+        ]
+    )
+    return torch.tensor(features, dtype=torch.float)
+
+
+def node_feature_dim(mode="structural"):
+    mode = str(mode).lower()
+    if mode in ("random", "ones", "degree"):
+        return 1
+    if mode == "structural":
+        return 5
+    raise ValueError(f"Unknown node feature mode: {mode}")
+
+
+def nx2torch(adjacency_matrix, node_feature_mode="structural"):
     adjacency_matrix = torch.tensor(adjacency_matrix, dtype=torch.float)
     edge_index = torch.nonzero(adjacency_matrix, as_tuple=False).t().contiguous()
     edge_value = adjacency_matrix.reshape(-1)
-    x = torch.randn(adjacency_matrix.size(0), 1) # Random node features
+    x = node_features_from_adjacency(
+        adjacency_matrix.cpu().numpy(),
+        mode=node_feature_mode,
+    )
     data = Data(x=x, edge_index=edge_index, y=edge_value).to(device)
     return data
 
-def graph2XY(graphs, model_SIGL, latent_val=None, hsize=4):
+def graph2XY(graphs, model_SIGL, latent_val=None, hsize=4, node_feature_mode="structural"):
     num_nodes = sum([graph_i.shape[0] for graph_i in graphs])
     X_all = []
     y_all = []
@@ -172,7 +225,7 @@ def graph2XY(graphs, model_SIGL, latent_val=None, hsize=4):
     for graph_idx in range(len(graphs)):
         # Sorting:
         graph_test = graphs[graph_idx]
-        data_i = nx2torch(graph_test)
+        data_i = nx2torch(graph_test, node_feature_mode=node_feature_mode)
         _, output_gnn_post = model_SIGL.model1(data_i.x, data_i.edge_index)
         perm_i = torch.argsort(output_gnn_post.squeeze(-1))
         perm = perm_i.cpu().numpy()  # Convert torch permutation to numpy array
@@ -194,7 +247,7 @@ def graph2XY(graphs, model_SIGL, latent_val=None, hsize=4):
         A = torch.tensor(graph_test_sort, dtype=torch.float, device=device)
         A = A.view(1, 1, N, N)
         H = F.avg_pool2d(A, kernel_size=(h, h))
-        H = H.cpu().numpy().squeeze()  # Convert pooled result back to numpy
+        H = H.cpu().numpy()[0, 0]  # Convert pooled result back to numpy
         k = H.shape[0]
 
         # Get the coordinates:
@@ -220,6 +273,42 @@ def graph2XY(graphs, model_SIGL, latent_val=None, hsize=4):
     w_all = torch.tensor(np.concatenate(w_all, axis=0), dtype=torch.float, device=device)
 
     return X_all, y_all, w_all
+
+
+def sorted_degree_profile(graphs, model_SIGL, Res, node_feature_mode="structural"):
+    profiles = []
+    for graph in graphs:
+        data_i = nx2torch(graph, node_feature_mode=node_feature_mode)
+        _, output_gnn_post = model_SIGL.model1(data_i.x, data_i.edge_index)
+        perm = torch.argsort(output_gnn_post.squeeze(-1)).cpu().numpy()
+        sorted_graph = graph[perm, :][:, perm]
+        n = sorted_graph.shape[0]
+        degree_profile = sorted_graph.sum(axis=1) / max(n - 1, 1)
+        source_x = (np.arange(n) + 0.5) / n
+        target_x = (np.arange(Res) + 0.5) / Res
+        profiles.append(np.interp(target_x, source_x, degree_profile))
+    return np.mean(np.stack(profiles, axis=0), axis=0)
+
+
+def degree_correct_graphon(graphon, target_degree_profile, num_iters=32, eps=1e-6):
+    corrected = np.asarray(graphon, dtype=np.float32).copy()
+    target = np.asarray(target_degree_profile, dtype=np.float32)
+    if corrected.ndim != 2 or corrected.shape[0] != corrected.shape[1]:
+        raise ValueError(f"Expected square graphon, got {corrected.shape}")
+    if target.shape[0] != corrected.shape[0]:
+        raise ValueError(
+            f"Degree profile length {target.shape[0]} does not match graphon resolution {corrected.shape[0]}"
+        )
+
+    target = np.clip(target, eps, 1.0 - eps)
+    np.fill_diagonal(corrected, 0.0)
+    for _ in range(num_iters):
+        current = corrected.sum(axis=1) / max(corrected.shape[0] - 1, 1)
+        scale = np.sqrt(target / np.maximum(current, eps))
+        corrected = corrected * scale[:, None] * scale[None, :]
+        corrected = np.clip((corrected + corrected.T) / 2.0, 0.0, 1.0)
+        np.fill_diagonal(corrected, 0.0)
+    return corrected
 
 def exists(val):
     return val is not None
@@ -340,7 +429,7 @@ def gw_distance(graphon: np.ndarray, estimation: np.ndarray) -> float:
     dw2 = ot.gromov.gromov_wasserstein2(graphon, estimation, p, q, loss_fun, log=False, armijo=False)
     return np.sqrt(dw2)
 
-def coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs, lr):
+def coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs, lr, node_feature_mode="structural"):
     # Auxiliary graphon represented by an INR 
     model_inr = SirenNet(dim_in = 2, # input [x,y] coordinate
                 dim_hidden = inr_dim_hidden,
@@ -349,11 +438,11 @@ def coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, 
                 final_activation = 'sigmoid',
                 w0_initial = w0).to(device)
     # GNN model to output the latent variables of the nodes
-    model_gnn = GCN(1, gnn_dim_hidden, 1).to(device) 
+    model_gnn = GCN(node_feature_dim(node_feature_mode), gnn_dim_hidden, 1).to(device) 
     # End-to-end model of Step 1
     model_SIGL = SIGL(model_gnn, model_inr).to(device)
     # Train the model
-    graph_data = [nx2torch(graph_i) for graph_i in graphs]
+    graph_data = [nx2torch(graph_i, node_feature_mode=node_feature_mode) for graph_i in graphs]
     optimizer = torch.optim.Adam(model_SIGL.parameters(), lr=lr)
     criterion = torch.nn.MSELoss()
     model_SIGL.train()

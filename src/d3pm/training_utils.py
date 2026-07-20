@@ -30,6 +30,7 @@ DEFAULT_TRAINING_CONFIG = {
     "patience": 10,
     "min_delta": 1e-4,
     "max_epochs": 200,
+    "match_training_density": False,
 }
 
 DEFAULT_GRAPH_SELECTION_CONFIG = {
@@ -104,6 +105,7 @@ def load_experiment_config(config_path: str | None) -> tuple[dict, dict]:
     training["patience"] = int(training["patience"])
     training["min_delta"] = float(training["min_delta"])
     training["max_epochs"] = int(training["max_epochs"])
+    training["match_training_density"] = bool(training["match_training_density"])
     if training["patience"] < 1:
         raise ValueError("patience must be at least 1")
     if training["max_epochs"] < 1:

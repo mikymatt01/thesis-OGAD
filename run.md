@@ -250,6 +250,21 @@ OGAD_CLEANUP=1 ./scripts/run_ogad_experiment.sh experiments/test_nc0.json nc0
 scp -r thesis_unipi:/raid/m.mattiello/OGAD/runs ./
 ```
 
+## D3PM
+
+```
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.ogad-only.yml \
+  build prep_data train_model_b eval_metrics
+```
+
+```
+  OGAD_GRAPHON_GENERATOR=d3pm python3 scripts/run_from_merged_parallel.py \
+  --merged experiments/10_sigl_h2_degree_corrected_d3pm_full.json \
+  --gpus 0 \
+  --max-retries 1
+```
 ## DiGress
 
 ```

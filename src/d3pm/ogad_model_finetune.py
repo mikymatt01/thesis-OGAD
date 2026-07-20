@@ -51,6 +51,45 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
 
+def off_diagonal_density(graphons: torch.Tensor) -> torch.Tensor:
+    graphons = torch.as_tensor(graphons, dtype=torch.float32)
+    squeeze_result = False
+    if graphons.ndim == 2:
+        graphons = graphons.unsqueeze(0).unsqueeze(0)
+        squeeze_result = True
+    elif graphons.ndim == 3:
+        graphons = graphons.unsqueeze(1)
+    if graphons.ndim != 4 or graphons.shape[1] != 1:
+        raise ValueError(f"Expected graphon shape [N,1,R,R], got {tuple(graphons.shape)}")
+
+    mask = ~torch.eye(graphons.shape[-1], dtype=torch.bool, device=graphons.device)
+    densities = graphons[:, 0][:, mask].mean(dim=1)
+    return densities[0] if squeeze_result else densities
+
+
+def match_graphon_density(graphons: torch.Tensor, target_density: float, eps: float = 1e-8) -> torch.Tensor:
+    if target_density < 0:
+        raise ValueError(f"target_density must be non-negative, got {target_density}")
+
+    graphons = torch.as_tensor(graphons, dtype=torch.float32)
+    if graphons.ndim != 4 or graphons.shape[1] != 1:
+        raise ValueError(f"Expected graphon shape [N,1,R,R], got {tuple(graphons.shape)}")
+
+    densities = off_diagonal_density(graphons).clamp_min(eps)
+    scale = torch.as_tensor(target_density, dtype=graphons.dtype, device=graphons.device) / densities
+    corrected = (graphons * scale.view(-1, 1, 1, 1)).clamp(0, 1)
+    corrected = (corrected + corrected.transpose(-1, -2)) / 2
+    corrected.diagonal(dim1=-2, dim2=-1).zero_()
+    return corrected.cpu().float()
+
+
+def mean_dataset_density(dataset) -> float:
+    densities = [off_diagonal_density(item["data"]) for item in dataset]
+    if not densities:
+        raise ValueError("Cannot compute density from an empty graphon dataset")
+    return float(torch.stack(densities).mean().item())
+
+
 def append_metrics_jsonl(run_dir: str | None, payload: dict) -> None:
     if not run_dir:
         return
@@ -241,7 +280,13 @@ def save_gzip_torch(payload, path: Path) -> None:
         torch.save(payload, compressed_file)
 
 
-def generate_graphons_from_checkpoint(state_dict, params, out_path: Path, seed: int) -> None:
+def generate_graphons_from_checkpoint(
+    state_dict,
+    params,
+    out_path: Path,
+    seed: int,
+    target_density: float | None = None,
+) -> dict:
     """Generate sanitized graphon tensors for one trained D3PM candidate."""
     set_reproducible_seed(seed)
     num_classes = params["num_classes"]
@@ -267,8 +312,17 @@ def generate_graphons_from_checkpoint(state_dict, params, out_path: Path, seed: 
         graphons = images[-1].float().cpu() / (num_classes - 1)
         graphons = ((graphons + graphons.transpose(-1, -2)) / 2).clamp(0, 1)
         graphons.diagonal(dim1=-2, dim2=-1).zero_()
+    density_before = off_diagonal_density(graphons)
+    if target_density is not None:
+        graphons = match_graphon_density(graphons, target_density)
+    density_after = off_diagonal_density(graphons)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(graphons, out_path)
+    return {
+        "density_before_mean": float(density_before.mean().item()),
+        "density_after_mean": float(density_after.mean().item()),
+        "target_density": target_density,
+    }
 
 
 if __name__ == "__main__":
@@ -284,6 +338,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     param_grid, training_config = load_experiment_config(args.config)
     graph_selection_config = load_graph_selection_config(args.config)
+    target_density = (
+        mean_dataset_density(gr_dataset)
+        if training_config.get("match_training_density")
+        else None
+    )
+    if target_density is not None:
+        print(f"Matching generated graphon density to training mean {target_density:.6f}")
     train_indices, validation_indices = deterministic_split(
         len(gr_dataset),
         training_config["validation_fraction"],
@@ -329,21 +390,25 @@ if __name__ == "__main__":
             "best_epoch": result["best_epoch"],
             "best_validation_loss": result["best_validation_loss"],
             "training": training_config,
+            "match_training_density": bool(training_config.get("match_training_density")),
+            "target_density": target_density,
             "split_seed": training_config["split_seed"],
         }
         save_gzip_torch(result["state_dict"], checkpoint_path)
         save_gzip_torch(candidate_metadata, params_path)
-        generate_graphons_from_checkpoint(
+        generation_stats = generate_graphons_from_checkpoint(
             result["state_dict"],
             dict(params),
             graphons_path,
             seed=training_config["split_seed"],
+            target_density=target_density,
         )
         summary = {
             "candidate_id": candidate_id,
             "params": dict(params),
             "best_epoch": result["best_epoch"],
             "best_validation_loss": result["best_validation_loss"],
+            "generation_stats": generation_stats,
             "checkpoint_path": str(checkpoint_path.resolve()),
             "params_path": str(params_path.resolve()),
             "graphons_path": str(graphons_path.resolve()),
@@ -390,6 +455,8 @@ if __name__ == "__main__":
         "best_epoch": best_result["best_epoch"],
         "best_validation_loss": best_result["best_validation_loss"],
         "training": training_config,
+        "match_training_density": bool(training_config.get("match_training_density")),
+        "target_density": target_density,
         "split_seed": training_config["split_seed"],
     }
     save_gzip_torch(
@@ -408,6 +475,7 @@ if __name__ == "__main__":
         "best_params": best_params,
         "best_epoch": best_result["best_epoch"],
         "best_validation_loss": best_result["best_validation_loss"],
+        "target_density": target_density,
         "candidates": candidate_summaries,
         "candidate_manifest_path": str(candidate_manifest_path.resolve()),
     }

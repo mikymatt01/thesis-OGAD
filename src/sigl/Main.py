@@ -1,4 +1,4 @@
-from bootstrap_utils import build_cluster_bootstrap_plan
+from bootstrap_utils import build_cluster_bootstrap_plan, parse_job_ids, select_graphon_jobs
 from clusterize import cluster_graphs_from_arrays
 from graph_split_utils import deterministic_graph_split, select_by_indices
 from tools import *
@@ -6,6 +6,8 @@ import numpy as np
 import argparse
 import json
 import pickle
+import subprocess
+import sys
 import torch
 import time
 import os
@@ -41,12 +43,44 @@ parser.add_argument('--w0', type=float, default=10, help="Default frequency for 
 parser.add_argument('--lr', type=float, default=0.06, help="Learning rate.")
 parser.add_argument('--h_size', type=int, default=4, 
                     help="Pooling window size (1: 1, 2: 2, 3: 3, 4: log(n), 5: sqrt(n)). Default: 4.")
+parser.add_argument(
+    '--node_features',
+    type=str,
+    default="structural",
+    choices=["structural", "degree", "ones", "random"],
+    help="Node features for SIGL coordinate learning. 'random' preserves the original behavior.",
+)
+parser.add_argument(
+    '--degree_correction',
+    type=str,
+    default="none",
+    choices=["none", "sorted_profile"],
+    help="Optional graphon row/column scaling to match the sorted empirical degree profile.",
+)
+parser.add_argument(
+    '--degree_correction_iters',
+    type=int,
+    default=32,
+    help="Number of symmetric scaling iterations for degree_correction=sorted_profile.",
+)
 parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/CommunityGraphs.pickle', 
                     help="Path to existing adjacency matrices (e.g., myGraphs/Adjs.pkl).")
 parser.add_argument('--output_dir', type=str, default='../../data/train/graphons', help="Output directory.")
 parser.add_argument('--n_clusters', type=int, default=None, help="Number of clasters")
+parser.add_argument(
+    '--min_cluster_size',
+    type=int,
+    default=1,
+    help="Merge clusters smaller than this size before graphon estimation.",
+)
 parser.add_argument('--bootstrap_replicates', type=int, default=1, help="Bootstrap graphon replicas per cluster.")
 parser.add_argument('--bootstrap_seed', type=int, default=0, help="Seed for deterministic cluster bootstrap.")
+parser.add_argument(
+    '--min_bootstrap_cluster_size',
+    type=int,
+    default=1,
+    help="Clusters smaller than this produce one original graphon instead of bootstrap replicas.",
+)
 parser.add_argument(
     '--include_original_clusters',
     type=str2bool,
@@ -59,9 +93,50 @@ parser.add_argument(
     default=None,
     help="Optional JSON experiment file: merges top-level 'shared' then 'sigl' into CLI args.",
 )
+parser.add_argument(
+    '--job_ids',
+    type=str,
+    default=None,
+    help="Comma-separated graphon sample ids to run. Empty means all jobs.",
+)
+parser.add_argument(
+    '--job_shard_index',
+    type=int,
+    default=0,
+    help="Worker shard index for job-level parallel SIGL generation.",
+)
+parser.add_argument(
+    '--job_shard_count',
+    type=int,
+    default=1,
+    help="Total number of SIGL job shards.",
+)
+parser.add_argument(
+    '--skip_existing',
+    type=str2bool,
+    default=False,
+    help="Skip individual sample_i.png files that already exist instead of exiting globally.",
+)
+parser.add_argument(
+    '--write_metadata',
+    type=str2bool,
+    default=True,
+    help="Whether this process may write shared metadata/split files.",
+)
+parser.add_argument(
+    '--num_workers',
+    type=int,
+    default=1,
+    help="Launch this many internal SIGL worker processes using deterministic job shards.",
+)
 
 graph_selection_config = {}
 args = parser.parse_args()
+explicit_cli_args = {
+    item.split("=", 1)[0].lstrip("-").replace("-", "_")
+    for item in sys.argv[1:]
+    if item.startswith("--")
+}
 if args.config:
     with open(args.config, encoding="utf-8") as f:
         cfg = json.load(f)
@@ -69,6 +144,10 @@ if args.config:
     graph_selection_config = cfg.get("graph_selection") or {}
     for key, val in merged.items():
         if hasattr(args, key):
+            if key in explicit_cli_args:
+                continue
+            if isinstance(val, list) and len(val) == 1:
+                val = val[0]
             setattr(args, key, val)
 print("Parameters: \n", args)
 
@@ -88,11 +167,22 @@ batch_size = args.batch_size
 w0 = args.w0
 lr = args.lr
 hsize = args.h_size
+node_features = args.node_features
+degree_correction = args.degree_correction
+degree_correction_iters = int(args.degree_correction_iters)
 Adjs_dir = args.Adjs_dir
 n_clusters = args.n_clusters
+min_cluster_size = int(args.min_cluster_size)
 bootstrap_replicates = int(args.bootstrap_replicates)
 bootstrap_seed = int(args.bootstrap_seed)
+min_bootstrap_cluster_size = int(args.min_bootstrap_cluster_size)
 include_original_clusters = str2bool(args.include_original_clusters)
+job_ids = parse_job_ids(args.job_ids)
+job_shard_index = int(args.job_shard_index)
+job_shard_count = int(args.job_shard_count)
+skip_existing = str2bool(args.skip_existing)
+write_metadata = str2bool(args.write_metadata)
+num_workers = int(args.num_workers)
 
 output_dir = args.output_dir
 
@@ -101,6 +191,108 @@ os.makedirs(output_dir, exist_ok=True)
 # Initialization
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
+
+
+def coalesce_small_clusters(clustered_graphs, min_size):
+    if min_size <= 1:
+        return clustered_graphs
+
+    large_clusters = []
+    small_graphs = []
+    small_indices = []
+    for cluster in clustered_graphs:
+        if len(cluster["indices"]) >= min_size:
+            large_clusters.append(cluster)
+        else:
+            small_graphs.extend(cluster["graphs"])
+            small_indices.extend(cluster["indices"])
+
+    if not small_indices:
+        return large_clusters
+
+    merged_small = {"graphs": small_graphs, "indices": small_indices}
+    if len(small_indices) >= min_size or not large_clusters:
+        return large_clusters + [merged_small]
+
+    target = min(large_clusters, key=lambda cluster: len(cluster["indices"]))
+    target["graphs"].extend(small_graphs)
+    target["indices"].extend(small_indices)
+    return large_clusters
+
+
+def set_job_seed(base_seed, sample_id):
+    seed = int(base_seed) + int(sample_id)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    return seed
+
+
+def write_metadata_file(metadata, output_dir):
+    tmp_path = os.path.join(output_dir, "bootstrap_metadata.json.tmp")
+    final_path = os.path.join(output_dir, "bootstrap_metadata.json")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2)
+    os.replace(tmp_path, final_path)
+
+
+def launch_parallel_workers():
+    if num_workers < 1:
+        raise ValueError("num_workers must be at least 1")
+    if num_workers == 1:
+        return False
+    if job_shard_count != 1 or job_shard_index != 0:
+        raise ValueError("Use either --num_workers or manual --job_shard_* arguments, not both")
+
+    log_dir = os.path.join(output_dir, "worker_logs")
+    os.makedirs(log_dir, exist_ok=True)
+    child_base_cmd = [sys.executable, os.path.abspath(__file__)]
+    if args.config:
+        child_base_cmd.extend(["--config", args.config])
+    else:
+        child_base_cmd.extend(sys.argv[1:])
+
+    print("Launching {} SIGL workers".format(num_workers))
+    processes = []
+    log_handles = []
+    for worker_index in range(num_workers):
+        child_cmd = child_base_cmd + [
+            "--num_workers",
+            "1",
+            "--job_shard_index",
+            str(worker_index),
+            "--job_shard_count",
+            str(num_workers),
+            "--skip_existing",
+            "true",
+            "--write_metadata",
+            "true" if worker_index == 0 else "false",
+        ]
+        log_path = os.path.join(log_dir, "sigl_worker_{}.log".format(worker_index))
+        log_handle = open(log_path, "w", encoding="utf-8")
+        log_handles.append(log_handle)
+        print("worker {} log: {}".format(worker_index, log_path))
+        processes.append(subprocess.Popen(child_cmd, stdout=log_handle, stderr=subprocess.STDOUT))
+
+    return_codes = []
+    try:
+        for process in processes:
+            return_codes.append(process.wait())
+    finally:
+        for log_handle in log_handles:
+            log_handle.close()
+
+    failed = [index for index, code in enumerate(return_codes) if code != 0]
+    if failed:
+        raise RuntimeError("SIGL workers failed: {}".format(failed))
+    print("All SIGL workers completed")
+    return True
+
+
+if launch_parallel_workers():
+    exit(0)
 
 
 if Adjs_dir is None: # Generate the adjacency matrices from a true graphon (synthetic data) to reproduce the paper results
@@ -117,10 +309,24 @@ if Adjs_dir is None: # Generate the adjacency matrices from a true graphon (synt
         start_time = time.time()
         ### Learn the coordinates and graphon as step 1
         print("Step1: Learning the laten variable of the nodes")
-        model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graphs_inr, lr)
+        model_SIGL, _ = coords_prediction(
+            inr_dim_hidden,
+            gnn_dim_hidden,
+            n_epochs,
+            epoch_show,
+            w0,
+            graphs_inr,
+            lr,
+            node_feature_mode=node_features,
+        )
         ### Sort the graphs based on the learned latent variables
         print("Step2: Sorting the graphs and calculating the pooling")
-        X_all, y_all, w_all = graph2XY(graphs_inr, model_SIGL)
+        X_all, y_all, w_all = graph2XY(
+            graphs_inr,
+            model_SIGL,
+            hsize=hsize,
+            node_feature_mode=node_features,
+        )
         ### train INR using histogram approximation
         print("Step3: Training the INR using histograms")
         trained_inr = train_graphon(inr_dim_hidden, w0, X_all, y_all, w_all, n_epochs, epoch_show, lr, batch_size)
@@ -156,7 +362,7 @@ if Adjs_dir is None: # Generate the adjacency matrices from a true graphon (synt
 
 else: # load the existing adjacency matrices
     existing = [f for f in os.listdir(output_dir) if f.startswith("sample_") and f.endswith(".png")]
-    if existing:
+    if existing and not skip_existing:
         print(f"Dataset already exists in {output_dir} ({len(existing)} graphons found). Skipping generation.")
         exit(0)
 
@@ -176,7 +382,8 @@ else: # load the existing adjacency matrices
         graphs_inr = select_by_indices(graphs_inr, model_train_indices)
         graph_index_map = model_train_indices
         run_dir = os.environ.get("OGAD_RUN_DIR")
-        if run_dir:
+        should_write_shared_files = write_metadata and job_shard_index == 0
+        if run_dir and should_write_shared_files:
             validation_path = os.path.join(run_dir, "ggme_validation_graphs.pickle")
             model_train_path = os.path.join(run_dir, "model_train_graphs.pickle")
             with open(validation_path, "wb") as f:
@@ -214,12 +421,23 @@ else: # load the existing adjacency matrices
             n_clusters,
             return_indices=True
         )
+        before_cluster_sizes = [len(cluster["indices"]) for cluster in clustered_graphs]
+        clustered_graphs = coalesce_small_clusters(clustered_graphs, min_cluster_size)
+        if min_cluster_size > 1:
+            print(
+                "coalesced clusters: {} -> {} with min_cluster_size={}".format(
+                    len(before_cluster_sizes),
+                    len(clustered_graphs),
+                    min_cluster_size,
+                )
+            )
         cluster_sizes = [len(cluster["indices"]) for cluster in clustered_graphs]
         graphon_jobs = build_cluster_bootstrap_plan(
             [cluster["indices"] for cluster in clustered_graphs],
             bootstrap_replicates=bootstrap_replicates,
             seed=bootstrap_seed,
             include_original_clusters=include_original_clusters,
+            min_bootstrap_cluster_size=min_bootstrap_cluster_size,
         )
         print(
             "bootstrap graphons: ",
@@ -237,37 +455,100 @@ else: # load the existing adjacency matrices
 
     metadata = {
         "n_clusters": n_clusters,
+        "min_cluster_size": min_cluster_size,
         "bootstrap_replicates": bootstrap_replicates,
         "bootstrap_seed": bootstrap_seed,
+        "min_bootstrap_cluster_size": min_bootstrap_cluster_size,
         "include_original_clusters": include_original_clusters,
+        "node_features": node_features,
+        "h_size": hsize,
+        "degree_correction": degree_correction,
+        "degree_correction_iters": degree_correction_iters,
         "cluster_sizes": cluster_sizes,
         "graph_selection_split": split_metadata,
         "samples": graphon_jobs,
+        "job_shard_index": job_shard_index,
+        "job_shard_count": job_shard_count,
+        "job_ids": sorted(job_ids) if job_ids is not None else None,
     }
 
-    for job in graphon_jobs:
+    should_write_metadata = write_metadata and job_shard_index == 0
+    if should_write_metadata:
+        write_metadata_file(metadata, output_dir)
+
+    selected_jobs = select_graphon_jobs(
+        graphon_jobs,
+        job_ids=job_ids,
+        shard_index=job_shard_index,
+        shard_count=job_shard_count,
+    )
+    print(
+        "selected graphon jobs: {} of {} (shard {}/{})".format(
+            len(selected_jobs),
+            len(graphon_jobs),
+            job_shard_index,
+            job_shard_count,
+        )
+    )
+
+    for job in selected_jobs:
         index = job["sample_id"]
+        sample_path = output_dir + f'/sample_{index}.png'
+        if skip_existing and os.path.exists(sample_path):
+            print(f"graphon {sample_path} already exists; skipping")
+            continue
+        job_seed = set_job_seed(bootstrap_seed, index)
+        job["seed"] = job_seed
         graph_inr = [
             graphs_inr[source_index]
             for source_index in job["model_train_graph_indices"]
         ]
         ### Learn the coordinates and graphon as step 1
         print("Step1: Learning the laten variable of the nodes")
-        model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graph_inr, lr)
+        model_SIGL, _ = coords_prediction(
+            inr_dim_hidden,
+            gnn_dim_hidden,
+            n_epochs,
+            epoch_show,
+            w0,
+            graph_inr,
+            lr,
+            node_feature_mode=node_features,
+        )
         ### Sort the graphs based on the learned latent variables
         print("Step2: Sorting the graphs and calculating the pooling")
-        X_all, y_all, w_all = graph2XY(graph_inr, model_SIGL)
+        X_all, y_all, w_all = graph2XY(
+            graph_inr,
+            model_SIGL,
+            hsize=hsize,
+            node_feature_mode=node_features,
+        )
         ### train INR using histogram approximation
         print("Step3: Training the INR using histograms")
         trained_inr = train_graphon(inr_dim_hidden, w0, X_all, y_all, w_all, n_epochs, epoch_show, lr, batch_size)
         # Sample the estimated graphon from inr:
         estimated_graphon = get_graphon(Res, trained_inr)
+        if degree_correction == "sorted_profile":
+            target_degree_profile = sorted_degree_profile(
+                graph_inr,
+                model_SIGL,
+                Res,
+                node_feature_mode=node_features,
+            )
+            estimated_graphon = degree_correct_graphon(
+                estimated_graphon,
+                target_degree_profile,
+                num_iters=degree_correction_iters,
+            )
+            job["degree_profile_mean"] = float(np.mean(target_degree_profile))
+            job["degree_profile_min"] = float(np.min(target_degree_profile))
+            job["degree_profile_max"] = float(np.max(target_degree_profile))
 
         # plot a sample of the graphs with the estimated graphon and the learned coordinates
         # sample_graph = graph_inr[-1]
         # plot_smaples_real(sample_graph, estimated_graphon, output_dir, model_SIGL)
-        print(f'graphon {output_dir}/sample_{index}.png generated', len(estimated_graphon))
-        save_graphon_for_diff(estimated_graphon, output_dir + f'/sample_{index}.png')
+        print(f'graphon {sample_path} generated', len(estimated_graphon))
+        save_graphon_for_diff(estimated_graphon, sample_path)
 
-    with open(os.path.join(output_dir, "bootstrap_metadata.json"), "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2)
+    if should_write_metadata and job_shard_count == 1 and job_ids is None:
+        write_metadata_file(metadata, output_dir)

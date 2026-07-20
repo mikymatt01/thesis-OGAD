@@ -1,0 +1,1361 @@
+{
+  "n_clusters": 50,
+  "bootstrap_replicates": 1,
+  "bootstrap_seed": 0,
+  "include_original_clusters": false,
+  "cluster_sizes": [
+    3,
+    1,
+    36,
+    19,
+    36,
+    13,
+    1,
+    19,
+    26,
+    7,
+    1,
+    22,
+    8,
+    2,
+    30,
+    66,
+    1,
+    22,
+    2,
+    8,
+    7,
+    1,
+    10,
+    8,
+    1,
+    3,
+    3,
+    8,
+    12,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1
+  ],
+  "graph_selection_split": null,
+  "samples": [
+    {
+      "sample_id": 0,
+      "cluster_id": 0,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        0,
+        154,
+        232
+      ],
+      "model_train_graph_indices": [
+        0,
+        154,
+        232
+      ]
+    },
+    {
+      "sample_id": 1,
+      "cluster_id": 1,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        1
+      ],
+      "model_train_graph_indices": [
+        1
+      ]
+    },
+    {
+      "sample_id": 2,
+      "cluster_id": 2,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        2,
+        5,
+        29,
+        34,
+        35,
+        36,
+        39,
+        61,
+        70,
+        86,
+        88,
+        105,
+        110,
+        114,
+        118,
+        138,
+        145,
+        149,
+        155,
+        165,
+        193,
+        213,
+        220,
+        233,
+        241,
+        256,
+        268,
+        271,
+        297,
+        306,
+        308,
+        327,
+        334,
+        363,
+        378,
+        395
+      ],
+      "model_train_graph_indices": [
+        2,
+        5,
+        29,
+        34,
+        35,
+        36,
+        39,
+        61,
+        70,
+        86,
+        88,
+        105,
+        110,
+        114,
+        118,
+        138,
+        145,
+        149,
+        155,
+        165,
+        193,
+        213,
+        220,
+        233,
+        241,
+        256,
+        268,
+        271,
+        297,
+        306,
+        308,
+        327,
+        334,
+        363,
+        378,
+        395
+      ]
+    },
+    {
+      "sample_id": 3,
+      "cluster_id": 3,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        3,
+        17,
+        63,
+        64,
+        91,
+        170,
+        188,
+        196,
+        210,
+        211,
+        230,
+        321,
+        339,
+        366,
+        372,
+        379,
+        385,
+        392,
+        396
+      ],
+      "model_train_graph_indices": [
+        3,
+        17,
+        63,
+        64,
+        91,
+        170,
+        188,
+        196,
+        210,
+        211,
+        230,
+        321,
+        339,
+        366,
+        372,
+        379,
+        385,
+        392,
+        396
+      ]
+    },
+    {
+      "sample_id": 4,
+      "cluster_id": 4,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        4,
+        15,
+        25,
+        44,
+        49,
+        58,
+        67,
+        73,
+        80,
+        108,
+        111,
+        122,
+        124,
+        126,
+        127,
+        130,
+        133,
+        135,
+        144,
+        166,
+        167,
+        174,
+        215,
+        224,
+        227,
+        243,
+        288,
+        301,
+        311,
+        317,
+        329,
+        337,
+        346,
+        351,
+        356,
+        399
+      ],
+      "model_train_graph_indices": [
+        4,
+        15,
+        25,
+        44,
+        49,
+        58,
+        67,
+        73,
+        80,
+        108,
+        111,
+        122,
+        124,
+        126,
+        127,
+        130,
+        133,
+        135,
+        144,
+        166,
+        167,
+        174,
+        215,
+        224,
+        227,
+        243,
+        288,
+        301,
+        311,
+        317,
+        329,
+        337,
+        346,
+        351,
+        356,
+        399
+      ]
+    },
+    {
+      "sample_id": 5,
+      "cluster_id": 5,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        6,
+        13,
+        52,
+        72,
+        120,
+        179,
+        205,
+        225,
+        247,
+        253,
+        286,
+        290,
+        375
+      ],
+      "model_train_graph_indices": [
+        6,
+        13,
+        52,
+        72,
+        120,
+        179,
+        205,
+        225,
+        247,
+        253,
+        286,
+        290,
+        375
+      ]
+    },
+    {
+      "sample_id": 6,
+      "cluster_id": 6,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        7
+      ],
+      "model_train_graph_indices": [
+        7
+      ]
+    },
+    {
+      "sample_id": 7,
+      "cluster_id": 7,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        8,
+        42,
+        92,
+        109,
+        117,
+        134,
+        137,
+        140,
+        197,
+        209,
+        214,
+        216,
+        231,
+        259,
+        265,
+        299,
+        316,
+        360,
+        362
+      ],
+      "model_train_graph_indices": [
+        8,
+        42,
+        92,
+        109,
+        117,
+        134,
+        137,
+        140,
+        197,
+        209,
+        214,
+        216,
+        231,
+        259,
+        265,
+        299,
+        316,
+        360,
+        362
+      ]
+    },
+    {
+      "sample_id": 8,
+      "cluster_id": 8,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        9,
+        18,
+        28,
+        43,
+        81,
+        93,
+        107,
+        128,
+        131,
+        172,
+        183,
+        186,
+        192,
+        264,
+        277,
+        280,
+        284,
+        292,
+        295,
+        302,
+        318,
+        345,
+        373,
+        383,
+        387,
+        389
+      ],
+      "model_train_graph_indices": [
+        9,
+        18,
+        28,
+        43,
+        81,
+        93,
+        107,
+        128,
+        131,
+        172,
+        183,
+        186,
+        192,
+        264,
+        277,
+        280,
+        284,
+        292,
+        295,
+        302,
+        318,
+        345,
+        373,
+        383,
+        387,
+        389
+      ]
+    },
+    {
+      "sample_id": 9,
+      "cluster_id": 9,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        10,
+        38,
+        45,
+        162,
+        175,
+        195,
+        202
+      ],
+      "model_train_graph_indices": [
+        10,
+        38,
+        45,
+        162,
+        175,
+        195,
+        202
+      ]
+    },
+    {
+      "sample_id": 10,
+      "cluster_id": 10,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        11
+      ],
+      "model_train_graph_indices": [
+        11
+      ]
+    },
+    {
+      "sample_id": 11,
+      "cluster_id": 11,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        12,
+        96,
+        158,
+        171,
+        194,
+        206,
+        218,
+        221,
+        222,
+        252,
+        255,
+        258,
+        260,
+        261,
+        272,
+        282,
+        289,
+        300,
+        309,
+        320,
+        338,
+        344
+      ],
+      "model_train_graph_indices": [
+        12,
+        96,
+        158,
+        171,
+        194,
+        206,
+        218,
+        221,
+        222,
+        252,
+        255,
+        258,
+        260,
+        261,
+        272,
+        282,
+        289,
+        300,
+        309,
+        320,
+        338,
+        344
+      ]
+    },
+    {
+      "sample_id": 12,
+      "cluster_id": 12,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        14,
+        51,
+        79,
+        90,
+        312,
+        343,
+        357,
+        397
+      ],
+      "model_train_graph_indices": [
+        14,
+        51,
+        79,
+        90,
+        312,
+        343,
+        357,
+        397
+      ]
+    },
+    {
+      "sample_id": 13,
+      "cluster_id": 13,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        16,
+        390
+      ],
+      "model_train_graph_indices": [
+        16,
+        390
+      ]
+    },
+    {
+      "sample_id": 14,
+      "cluster_id": 14,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        19,
+        24,
+        30,
+        31,
+        75,
+        98,
+        106,
+        116,
+        121,
+        136,
+        147,
+        153,
+        160,
+        180,
+        185,
+        189,
+        191,
+        217,
+        257,
+        287,
+        296,
+        303,
+        319,
+        331,
+        336,
+        342,
+        371,
+        374,
+        381,
+        398
+      ],
+      "model_train_graph_indices": [
+        19,
+        24,
+        30,
+        31,
+        75,
+        98,
+        106,
+        116,
+        121,
+        136,
+        147,
+        153,
+        160,
+        180,
+        185,
+        189,
+        191,
+        217,
+        257,
+        287,
+        296,
+        303,
+        319,
+        331,
+        336,
+        342,
+        371,
+        374,
+        381,
+        398
+      ]
+    },
+    {
+      "sample_id": 15,
+      "cluster_id": 15,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        20,
+        21,
+        26,
+        47,
+        53,
+        62,
+        65,
+        68,
+        69,
+        74,
+        83,
+        94,
+        100,
+        101,
+        102,
+        113,
+        125,
+        132,
+        139,
+        142,
+        143,
+        148,
+        157,
+        159,
+        161,
+        168,
+        169,
+        176,
+        178,
+        182,
+        190,
+        199,
+        200,
+        223,
+        236,
+        239,
+        240,
+        242,
+        249,
+        250,
+        254,
+        262,
+        267,
+        269,
+        270,
+        273,
+        274,
+        275,
+        276,
+        279,
+        298,
+        304,
+        307,
+        310,
+        324,
+        326,
+        330,
+        335,
+        340,
+        349,
+        350,
+        355,
+        364,
+        369,
+        384,
+        394
+      ],
+      "model_train_graph_indices": [
+        20,
+        21,
+        26,
+        47,
+        53,
+        62,
+        65,
+        68,
+        69,
+        74,
+        83,
+        94,
+        100,
+        101,
+        102,
+        113,
+        125,
+        132,
+        139,
+        142,
+        143,
+        148,
+        157,
+        159,
+        161,
+        168,
+        169,
+        176,
+        178,
+        182,
+        190,
+        199,
+        200,
+        223,
+        236,
+        239,
+        240,
+        242,
+        249,
+        250,
+        254,
+        262,
+        267,
+        269,
+        270,
+        273,
+        274,
+        275,
+        276,
+        279,
+        298,
+        304,
+        307,
+        310,
+        324,
+        326,
+        330,
+        335,
+        340,
+        349,
+        350,
+        355,
+        364,
+        369,
+        384,
+        394
+      ]
+    },
+    {
+      "sample_id": 16,
+      "cluster_id": 16,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        22
+      ],
+      "model_train_graph_indices": [
+        22
+      ]
+    },
+    {
+      "sample_id": 17,
+      "cluster_id": 17,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        23,
+        32,
+        33,
+        66,
+        77,
+        89,
+        150,
+        163,
+        208,
+        228,
+        251,
+        263,
+        283,
+        293,
+        305,
+        314,
+        315,
+        348,
+        352,
+        365,
+        368,
+        393
+      ],
+      "model_train_graph_indices": [
+        23,
+        32,
+        33,
+        66,
+        77,
+        89,
+        150,
+        163,
+        208,
+        228,
+        251,
+        263,
+        283,
+        293,
+        305,
+        314,
+        315,
+        348,
+        352,
+        365,
+        368,
+        393
+      ]
+    },
+    {
+      "sample_id": 18,
+      "cluster_id": 18,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        27,
+        181
+      ],
+      "model_train_graph_indices": [
+        27,
+        181
+      ]
+    },
+    {
+      "sample_id": 19,
+      "cluster_id": 19,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        37,
+        85,
+        151,
+        204,
+        353,
+        358,
+        359,
+        380
+      ],
+      "model_train_graph_indices": [
+        37,
+        85,
+        151,
+        204,
+        353,
+        358,
+        359,
+        380
+      ]
+    },
+    {
+      "sample_id": 20,
+      "cluster_id": 20,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        40,
+        95,
+        103,
+        112,
+        164,
+        173,
+        391
+      ],
+      "model_train_graph_indices": [
+        40,
+        95,
+        103,
+        112,
+        164,
+        173,
+        391
+      ]
+    },
+    {
+      "sample_id": 21,
+      "cluster_id": 21,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        41
+      ],
+      "model_train_graph_indices": [
+        41
+      ]
+    },
+    {
+      "sample_id": 22,
+      "cluster_id": 22,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        46,
+        78,
+        82,
+        141,
+        229,
+        237,
+        294,
+        328,
+        332,
+        333
+      ],
+      "model_train_graph_indices": [
+        46,
+        78,
+        82,
+        141,
+        229,
+        237,
+        294,
+        328,
+        332,
+        333
+      ]
+    },
+    {
+      "sample_id": 23,
+      "cluster_id": 23,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        48,
+        129,
+        207,
+        266,
+        278,
+        354,
+        367,
+        377
+      ],
+      "model_train_graph_indices": [
+        48,
+        129,
+        207,
+        266,
+        278,
+        354,
+        367,
+        377
+      ]
+    },
+    {
+      "sample_id": 24,
+      "cluster_id": 24,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        50
+      ],
+      "model_train_graph_indices": [
+        50
+      ]
+    },
+    {
+      "sample_id": 25,
+      "cluster_id": 25,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        54,
+        152,
+        323
+      ],
+      "model_train_graph_indices": [
+        54,
+        152,
+        323
+      ]
+    },
+    {
+      "sample_id": 26,
+      "cluster_id": 26,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        55,
+        59,
+        84
+      ],
+      "model_train_graph_indices": [
+        55,
+        59,
+        84
+      ]
+    },
+    {
+      "sample_id": 27,
+      "cluster_id": 27,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        56,
+        60,
+        97,
+        212,
+        235,
+        248,
+        313,
+        325
+      ],
+      "model_train_graph_indices": [
+        56,
+        60,
+        97,
+        212,
+        235,
+        248,
+        313,
+        325
+      ]
+    },
+    {
+      "sample_id": 28,
+      "cluster_id": 28,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        57,
+        99,
+        104,
+        115,
+        119,
+        177,
+        198,
+        201,
+        285,
+        361,
+        386,
+        388
+      ],
+      "model_train_graph_indices": [
+        57,
+        99,
+        104,
+        115,
+        119,
+        177,
+        198,
+        201,
+        285,
+        361,
+        386,
+        388
+      ]
+    },
+    {
+      "sample_id": 29,
+      "cluster_id": 29,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        71
+      ],
+      "model_train_graph_indices": [
+        71
+      ]
+    },
+    {
+      "sample_id": 30,
+      "cluster_id": 30,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        76
+      ],
+      "model_train_graph_indices": [
+        76
+      ]
+    },
+    {
+      "sample_id": 31,
+      "cluster_id": 31,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        87
+      ],
+      "model_train_graph_indices": [
+        87
+      ]
+    },
+    {
+      "sample_id": 32,
+      "cluster_id": 32,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        123
+      ],
+      "model_train_graph_indices": [
+        123
+      ]
+    },
+    {
+      "sample_id": 33,
+      "cluster_id": 33,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        146,
+        219
+      ],
+      "model_train_graph_indices": [
+        146,
+        219
+      ]
+    },
+    {
+      "sample_id": 34,
+      "cluster_id": 34,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        156
+      ],
+      "model_train_graph_indices": [
+        156
+      ]
+    },
+    {
+      "sample_id": 35,
+      "cluster_id": 35,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        184
+      ],
+      "model_train_graph_indices": [
+        184
+      ]
+    },
+    {
+      "sample_id": 36,
+      "cluster_id": 36,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        187
+      ],
+      "model_train_graph_indices": [
+        187
+      ]
+    },
+    {
+      "sample_id": 37,
+      "cluster_id": 37,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        203
+      ],
+      "model_train_graph_indices": [
+        203
+      ]
+    },
+    {
+      "sample_id": 38,
+      "cluster_id": 38,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        226
+      ],
+      "model_train_graph_indices": [
+        226
+      ]
+    },
+    {
+      "sample_id": 39,
+      "cluster_id": 39,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        234,
+        244
+      ],
+      "model_train_graph_indices": [
+        234,
+        244
+      ]
+    },
+    {
+      "sample_id": 40,
+      "cluster_id": 40,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        238
+      ],
+      "model_train_graph_indices": [
+        238
+      ]
+    },
+    {
+      "sample_id": 41,
+      "cluster_id": 41,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        245
+      ],
+      "model_train_graph_indices": [
+        245
+      ]
+    },
+    {
+      "sample_id": 42,
+      "cluster_id": 42,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        246
+      ],
+      "model_train_graph_indices": [
+        246
+      ]
+    },
+    {
+      "sample_id": 43,
+      "cluster_id": 43,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        281
+      ],
+      "model_train_graph_indices": [
+        281
+      ]
+    },
+    {
+      "sample_id": 44,
+      "cluster_id": 44,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        291
+      ],
+      "model_train_graph_indices": [
+        291
+      ]
+    },
+    {
+      "sample_id": 45,
+      "cluster_id": 45,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        322
+      ],
+      "model_train_graph_indices": [
+        322
+      ]
+    },
+    {
+      "sample_id": 46,
+      "cluster_id": 46,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        341
+      ],
+      "model_train_graph_indices": [
+        341
+      ]
+    },
+    {
+      "sample_id": 47,
+      "cluster_id": 47,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        347
+      ],
+      "model_train_graph_indices": [
+        347
+      ]
+    },
+    {
+      "sample_id": 48,
+      "cluster_id": 48,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        370,
+        376
+      ],
+      "model_train_graph_indices": [
+        370,
+        376
+      ]
+    },
+    {
+      "sample_id": 49,
+      "cluster_id": 49,
+      "bootstrap_id": null,
+      "is_original": true,
+      "original_graph_indices": [
+        382
+      ],
+      "model_train_graph_indices": [
+        382
+      ]
+    }
+  ]
+}
