@@ -38,6 +38,13 @@ DEFAULT_GRAPH_SELECTION_CONFIG = {
     "selection_metric": "mean_rank",
 }
 
+DEFAULT_D3PM_PATHS = {
+    "train_graphons_dir": "../../data/train/graphons",
+    "graphons_pt": "../../data/predictions/graphons/tensors.pt",
+}
+
+D3PM_PATH_KEYS = set(DEFAULT_D3PM_PATHS)
+
 
 def combine_d3pm_losses(vb_loss: Any, ce_loss: Any, auxiliary_ce_coeff: float) -> Any:
     """Return the D3PM paper objective: variational bound plus weighted CE."""
@@ -80,6 +87,8 @@ def load_experiment_config(config_path: str | None) -> tuple[dict, dict]:
     shared = config.get("shared") or {}
     d3pm = dict(config.get("d3pm") or {})
     training = {**DEFAULT_TRAINING_CONFIG, **(config.get("d3pm_training") or {})}
+    for key in D3PM_PATH_KEYS:
+        d3pm.pop(key, None)
 
     # Backward compatibility: old files placed n_epoch in the parameter grid.
     legacy_epochs = d3pm.pop("n_epoch", None)
@@ -112,6 +121,29 @@ def load_experiment_config(config_path: str | None) -> tuple[dict, dict]:
         raise ValueError("min_delta must be non-negative")
 
     return grid, training
+
+
+def load_d3pm_paths_config(config_path: str | None) -> dict:
+    """Load D3PM path controls without adding them to the parameter grid."""
+    resolved_path = config_path or os.environ.get("OGAD_EXPERIMENT_JSON")
+    if not resolved_path:
+        return dict(DEFAULT_D3PM_PATHS)
+
+    with open(resolved_path, encoding="utf-8") as config_file:
+        config = json.load(config_file)
+
+    dataset = config.get("dataset") or {}
+    d3pm = config.get("d3pm") or {}
+    paths = dict(DEFAULT_D3PM_PATHS)
+    if "sigl_graphons_dir" in dataset:
+        paths["train_graphons_dir"] = dataset["sigl_graphons_dir"]
+    elif "train_graphons_dir" in d3pm:
+        paths["train_graphons_dir"] = d3pm["train_graphons_dir"]
+    if "ogad_generated_graphons_path" in dataset:
+        paths["graphons_pt"] = dataset["ogad_generated_graphons_path"]
+    elif "graphons_pt" in d3pm:
+        paths["graphons_pt"] = d3pm["graphons_pt"]
+    return paths
 
 
 def load_graph_selection_config(config_path: str | None) -> dict:

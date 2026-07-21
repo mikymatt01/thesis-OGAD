@@ -29,11 +29,16 @@ from graphon_utils import (  # noqa: E402
 from training_utils import (  # noqa: E402
     combine_d3pm_losses,
     deterministic_split,
+    load_d3pm_paths_config,
     load_graph_selection_config,
     load_experiment_config,
 )
 from selection_utils import digress_target_ratio_scores, select_best_candidate  # noqa: E402
-from experiment_grid import assign_gpu, expand_merged_experiment  # noqa: E402
+from experiment_grid import (  # noqa: E402
+    assign_gpu,
+    expand_merged_experiment,
+    normalize_experiment_config,
+)
 import run_from_merged_parallel as parallel_runner  # noqa: E402
 
 
@@ -98,22 +103,29 @@ class D3PMHelperTests(unittest.TestCase):
     def test_repository_experiment_is_reduced_for_initial_run(self):
         config_path = ROOT / "experiments" / "test_merged.json"
         grid, training = load_experiment_config(str(config_path))
-        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config = normalize_experiment_config(
+            json.loads(config_path.read_text(encoding="utf-8"))
+        )
 
         self.assertEqual(config["sigl"]["n_epoch"], [100])
         self.assertEqual(config["sigl"]["Res"], [128])
         self.assertEqual(config["sigl"]["n_clusters"], [50])
-        self.assertEqual(config["sigl"]["bootstrap_replicates"], [12, 14])
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [13, 14, 15, 16])
         self.assertEqual(config["sigl"]["bootstrap_seed"], [0])
         self.assertEqual(config["sigl"]["include_original_clusters"], [False])
-        self.assertEqual(grid["dim"], [256, 512])
-        self.assertEqual(grid["lr"], [1e-5, 2e-5, 3e-5, 5e-5])
-        self.assertEqual(grid["num_classes"], [8, 10, 12])
+        self.assertEqual(config["sigl"]["Adjs_dir"], "/app/data/train/graphs/CommunityGraphs.pickle")
+        self.assertEqual(config["sigl"]["output_dir"], "/app/data/train/graphons")
+        self.assertEqual(grid["dim"], [512])
+        self.assertEqual(grid["lr"], [2e-5, 3e-5, 4e-5, 5e-5])
+        self.assertEqual(grid["num_classes"], [10, 12, 14])
         self.assertEqual(grid["image_size"], [128])
-        self.assertEqual(grid["hybrid_loss_coeff"], [0.001, 0.003, 0.01])
+        self.assertEqual(grid["hybrid_loss_coeff"], [0.006, 0.01, 0.015])
         self.assertEqual(training["validation_fraction"], 0.2)
         self.assertEqual(training["patience"], 25)
         self.assertEqual(training["max_epochs"], 300)
+        paths = load_d3pm_paths_config(str(config_path))
+        self.assertEqual(paths["train_graphons_dir"], "/app/data/train/graphons")
+        self.assertEqual(paths["graphons_pt"], "/app/data/predictions/graphons/tensors.pt")
         graph_selection = load_graph_selection_config(str(config_path))
         self.assertEqual(graph_selection["validation_fraction"], 0.2)
         self.assertEqual(graph_selection["split_seed"], 0)
@@ -271,16 +283,121 @@ class GGMECandidateSelectionTests(unittest.TestCase):
 
 
 class ParallelSchedulerTests(unittest.TestCase):
+    def test_dataset_normalization_populates_stage_paths(self):
+        raw = {
+            "dataset": {
+                "name": "community_graphs",
+                "train_graphs_path": "/app/data/train/graphs/CommunityGraphs.pickle",
+                "test_graphs_path": "/app/data/test/graphs/CommunityGraphs.pickle",
+                "paper_baseline_graphs_path": "/app/data/predictions/graphs/ggme_paper/CommunityGraphs.pickle",
+                "sigl_graphons_dir": "/app/data/train/graphons",
+                "ogad_generated_graphons_path": "/app/data/predictions/graphons/tensors.pt",
+                "digress_generated_samples_path": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+                "generated_graph_count": 100,
+            },
+            "sigl": {},
+            "d3pm": {},
+            "ggme": {},
+        }
+
+        config = normalize_experiment_config(raw)
+
+        self.assertEqual(config["sigl"]["Adjs_dir"], raw["dataset"]["train_graphs_path"])
+        self.assertEqual(config["sigl"]["output_dir"], raw["dataset"]["sigl_graphons_dir"])
+        self.assertEqual(config["d3pm"]["train_graphons_dir"], raw["dataset"]["sigl_graphons_dir"])
+        self.assertEqual(config["d3pm"]["graphons_pt"], raw["dataset"]["ogad_generated_graphons_path"])
+        self.assertEqual(config["digress"]["samples_path"], raw["dataset"]["digress_generated_samples_path"])
+        self.assertEqual(config["ggme"]["test_graphs"], raw["dataset"]["test_graphs_path"])
+        self.assertEqual(config["ggme"]["paper_graphs"], raw["dataset"]["paper_baseline_graphs_path"])
+        self.assertEqual(config["ggme"]["graphons_pt"], raw["dataset"]["ogad_generated_graphons_path"])
+        self.assertEqual(config["ggme"]["digress_samples"], raw["dataset"]["digress_generated_samples_path"])
+        self.assertEqual(config["ggme"]["num_generated_graphs"], 100)
+
+    def test_dataset_normalization_uses_dataset_as_canonical_paths(self):
+        raw = {
+            "dataset": {
+                "name": "community_graphs",
+                "train_graphs_path": "/app/data/train/graphs/from_dataset.pickle",
+                "test_graphs_path": "/app/data/test/graphs/from_dataset.pickle",
+                "paper_baseline_graphs_path": "/app/data/predictions/graphs/paper.pickle",
+                "sigl_graphons_dir": "/app/data/train/graphons",
+                "ogad_generated_graphons_path": "/app/data/predictions/graphons/tensors.pt",
+                "digress_generated_samples_path": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+                "generated_graph_count": 100,
+            },
+            "sigl": {"Adjs_dir": "/app/data/train/graphs/override.pickle"},
+            "d3pm": {"graphons_pt": "/app/data/predictions/graphons/override.pt"},
+            "ggme": {"graphons_pt": "/app/data/predictions/graphons/ggme_override.pt"},
+        }
+
+        config = normalize_experiment_config(raw)
+
+        self.assertEqual(config["sigl"]["Adjs_dir"], raw["dataset"]["train_graphs_path"])
+        self.assertEqual(config["d3pm"]["graphons_pt"], raw["dataset"]["ogad_generated_graphons_path"])
+        self.assertEqual(config["ggme"]["graphons_pt"], raw["dataset"]["ogad_generated_graphons_path"])
+
+    def test_dataset_expansion_and_parallel_slug_include_dataset(self):
+        raw = {
+            "name": "base",
+            "dataset": [
+                {
+                    "name": "community_graphs",
+                    "train_graphs_path": "/app/data/a_train.pickle",
+                    "test_graphs_path": "/app/data/a_test.pickle",
+                    "paper_baseline_graphs_path": "/app/data/a_paper.pickle",
+                    "sigl_graphons_dir": "/app/data/a_graphons",
+                    "ogad_generated_graphons_path": "/app/data/a_tensors.pt",
+                    "digress_generated_samples_path": "/app/data/a_digress.txt",
+                    "generated_graph_count": 100,
+                },
+                {
+                    "name": "other_graphs",
+                    "train_graphs_path": "/app/data/b_train.pickle",
+                    "test_graphs_path": "/app/data/b_test.pickle",
+                    "paper_baseline_graphs_path": "/app/data/b_paper.pickle",
+                    "sigl_graphons_dir": "/app/data/b_graphons",
+                    "ogad_generated_graphons_path": "/app/data/b_tensors.pt",
+                    "digress_generated_samples_path": "/app/data/b_digress.txt",
+                    "generated_graph_count": 100,
+                },
+            ],
+            "shared": {},
+            "sigl": {"Res": [64], "n_clusters": [50]},
+            "d3pm": {"image_size": [64], "num_classes": [8]},
+        }
+        experiments = expand_merged_experiment(raw)
+        self.assertEqual(len(experiments), 2)
+        self.assertEqual(experiments[0]["name"], "community_graphs_nc0")
+        self.assertEqual(experiments[1]["name"], "other_graphs_nc1")
+
+        with tempfile.TemporaryDirectory(dir=ROOT) as temp_dir:
+            temp = Path(temp_dir)
+            merged_path = temp / "merged.json"
+            merged_path.write_text(json.dumps(raw), encoding="utf-8")
+            jobs = parallel_runner.build_jobs(merged_path, temp / "runs")
+
+        self.assertEqual(jobs[0]["slug"], "community_graphs_nc0")
+
     def test_merged_expansion_and_gpu_assignment_are_deterministic(self):
         raw = {
             "name": "base",
+            "dataset": {
+                "name": "community_graphs",
+                "train_graphs_path": "/app/data/train.pickle",
+                "test_graphs_path": "/app/data/test.pickle",
+                "paper_baseline_graphs_path": "/app/data/paper.pickle",
+                "sigl_graphons_dir": "/app/data/train/graphons",
+                "ogad_generated_graphons_path": "/app/data/predictions/graphons/tensors.pt",
+                "digress_generated_samples_path": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+                "generated_graph_count": 100,
+            },
             "shared": {},
             "sigl": {"Res": [64, 128], "n_clusters": [50]},
             "d3pm": {"image_size": [64], "num_classes": [8]},
         }
         experiments = expand_merged_experiment(raw)
         self.assertEqual(len(experiments), 2)
-        self.assertEqual(experiments[0]["name"], "test_nc0")
+        self.assertEqual(experiments[0]["name"], "community_graphs_nc0")
         self.assertEqual(experiments[0]["d3pm"]["image_size"], [64])
         self.assertEqual(experiments[1]["d3pm"]["image_size"], [128])
         self.assertEqual(assign_gpu(0, ["0", "1"]), "0")
@@ -338,9 +455,11 @@ class ParallelSchedulerTests(unittest.TestCase):
         script = script_path.read_text(encoding="utf-8")
         compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 
-        self.assertIn('cp "$EXP_ABS" "$RUN_DIR/experiment.json"', script)
+        self.assertIn('ogad_write_manifest.py" "$EXP_ABS" "$RUN_DIR" "$RUN_ID"', script)
         self.assertIn('CONTAINER_CONFIG="/app/runs/current/experiment.json"', script)
         self.assertIn('--config "$CONTAINER_CONFIG"', script)
+        self.assertIn('ogad_model_inference.py --config $CONTAINER_CONFIG', script)
+        self.assertIn('OGAD_EXPERIMENT_JSON=$CONTAINER_CONFIG', script)
         self.assertIn('-e "CUDA_VISIBLE_DEVICES=0"', script)
         self.assertIn('device_ids: ["${OGAD_GPU_ID:-0}"]', compose)
         self.assertNotIn('-v "$ROOT/experiments:/app/experiments:ro"', script)

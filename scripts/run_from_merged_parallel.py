@@ -39,13 +39,13 @@ def build_jobs(merged_path: Path, work_dir: Path) -> List[Dict[str, Any]]:
     generated_dir = work_dir / "experiments"
     generated_dir.mkdir(parents=True, exist_ok=True)
     for index, experiment in enumerate(expand_merged_experiment(raw)):
-        name = "test_nc{}".format(index)
+        name = experiment.get("name") or "test_nc{}".format(index)
         experiment_path = generated_dir / "{}.json".format(name)
         experiment_path.write_text(json.dumps(experiment, indent=2), encoding="utf-8")
         jobs.append(
             {
                 "index": index,
-                "slug": "nc{}".format(index),
+                "slug": name,
                 "experiment_path": experiment_path,
                 "experiment_rel": experiment_path.relative_to(ROOT),
             }

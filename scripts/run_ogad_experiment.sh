@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run SIGL → D3PM → GGME (OGAD-only compose) with experiment JSON, logs, and run dir.
+# Run SIGL → optional DiGress → D3PM → GGME with experiment JSON, logs, and run dir.
 # Intended host: Linux with Docker Compose v2 and GNU coreutils (date, etc.).
 set -euo pipefail
 
@@ -31,9 +31,9 @@ mkdir -p \
   "$RUN_DIR/data/models"
 
 python3 "$ROOT/scripts/ogad_write_manifest.py" "$EXP_ABS" "$RUN_DIR" "$RUN_ID"
-cp "$EXP_ABS" "$RUN_DIR/experiment.json"
 
 CONTAINER_CONFIG="/app/runs/current/experiment.json"
+DIGRESS_ENABLED="$(python3 -c 'import json, sys; cfg=json.load(open(sys.argv[1], encoding="utf-8")); print("1" if (cfg.get("digress") or {}).get("enabled", False) else "0")' "$RUN_DIR/experiment.json")"
 
 COMPOSE_PROJECT_NAME="${OGAD_COMPOSE_PROJECT_NAME:-ogad_${RUN_ID}}"
 COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f "$ROOT/docker-compose.yml" -f "$ROOT/docker-compose.ogad-only.yml")
@@ -47,13 +47,19 @@ SIGL_CMD=(poetry run python Main.py
 )
 
 D3PM_CMD=(bash -lc
-  "poetry run python ogad_model_finetune.py --config $CONTAINER_CONFIG && poetry run python ogad_model_inference.py"
+  "poetry run python ogad_model_finetune.py --config $CONTAINER_CONFIG && poetry run python ogad_model_inference.py --config $CONTAINER_CONFIG"
+)
+
+DIGRESS_CMD=(python src/main.py
+  +experiment=community_graphs
 )
 
 GGME_CMD=(poetry run python main.py
   --config "$CONTAINER_CONFIG"
-  --skip-digress
 )
+if [[ "$DIGRESS_ENABLED" != "1" ]]; then
+  GGME_CMD+=(--skip-digress)
+fi
 
 run_stage() {
   local service="$1"
@@ -63,6 +69,7 @@ run_stage() {
   "${COMPOSE[@]}" run --rm --no-deps \
     -e "OGAD_RUN_ID=$RUN_ID" \
     -e OGAD_RUN_DIR=/app/runs/current \
+    -e "OGAD_EXPERIMENT_JSON=$CONTAINER_CONFIG" \
     "${GPU_ENV[@]}" \
     -v "$RUN_DIR:/app/runs/current" \
     -v "$RUN_DIR/data/train/graphons:/app/data/train/graphons" \
@@ -81,6 +88,9 @@ cleanup() {
 trap cleanup EXIT
 
 run_stage prep_data "$RUN_DIR/sigl.log" "${SIGL_CMD[@]}"
+if [[ "$DIGRESS_ENABLED" == "1" ]]; then
+  run_stage train_model_a "$RUN_DIR/digress.log" "${DIGRESS_CMD[@]}"
+fi
 run_stage train_model_b "$RUN_DIR/d3pm.log" "${D3PM_CMD[@]}"
 run_stage eval_metrics "$RUN_DIR/ggme.log" "${GGME_CMD[@]}"
 

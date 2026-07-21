@@ -1,11 +1,12 @@
 import os
+import json
 import pathlib
 import warnings
 
 import torch
 torch.cuda.empty_cache()
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, open_dict
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.utilities.warnings import PossibleUserWarning
@@ -19,6 +20,30 @@ from diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
 
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
+
+
+def apply_ogad_experiment_config(cfg: DictConfig) -> DictConfig:
+    experiment_path = os.environ.get("OGAD_EXPERIMENT_JSON")
+    if not experiment_path:
+        return cfg
+    with open(experiment_path, encoding="utf-8") as experiment_file:
+        experiment = json.load(experiment_file)
+
+    dataset = experiment.get("dataset") or {}
+    digress = experiment.get("digress") or {}
+    with open_dict(cfg):
+        if dataset.get("name"):
+            cfg.dataset.name = dataset["name"]
+            cfg.general.name = dataset["name"]
+        if dataset.get("train_graphs_path"):
+            cfg.dataset.pickle_path = dataset["train_graphs_path"]
+        if dataset.get("generated_graph_count"):
+            graph_count = int(dataset["generated_graph_count"])
+            cfg.general.final_model_samples_to_generate = graph_count
+            cfg.general.final_model_samples_to_save = graph_count
+        if digress.get("samples_path"):
+            cfg.general.generated_samples_path = digress["samples_path"]
+    return cfg
 
 
 def get_resume(cfg, model_kwargs):
@@ -66,6 +91,7 @@ def get_resume_adaptive(cfg, model_kwargs):
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
+    cfg = apply_ogad_experiment_config(cfg)
     dataset_config = cfg["dataset"]
     dataset_name = dataset_config.get("name", "<missing>")
     dataset_datadir = dataset_config.get("datadir", None)

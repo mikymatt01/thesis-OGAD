@@ -275,12 +275,16 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             samples_left_to_generate -= to_generate
             chains_left_to_save -= chains_save
         self.print("Saving the generated graphs")
-        filename = f'generated_samples1.txt'
-        for i in range(2, 10):
-            if os.path.exists(filename):
-                filename = f'generated_samples{i}.txt'
-            else:
-                break
+        filename = self.cfg.general.get('generated_samples_path', None)
+        if filename:
+            os.makedirs(os.path.dirname(filename) or '.', exist_ok=True)
+        else:
+            filename = f'generated_samples1.txt'
+            for i in range(2, 10):
+                if os.path.exists(filename):
+                    filename = f'generated_samples{i}.txt'
+                else:
+                    break
         with open(filename, 'w') as f:
             for item in samples:
                 f.write(f"N={item[0].shape[0]}\n")
