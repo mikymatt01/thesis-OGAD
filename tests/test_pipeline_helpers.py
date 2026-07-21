@@ -109,17 +109,18 @@ class D3PMHelperTests(unittest.TestCase):
 
         self.assertEqual(config["sigl"]["n_epoch"], [100])
         self.assertEqual(config["sigl"]["Res"], [128])
-        self.assertEqual(config["sigl"]["n_clusters"], [50])
-        self.assertEqual(config["sigl"]["bootstrap_replicates"], [13, 14, 15, 16])
+        self.assertEqual(config["sigl"]["n_clusters"], [1])
+        self.assertEqual(config["sigl"]["bootstrap_replicates"], [50, 100, 250, 500])
         self.assertEqual(config["sigl"]["bootstrap_seed"], [0])
+        self.assertEqual(config["sigl"]["sigl_workers"], [4])
         self.assertEqual(config["sigl"]["include_original_clusters"], [False])
         self.assertEqual(config["sigl"]["Adjs_dir"], "/app/data/train/graphs/CommunityGraphs.pickle")
         self.assertEqual(config["sigl"]["output_dir"], "/app/data/train/graphons")
         self.assertEqual(grid["dim"], [512])
-        self.assertEqual(grid["lr"], [2e-5, 3e-5, 4e-5, 5e-5])
-        self.assertEqual(grid["num_classes"], [10, 12, 14])
+        self.assertEqual(grid["lr"], [5e-5])
+        self.assertEqual(grid["num_classes"], [14])
         self.assertEqual(grid["image_size"], [128])
-        self.assertEqual(grid["hybrid_loss_coeff"], [0.006, 0.01, 0.015])
+        self.assertEqual(grid["hybrid_loss_coeff"], [0.006])
         self.assertEqual(training["validation_fraction"], 0.2)
         self.assertEqual(training["patience"], 25)
         self.assertEqual(training["max_epochs"], 300)
@@ -464,6 +465,18 @@ class ParallelSchedulerTests(unittest.TestCase):
         self.assertIn('device_ids: ["${OGAD_GPU_ID:-0}"]', compose)
         self.assertNotIn('-v "$ROOT/experiments:/app/experiments:ro"', script)
         self.assertNotIn('-v "$EXP_DIR:/app/experiments:ro"', script)
+
+    def test_sigl_parallel_workers_write_separate_logs(self):
+        sigl_main = (ROOT / "src" / "sigl" / "Main.py").read_text(encoding="utf-8")
+
+        self.assertIn('os.environ.get("OGAD_RUN_DIR")', sigl_main)
+        self.assertIn('"sigl_workers"', sigl_main)
+        self.assertIn('stdout=log_file', sigl_main)
+        self.assertIn('stderr=subprocess.STDOUT', sigl_main)
+        self.assertIn('job_{}.log', sigl_main)
+        self.assertIn('job {} started -> {}', sigl_main)
+        self.assertIn('job {} completed -> {}', sigl_main)
+        self.assertIn('job {} failed -> {}', sigl_main)
 
 
 class GraphonHelperTests(unittest.TestCase):

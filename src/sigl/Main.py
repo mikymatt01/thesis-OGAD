@@ -2,16 +2,129 @@ from bootstrap_utils import build_cluster_bootstrap_plan
 from clusterize import cluster_graphs_from_arrays
 from graph_split_utils import deterministic_graph_split, select_by_indices
 from tools import *
+import concurrent.futures
 import numpy as np
 import argparse
 import json
 import pickle
+import subprocess
+import sys
+import tempfile
 import torch
 import time
 import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("device: ", device)
+
+
+def learn_and_save_graphon_job(payload):
+    job = payload["job"]
+    params = payload["params"]
+    graph_inr = payload["graph_inr"]
+    output_path = payload["output_path"]
+
+    print("Graphon job {}: Step1 learning latent node variables".format(job["sample_id"]))
+    model_SIGL, _ = coords_prediction(
+        params["inr_dim_hidden"],
+        params["gnn_dim_hidden"],
+        params["n_epochs"],
+        params["epoch_show"],
+        params["w0"],
+        graph_inr,
+        params["lr"],
+    )
+    print("Graphon job {}: Step2 sorting graphs and pooling".format(job["sample_id"]))
+    X_all, y_all, w_all = graph2XY(graph_inr, model_SIGL)
+    print("Graphon job {}: Step3 training INR histograms".format(job["sample_id"]))
+    trained_inr = train_graphon(
+        params["inr_dim_hidden"],
+        params["w0"],
+        X_all,
+        y_all,
+        w_all,
+        params["n_epochs"],
+        params["epoch_show"],
+        params["lr"],
+        params["batch_size"],
+    )
+    estimated_graphon = get_graphon(params["Res"], trained_inr)
+    print("graphon {} generated {}".format(output_path, len(estimated_graphon)))
+    save_graphon_for_diff(estimated_graphon, output_path)
+
+
+def run_graphon_payload(payload_path):
+    with open(payload_path, "rb") as f:
+        payload = pickle.load(f)
+    learn_and_save_graphon_job(payload)
+
+
+def build_graphon_payload(job, graphs_inr, params, output_dir):
+    graph_inr = [
+        graphs_inr[source_index]
+        for source_index in job["model_train_graph_indices"]
+    ]
+    return {
+        "job": job,
+        "params": params,
+        "graph_inr": graph_inr,
+        "output_path": os.path.join(output_dir, "sample_{}.png".format(job["sample_id"])),
+    }
+
+
+def graphon_worker_log_dir(output_dir):
+    run_dir = os.environ.get("OGAD_RUN_DIR")
+    if run_dir:
+        return os.path.join(run_dir, "sigl_workers")
+    return os.path.join(os.path.dirname(output_dir), "sigl_workers")
+
+
+def run_graphon_subprocess(payload_path, log_path):
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        subprocess.run(
+            [sys.executable, os.path.abspath(__file__), "--sigl_job_payload", payload_path],
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            check=True,
+        )
+
+
+def run_graphon_jobs(graphon_jobs, graphs_inr, params, output_dir, sigl_workers):
+    sigl_workers = max(1, int(sigl_workers))
+    if sigl_workers == 1:
+        for job in graphon_jobs:
+            payload = build_graphon_payload(job, graphs_inr, params, output_dir)
+            learn_and_save_graphon_job(payload)
+        return
+
+    print("Running {} SIGL graphon jobs with {} workers".format(len(graphon_jobs), sigl_workers))
+    log_dir = graphon_worker_log_dir(output_dir)
+    os.makedirs(log_dir, exist_ok=True)
+    print("SIGL worker logs: {}".format(log_dir))
+    with tempfile.TemporaryDirectory(prefix="sigl_graphon_jobs_") as temp_dir:
+        worker_jobs = []
+        for job in graphon_jobs:
+            payload = build_graphon_payload(job, graphs_inr, params, output_dir)
+            payload_path = os.path.join(temp_dir, "job_{}.pickle".format(job["sample_id"]))
+            with open(payload_path, "wb") as f:
+                pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
+            log_path = os.path.join(log_dir, "job_{}.log".format(job["sample_id"]))
+            worker_jobs.append((job["sample_id"], payload["output_path"], payload_path, log_path))
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=sigl_workers) as executor:
+            futures = {}
+            for sample_id, output_path, payload_path, log_path in worker_jobs:
+                print("job {} started -> {}".format(sample_id, log_path))
+                future = executor.submit(run_graphon_subprocess, payload_path, log_path)
+                futures[future] = (sample_id, output_path, log_path)
+            for future in concurrent.futures.as_completed(futures):
+                sample_id, output_path, log_path = futures[future]
+                try:
+                    future.result()
+                except Exception:
+                    print("job {} failed -> {}".format(sample_id, log_path))
+                    raise
+                print("job {} completed -> {}".format(sample_id, output_path))
 
 def str2bool(value):
     if isinstance(value, bool):
@@ -47,6 +160,7 @@ parser.add_argument('--output_dir', type=str, default='../../data/train/graphons
 parser.add_argument('--n_clusters', type=int, default=None, help="Number of clasters")
 parser.add_argument('--bootstrap_replicates', type=int, default=1, help="Bootstrap graphon replicas per cluster.")
 parser.add_argument('--bootstrap_seed', type=int, default=0, help="Seed for deterministic cluster bootstrap.")
+parser.add_argument('--sigl_workers', type=int, default=1, help="Parallel graphon workers inside one SIGL run.")
 parser.add_argument(
     '--include_original_clusters',
     type=str2bool,
@@ -59,9 +173,13 @@ parser.add_argument(
     default=None,
     help="Optional JSON experiment file: merges top-level 'shared' then 'sigl' into CLI args.",
 )
+parser.add_argument('--sigl_job_payload', type=str, default=None, help=argparse.SUPPRESS)
 
 graph_selection_config = {}
 args = parser.parse_args()
+if args.sigl_job_payload:
+    run_graphon_payload(args.sigl_job_payload)
+    exit(0)
 if args.config:
     with open(args.config, encoding="utf-8") as f:
         cfg = json.load(f)
@@ -92,6 +210,7 @@ Adjs_dir = args.Adjs_dir
 n_clusters = args.n_clusters
 bootstrap_replicates = int(args.bootstrap_replicates)
 bootstrap_seed = int(args.bootstrap_seed)
+sigl_workers = int(args.sigl_workers)
 include_original_clusters = str2bool(args.include_original_clusters)
 
 output_dir = args.output_dir
@@ -245,29 +364,17 @@ else: # load the existing adjacency matrices
         "samples": graphon_jobs,
     }
 
-    for job in graphon_jobs:
-        index = job["sample_id"]
-        graph_inr = [
-            graphs_inr[source_index]
-            for source_index in job["model_train_graph_indices"]
-        ]
-        ### Learn the coordinates and graphon as step 1
-        print("Step1: Learning the laten variable of the nodes")
-        model_SIGL, _ = coords_prediction(inr_dim_hidden, gnn_dim_hidden, n_epochs, epoch_show, w0, graph_inr, lr)
-        ### Sort the graphs based on the learned latent variables
-        print("Step2: Sorting the graphs and calculating the pooling")
-        X_all, y_all, w_all = graph2XY(graph_inr, model_SIGL)
-        ### train INR using histogram approximation
-        print("Step3: Training the INR using histograms")
-        trained_inr = train_graphon(inr_dim_hidden, w0, X_all, y_all, w_all, n_epochs, epoch_show, lr, batch_size)
-        # Sample the estimated graphon from inr:
-        estimated_graphon = get_graphon(Res, trained_inr)
-
-        # plot a sample of the graphs with the estimated graphon and the learned coordinates
-        # sample_graph = graph_inr[-1]
-        # plot_smaples_real(sample_graph, estimated_graphon, output_dir, model_SIGL)
-        print(f'graphon {output_dir}/sample_{index}.png generated', len(estimated_graphon))
-        save_graphon_for_diff(estimated_graphon, output_dir + f'/sample_{index}.png')
+    graphon_params = {
+        "inr_dim_hidden": inr_dim_hidden,
+        "gnn_dim_hidden": gnn_dim_hidden,
+        "n_epochs": n_epochs,
+        "epoch_show": epoch_show,
+        "w0": w0,
+        "lr": lr,
+        "batch_size": batch_size,
+        "Res": Res,
+    }
+    run_graphon_jobs(graphon_jobs, graphs_inr, graphon_params, output_dir, sigl_workers)
 
     with open(os.path.join(output_dir, "bootstrap_metadata.json"), "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
