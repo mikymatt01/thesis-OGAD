@@ -20,6 +20,41 @@ SUPPORTED_SELECTION_METRICS = (
     "digress_target_ratio",
 )
 
+PAPER_TARGET_MMD = {
+    "degree_distribution": 0.0033908049082798097,
+    "clustering_coefficient": 16.00800904243397,
+    "normalised_laplacian_spectrum": 0.5686360149190364,
+}
+
+
+def structural_ratio_score(
+    mmd: Dict[str, float],
+    targets: Dict[str, float] = PAPER_TARGET_MMD,
+    descriptors: Iterable[str] = DESCRIPTORS,
+) -> Dict[str, object]:
+    """Return Paper-normalized structural ratios and their mean score.
+
+    Lower is better. Missing descriptors or zero targets make a run incomplete
+    for structural ranking, so they raise ValueError instead of silently
+    producing a misleading aggregate.
+    """
+    descriptor_names = list(descriptors)
+    if not descriptor_names:
+        raise ValueError("At least one descriptor is required")
+
+    ratios = {}
+    for descriptor in descriptor_names:
+        if descriptor not in mmd or mmd[descriptor] is None:
+            raise ValueError(f"Missing MMD for {descriptor}")
+        if descriptor not in targets or targets[descriptor] == 0:
+            raise ValueError(f"Missing non-zero structural target for {descriptor}")
+        ratios[descriptor] = float(mmd[descriptor]) / float(targets[descriptor])
+
+    return {
+        "structural_ratios": ratios,
+        "structural_ratio_score": sum(ratios.values()) / len(ratios),
+    }
+
 
 def mean_rank_scores(
     candidates: Iterable[Dict[str, object]],

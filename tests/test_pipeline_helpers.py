@@ -34,7 +34,11 @@ from training_utils import (  # noqa: E402
     load_graph_selection_config,
     load_experiment_config,
 )
-from selection_utils import digress_target_ratio_scores, select_best_candidate  # noqa: E402
+from selection_utils import (  # noqa: E402
+    digress_target_ratio_scores,
+    select_best_candidate,
+    structural_ratio_score,
+)
 from experiment_grid import assign_gpu, expand_merged_experiment  # noqa: E402
 import run_from_merged_parallel as parallel_runner  # noqa: E402
 from digress_graphons_overrides import hydra_overrides  # noqa: E402
@@ -159,6 +163,40 @@ class D3PMHelperTests(unittest.TestCase):
         self.assertEqual(grid["hybrid_loss_coeff"], [0.006, 0.01, 0.015])
         self.assertEqual(training["max_epochs"], 300)
         self.assertEqual(graph_selection["selection_metric"], "digress_target_ratio")
+
+    def test_ablation_experiment_expands_only_allowed_sigl_groups(self):
+        config_path = ROOT / "experiments" / "12_sigl_h_degree_ablation.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        experiments = expand_merged_experiment(config)
+
+        self.assertEqual(len(experiments), 6)
+        pairs = {
+            (
+                experiment["sigl"]["h_size"],
+                experiment["sigl"]["n_clusters"],
+                experiment["sigl"]["bootstrap_replicates"],
+                experiment["sigl"]["include_original_clusters"],
+            )
+            for experiment in experiments
+        }
+        self.assertEqual(
+            pairs,
+            {
+                (1, 10, 8, True),
+                (2, 10, 8, True),
+                (1, 20, 8, True),
+                (2, 20, 8, True),
+                (1, 50, 13, False),
+                (2, 50, 13, False),
+            },
+        )
+        self.assertEqual(
+            [experiment["name"] for experiment in experiments],
+            ["test_nc0", "test_nc1", "test_nc2", "test_nc3", "test_nc4", "test_nc5"],
+        )
+        self.assertTrue(
+            all(experiment["graph_selection"]["selection_metric"] == "digress_target_ratio" for experiment in experiments)
+        )
 
 
 class SIGLBootstrapTests(unittest.TestCase):
@@ -375,6 +413,66 @@ class GGMECandidateSelectionTests(unittest.TestCase):
 
         self.assertEqual(ranked[0]["candidate_id"], "fast")
 
+    def test_structural_ratio_score_improves_when_all_mmds_improve(self):
+        targets = {
+            "degree_distribution": 1.0,
+            "clustering_coefficient": 10.0,
+            "normalised_laplacian_spectrum": 2.0,
+        }
+        better = structural_ratio_score(
+            {
+                "degree_distribution": 0.5,
+                "clustering_coefficient": 5.0,
+                "normalised_laplacian_spectrum": 1.0,
+            },
+            targets=targets,
+        )
+        worse = structural_ratio_score(
+            {
+                "degree_distribution": 1.0,
+                "clustering_coefficient": 10.0,
+                "normalised_laplacian_spectrum": 2.0,
+            },
+            targets=targets,
+        )
+
+        self.assertLess(better["structural_ratio_score"], worse["structural_ratio_score"])
+        self.assertEqual(better["structural_ratios"]["degree_distribution"], 0.5)
+
+    def test_structural_ratio_score_penalizes_clustering_collapse(self):
+        targets = {
+            "degree_distribution": 1.0,
+            "clustering_coefficient": 10.0,
+            "normalised_laplacian_spectrum": 2.0,
+        }
+        degree_only = structural_ratio_score(
+            {
+                "degree_distribution": 0.2,
+                "clustering_coefficient": 100.0,
+                "normalised_laplacian_spectrum": 2.0,
+            },
+            targets=targets,
+        )
+        balanced = structural_ratio_score(
+            {
+                "degree_distribution": 0.6,
+                "clustering_coefficient": 12.0,
+                "normalised_laplacian_spectrum": 2.2,
+            },
+            targets=targets,
+        )
+
+        self.assertLess(balanced["structural_ratio_score"], degree_only["structural_ratio_score"])
+
+    def test_structural_ratio_score_rejects_incomplete_runs(self):
+        with self.assertRaisesRegex(ValueError, "Missing MMD"):
+            structural_ratio_score(
+                {
+                    "degree_distribution": 1.0,
+                    "clustering_coefficient": 1.0,
+                }
+            )
+
 
 class ParallelSchedulerTests(unittest.TestCase):
     def test_merged_expansion_and_gpu_assignment_are_deterministic(self):
@@ -392,6 +490,29 @@ class ParallelSchedulerTests(unittest.TestCase):
         self.assertEqual(assign_gpu(0, ["0", "1"]), "0")
         self.assertEqual(assign_gpu(1, ["0", "1"]), "1")
         self.assertEqual(assign_gpu(2, ["0", "1"]), "0")
+
+    def test_grouped_sigl_expansion_avoids_cross_product_between_groups(self):
+        raw = {
+            "name": "base",
+            "sigl": [
+                {"Res": [128], "n_clusters": [10, 20], "bootstrap_replicates": [8]},
+                {"Res": [128], "n_clusters": [50], "bootstrap_replicates": [13]},
+            ],
+            "d3pm": {"image_size": [128]},
+        }
+        experiments = expand_merged_experiment(raw)
+
+        self.assertEqual(len(experiments), 3)
+        self.assertEqual(
+            [
+                (
+                    experiment["sigl"]["n_clusters"],
+                    experiment["sigl"]["bootstrap_replicates"],
+                )
+                for experiment in experiments
+            ],
+            [(10, 8), (20, 8), (50, 13)],
+        )
 
     def test_parallel_retry_state_is_written_and_bounded(self):
         original_run_sh = parallel_runner.RUN_SH

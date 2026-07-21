@@ -165,6 +165,8 @@ def main() -> int:
     gpus = parse_gpus(args.gpus)
     batch_id = dt.datetime.utcnow().strftime("parallel_%Y%m%d_%H%M%S")
     runs_root = args.runs_root or (ROOT / "runs" / batch_id)
+    if not runs_root.is_absolute():
+        runs_root = ROOT / runs_root
     jobs = build_jobs(args.merged, runs_root)
 
     if args.dry_run:
