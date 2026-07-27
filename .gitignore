@@ -19,3 +19,5 @@ infrastructure/*.tfstate.*
 infrastructure/crash.log
 infrastructure/*.tfplan
 docs
+datasets/
+tmp_*_test/

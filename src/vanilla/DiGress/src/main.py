@@ -35,6 +35,9 @@ def apply_ogad_experiment_config(cfg: DictConfig) -> DictConfig:
         if dataset.get("name"):
             cfg.dataset.name = dataset["name"]
             cfg.general.name = dataset["name"]
+            # Isola la cache PyG (processed/) per dataset: senza questo, run su
+            # dataset diversi riuserebbero i grafi processati del primo.
+            cfg.dataset.datadir = "data/community_graphs/{}/".format(dataset["name"])
         if dataset.get("train_graphs_path"):
             cfg.dataset.pickle_path = dataset["train_graphs_path"]
         if dataset.get("generated_graph_count"):

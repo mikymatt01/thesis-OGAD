@@ -366,17 +366,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--train_graphs",
         type=str,
-        default="../../data/train/graphs/CommunityGraphs.pickle",
+        default="../../datasets/community_graphs/CommunityGraphs_train.pkl",
     )
     parser.add_argument(
         "--test_graphs",
         type=str,
-        default="../../data/test/graphs/CommunityGraphs.pickle",
+        default="../../datasets/community_graphs/CommunityGraphs_test.pkl",
     )
     parser.add_argument(
         "--paper_graphs",
         type=str,
-        default="../../data/predictions/graphs/ggme_paper/CommunityGraphs.pickle",
+        default="../../datasets/community_graphs/CommunityGraphs_paper.pickle",
     )
     parser.add_argument(
         "--graphons_pt",

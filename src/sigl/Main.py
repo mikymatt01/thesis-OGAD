@@ -154,7 +154,7 @@ parser.add_argument('--w0', type=float, default=10, help="Default frequency for 
 parser.add_argument('--lr', type=float, default=0.06, help="Learning rate.")
 parser.add_argument('--h_size', type=int, default=4, 
                     help="Pooling window size (1: 1, 2: 2, 3: 3, 4: log(n), 5: sqrt(n)). Default: 4.")
-parser.add_argument('--Adjs_dir', type=str, default='../../data/train/graphs/CommunityGraphs.pickle', 
+parser.add_argument('--Adjs_dir', type=str, default='../../datasets/community_graphs/CommunityGraphs_train.pkl',
                     help="Path to existing adjacency matrices (e.g., myGraphs/Adjs.pkl).")
 parser.add_argument('--output_dir', type=str, default='../../data/train/graphons', help="Output directory.")
 parser.add_argument('--n_clusters', type=int, default=None, help="Number of clasters")

@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from einops import rearrange
 import matplotlib as mpl
 from typing import List
+from pathlib import Path
 import torch.nn as nn
 import numpy as np
 import pickle
@@ -14,6 +15,7 @@ import random
 import torch
 import math
 import ot
+import sys
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -131,7 +133,7 @@ class GCN(torch.nn.Module):
         x_post_fc = (x_post_fc - x_post_fc.min())/(x_post_fc.max() - x_post_fc.min())        
 
         return x_pre_fc, x_post_fc
-    
+
 # SIGL network without pooling:
 class SIGL(nn.Module):
     def __init__(self, model1, model2):
@@ -282,7 +284,7 @@ def synthesize_graphon(r: int = 1000, type_idx: int = 0, alpha: int = 1) -> np.n
         r2 = int(r / 2)
         w = np.kron(np.eye(2, dtype=int), np.ones((r2, r2)))
         w = 0.8 * (1 - w)
-    
+
     # parametrized case of graphon 2 and SBM
     elif type_idx == 19:
         w = np.exp(-(u ** 0.7 + v ** 0.7)/alpha)
@@ -516,6 +518,23 @@ def plot_smaples_real(sample_graph, predictions_graphon, output_dir, model_ISGL)
 def load_graphs(filepath):
     """Load graphs from eventually compressed pickle."""
 
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    try:
+        from community_graphs.sigl_loader import load_community_graphs_for_sigl
+
+        return load_community_graphs_for_sigl(
+            filepath,
+            dtype=np.float32,
+            max_dense_bytes_per_graph=512 * 1024 * 1024,
+        )
+    except ModuleNotFoundError as exc:
+        if exc.name != "community_graphs":
+            raise
+    except TypeError:
+        pass
+
     with open(filepath, 'rb') as f:
         graphs = pickle.load(f)
     if isinstance(graphs[0], np.ndarray):
@@ -524,4 +543,3 @@ def load_graphs(filepath):
         return [graph.toarray() for graph in graphs]
     else:
         raise ValueError('Unsupported input type.')
-    

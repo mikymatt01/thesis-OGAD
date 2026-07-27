@@ -28,6 +28,7 @@ mkdir -p "$RUN_DIR"
 mkdir -p \
   "$RUN_DIR/data/train/graphons" \
   "$RUN_DIR/data/predictions/graphons" \
+  "$RUN_DIR/data/predictions/graphs/digress" \
   "$RUN_DIR/data/models"
 
 python3 "$ROOT/scripts/ogad_write_manifest.py" "$EXP_ABS" "$RUN_DIR" "$RUN_ID"
@@ -74,6 +75,7 @@ run_stage() {
     -v "$RUN_DIR:/app/runs/current" \
     -v "$RUN_DIR/data/train/graphons:/app/data/train/graphons" \
     -v "$RUN_DIR/data/predictions/graphons:/app/data/predictions/graphons" \
+    -v "$RUN_DIR/data/predictions/graphs/digress:/app/data/predictions/graphs/digress" \
     -v "$RUN_DIR/data/models:/app/data/models" \
     "$service" "$@" 2>&1 | tee "$logfile"
 }

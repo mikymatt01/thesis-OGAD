@@ -3,9 +3,9 @@
   "shared": {},
   "dataset": {
     "name": "community_graphs",
-    "train_graphs_path": "/app/data/train/graphs/CommunityGraphs.pickle",
-    "test_graphs_path": "/app/data/test/graphs/CommunityGraphs.pickle",
-    "paper_baseline_graphs_path": "/app/data/predictions/graphs/ggme_paper/CommunityGraphs.pickle",
+    "train_graphs_path": "/app/datasets/community_graphs/CommunityGraphs_train.pkl",
+    "test_graphs_path": "/app/datasets/community_graphs/CommunityGraphs_test.pkl",
+    "paper_baseline_graphs_path": "/app/datasets/community_graphs/CommunityGraphs_paper.pickle",
     "sigl_graphons_dir": "/app/data/train/graphons",
     "ogad_generated_graphons_path": "/app/data/predictions/graphons/tensors.pt",
     "digress_generated_samples_path": "/app/data/predictions/graphs/digress/generated_samples1.txt",
@@ -42,7 +42,7 @@
     "selection_metric": "digress_target_ratio"
   },
   "digress": {
-    "enabled": false
+    "enabled": true
   },
   "ggme": {
     "seed": 0

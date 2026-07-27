@@ -1,5 +1,6 @@
 - comparare i grafi generati con i grafi di test appartenenti allo stesso cluster di partenza
 - calcolare anche la matrice di comparazione tra diversi clusters
+
 - esperimenti di diversi datasets
   - dataset di grafi generati (Erdos-Renyi, Albert Barabasi)
   - dataset da banchmark Echo - dataset artficiali
