@@ -94,6 +94,7 @@ def compute_ggme(
     paper_graphs,
     generated_graphs,
     digress_graphs,
+    classical_baseline_graphs,
     perturbed_graphs,
     perturbation_values,
     descriptor_fn
@@ -153,11 +154,13 @@ def compute_ggme(
     
     log("Option 3:")
     mmd_by_key = {}
-    for key, dataset in [
+    datasets = [
         ('DiGress', digress_graphs),
         ('OGAD', generated_graphs),
         ('Paper', paper_graphs),
-    ]:
+    ]
+    datasets.extend(sorted((classical_baseline_graphs or {}).items()))
+    for key, dataset in datasets:
         if key == "DiGress" and not dataset:
             log("DiGress baseline skipped (no graphs).")
             mmd_by_key[key] = None
@@ -342,6 +345,16 @@ def maybe_select_candidate_with_ggme(args, run_dir: str | None, run_id: str | No
     return selection_payload
 
 
+def load_classical_baselines(value):
+    if not value:
+        return {}
+    if isinstance(value, str):
+        value = json.loads(value)
+    if not isinstance(value, dict):
+        raise ValueError("classical_baselines must be a mapping of label to pickle path")
+    return {str(label): load_graphs(str(path)) for label, path in value.items()}
+
+
 if __name__ == "__main__":
     print("path for: ", os.getcwd())
 
@@ -379,6 +392,11 @@ if __name__ == "__main__":
         default="../../datasets/community_graphs/CommunityGraphs_paper.pickle",
     )
     parser.add_argument(
+        "--classical_baselines",
+        default=None,
+        help="Optional JSON mapping of baseline label to graph pickle path.",
+    )
+    parser.add_argument(
         "--graphons_pt",
         type=str,
         default="../../data/predictions/graphons/tensors.pt",
@@ -412,6 +430,7 @@ if __name__ == "__main__":
     test_graphs = load_graphs(args.test_graphs)
     test_sizes = _test_node_sizes(test_graphs)
     paper_graphs = load_graphs(args.paper_graphs)
+    classical_baseline_graphs = load_classical_baselines(args.classical_baselines)
 
     digress_graphs = []
     if not args.skip_digress and args.digress_samples and os.path.isfile(args.digress_samples):
@@ -454,6 +473,8 @@ if __name__ == "__main__":
 
     print("Loaded {} DiGress graphs".format(len(digress_graphs)))
     print("Loaded {} OGAD graphs from {}".format(len(generated_graphs), args.graphons_pt))
+    for label, graphs in sorted(classical_baseline_graphs.items()):
+        print("Loaded {} {} graphs".format(len(graphs), label))
     print("Test graphs: ", len(test_graphs))
 
     perturbation_values, perturbed_graphs = perturb_graphs(
@@ -471,6 +492,7 @@ if __name__ == "__main__":
             paper_graphs,
             generated_graphs,
             digress_graphs,
+            classical_baseline_graphs,
             perturbed_graphs,
             perturbation_values,
             descriptor_fn

@@ -36,10 +36,10 @@ def normalised_laplacian_spectrum(
     G, n_bins=200, bin_range=(0, 2), density=False, **kwargs
 ):
     """Calculate normalised Laplacian spectrum of a graph."""
-    spectrum = nx.normalized_laplacian_spectrum(G)
+    graph = nx.from_numpy_array(nx.to_numpy_array(G, dtype=float, weight="weight"))
+    spectrum = nx.normalized_laplacian_spectrum(graph)
     hist, _ = np.histogram(
         spectrum, bins=n_bins, density=density, range=bin_range
     )
 
     return hist
-

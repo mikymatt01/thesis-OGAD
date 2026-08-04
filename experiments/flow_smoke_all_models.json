@@ -1,0 +1,71 @@
+{
+  "name": "flow_smoke_all_models",
+  "shared": {},
+  "dataset": {
+    "name": "community_graphs",
+    "train_graphs_path": "/app/datasets/flow_smoke/CommunityGraphs_train.pkl",
+    "test_graphs_path": "/app/datasets/flow_smoke/CommunityGraphs_test.pkl",
+    "paper_baseline_graphs_path": "/app/datasets/flow_smoke/baselines/degree_corrected_sbm.pickle",
+    "sigl_graphons_dir": "/app/data/train/graphons",
+    "ogad_generated_graphons_path": "/app/data/predictions/graphons/tensors.pt",
+    "digress_generated_samples_path": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+    "generated_graph_count": 4
+  },
+  "sigl": {
+    "n_epoch": [1],
+    "lr": [0.06],
+    "Res": [16, 20],
+    "n_clusters": [1],
+    "bootstrap_replicates": [2],
+    "bootstrap_seed": [0],
+    "sigl_workers": [1],
+    "include_original_clusters": [false]
+  },
+  "d3pm": {
+    "batch_size": [1],
+    "dim": [64],
+    "lr": [5e-5],
+    "num_classes": [8],
+    "image_size": [16],
+    "hybrid_loss_coeff": [0.006],
+    "num_workers": [0]
+  },
+  "d3pm_training": {
+    "validation_fraction": 0.5,
+    "split_seed": 0,
+    "patience": 1,
+    "min_delta": 0.0,
+    "max_epochs": 1
+  },
+  "graph_selection": {
+    "validation_fraction": 0.5,
+    "split_seed": 0,
+    "selection_metric": "mean_rank"
+  },
+  "digress": {
+    "enabled": true,
+    "n_epochs": 1,
+    "batch_size": 2,
+    "accumulate_grad_batches": 1,
+    "check_val_every_n_epochs": 1,
+    "samples_to_generate": 2,
+    "samples_to_save": 2,
+    "chains_to_save": 1,
+    "final_model_samples_to_generate": 4,
+    "final_model_samples_to_save": 4,
+    "final_model_chains_to_save": 1
+  },
+  "baselines": {
+    "enabled": true,
+    "models": [
+      "erdos_renyi",
+      "configuration_model",
+      "sbm",
+      "degree_corrected_sbm"
+    ],
+    "seed": 777
+  },
+  "ggme": {
+    "seed": 0
+  }
+}

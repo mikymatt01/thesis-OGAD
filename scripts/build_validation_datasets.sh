@@ -21,6 +21,7 @@ cd "$REPO_ROOT"
 
 DATA_ROOT="${DATA_ROOT:-datasets}"
 GEN="python generate_community_graphs.py"
+BASELINE_GEN="python -m src.baselines.classical_graphs"
 
 # Iperparametri comuni della suite (seed fissi -> riproducibilita').
 INSTANCES=300
@@ -33,9 +34,17 @@ rm -rf "${DATA_ROOT:?}"/*
 
 gen() {  # gen <nome> <famiglia> [args extra...]
   local name="$1"; local family="$2"; shift 2
+  local out="$DATA_ROOT/$name"
   echo ">> genero $name ($family)"
   $GEN --family "$family" --instances "$INSTANCES" --train-ratio "$RATIO" \
-       --seed "$SEED" --output-dir "$DATA_ROOT/$name" --overwrite "$@"
+       --seed "$SEED" --output-dir "$out" --overwrite "$@"
+  echo ">> genero baseline classiche per $name"
+  $BASELINE_GEN --model all \
+       --train-graphs "$out/CommunityGraphs_train.pkl" \
+       --test-graphs "$out/CommunityGraphs_test.pkl" \
+       --output-dir "$out/baselines" \
+       --num-graphs 100 \
+       --seed "$SEED"
 }
 
 # Suite ridotta a 5 dataset: copre i 3 tipi di graphon (costante, a blocchi,
@@ -53,6 +62,8 @@ cat > "$DATA_ROOT/README.md" <<'MD'
 
 5 dataset: ~300 grafi, split 80/20, seed 42, n=100, formato CommunityGraphs
 (list[csr_matrix]) leggibile da SIGL via community_graphs.sigl_loader.
+
+Ogni dataset include anche `baselines/{erdos_renyi,configuration_model,sbm,degree_corrected_sbm}.pickle`.
 
 | dataset | struttura | tipo graphon / scopo | metrica esercitata |
 |---|---|---|---|

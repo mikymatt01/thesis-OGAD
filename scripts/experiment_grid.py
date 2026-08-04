@@ -17,6 +17,14 @@ REQUIRED_DATASET_FIELDS = (
     "generated_graph_count",
 )
 
+CLASSICAL_BASELINE_LABELS = {
+    "erdos_renyi": "ER",
+    "configuration_model": "Configuration",
+    "sbm": "SBM",
+    "degree_corrected_sbm": "DC-SBM",
+}
+DEFAULT_CLASSICAL_BASELINE_MODELS = tuple(CLASSICAL_BASELINE_LABELS)
+
 
 def expand_block(block: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
     keys = list(block.keys())
@@ -56,6 +64,7 @@ def apply_dataset_paths(experiment: Dict[str, Any], dataset: Dict[str, Any]) -> 
     experiment.setdefault("sigl", {})
     experiment.setdefault("d3pm", {})
     experiment.setdefault("digress", {})
+    experiment.setdefault("baselines", {})
     experiment.setdefault("ggme", {})
 
     experiment["sigl"]["Adjs_dir"] = dataset["train_graphs_path"]
@@ -64,7 +73,32 @@ def apply_dataset_paths(experiment: Dict[str, Any], dataset: Dict[str, Any]) -> 
     experiment["d3pm"]["graphons_pt"] = dataset["ogad_generated_graphons_path"]
     experiment["digress"]["samples_path"] = dataset["digress_generated_samples_path"]
     experiment["ggme"]["test_graphs"] = dataset["test_graphs_path"]
-    experiment["ggme"]["paper_graphs"] = dataset["paper_baseline_graphs_path"]
+    baselines = experiment["baselines"]
+    if baselines.get("enabled", False):
+        output_dir = baselines.setdefault(
+            "output_dir",
+            "/app/data/predictions/graphs/classical",
+        )
+        models = baselines.setdefault(
+            "models",
+            list(DEFAULT_CLASSICAL_BASELINE_MODELS),
+        )
+        unknown_models = [model for model in models if model not in CLASSICAL_BASELINE_LABELS]
+        if unknown_models:
+            raise ValueError(
+                "Unknown baseline model(s): {}".format(", ".join(unknown_models))
+            )
+        classical_paths = {
+            CLASSICAL_BASELINE_LABELS[model]: "{}/{}.pickle".format(output_dir.rstrip("/"), model)
+            for model in models
+        }
+        experiment["ggme"]["classical_baselines"] = classical_paths
+        preferred_paper = "DC-SBM" if "DC-SBM" in classical_paths else next(iter(classical_paths))
+        experiment["ggme"]["paper_graphs"] = classical_paths[preferred_paper]
+    else:
+        experiment["ggme"]["paper_graphs"] = dataset["paper_baseline_graphs_path"]
+        if "classical_baselines" in dataset:
+            experiment["ggme"]["classical_baselines"] = dataset["classical_baselines"]
     experiment["ggme"]["graphons_pt"] = dataset["ogad_generated_graphons_path"]
     experiment["ggme"]["digress_samples"] = dataset["digress_generated_samples_path"]
     experiment["ggme"]["num_generated_graphs"] = dataset["generated_graph_count"]
