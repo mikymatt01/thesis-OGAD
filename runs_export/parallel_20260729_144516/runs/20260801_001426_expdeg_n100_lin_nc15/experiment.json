@@ -1,0 +1,102 @@
+{
+  "name": "expdeg_n100_lin_nc15",
+  "shared": {},
+  "dataset": {
+    "name": "expdeg_n100_lin",
+    "train_graphs_path": "/app/datasets/expdeg_n100_lin/CommunityGraphs_train.pkl",
+    "test_graphs_path": "/app/datasets/expdeg_n100_lin/CommunityGraphs_test.pkl",
+    "paper_baseline_graphs_path": "/app/datasets/expdeg_n100_lin/baselines/degree_corrected_sbm.pickle",
+    "sigl_graphons_dir": "/app/data/train/graphons",
+    "ogad_generated_graphons_path": "/app/data/predictions/graphons/tensors.pt",
+    "digress_generated_samples_path": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+    "generated_graph_count": 100,
+    "classical_baselines": {
+      "ER": "/app/datasets/expdeg_n100_lin/baselines/erdos_renyi.pickle",
+      "Configuration": "/app/datasets/expdeg_n100_lin/baselines/configuration_model.pickle",
+      "SBM": "/app/datasets/expdeg_n100_lin/baselines/sbm.pickle",
+      "DC-SBM": "/app/datasets/expdeg_n100_lin/baselines/degree_corrected_sbm.pickle"
+    }
+  },
+  "sigl": {
+    "n_epoch": 100,
+    "lr": 0.06,
+    "Res": 128,
+    "n_clusters": 4,
+    "bootstrap_replicates": 500,
+    "bootstrap_seed": 0,
+    "sigl_workers": 4,
+    "include_original_clusters": false,
+    "Adjs_dir": "/app/datasets/expdeg_n100_lin/CommunityGraphs_train.pkl",
+    "output_dir": "/app/data/train/graphons"
+  },
+  "d3pm": {
+    "batch_size": [
+      32
+    ],
+    "dim": [
+      512
+    ],
+    "lr": [
+      2e-05,
+      3e-05,
+      5e-05
+    ],
+    "num_classes": [
+      10,
+      14
+    ],
+    "image_size": [
+      128
+    ],
+    "hybrid_loss_coeff": [
+      0.006,
+      0.01
+    ],
+    "num_workers": [
+      0
+    ],
+    "train_graphons_dir": "/app/data/train/graphons",
+    "graphons_pt": "/app/data/predictions/graphons/tensors.pt"
+  },
+  "d3pm_training": {
+    "validation_fraction": 0.2,
+    "split_seed": 0,
+    "patience": 25,
+    "min_delta": 5e-05,
+    "max_epochs": 300
+  },
+  "graph_selection": {
+    "validation_fraction": 0.2,
+    "split_seed": 0,
+    "selection_metric": "digress_target_ratio"
+  },
+  "digress": {
+    "enabled": true,
+    "samples_path": "/app/data/predictions/graphs/digress/generated_samples1.txt"
+  },
+  "ggme": {
+    "seed": 0,
+    "test_graphs": "/app/datasets/expdeg_n100_lin/CommunityGraphs_test.pkl",
+    "classical_baselines": {
+      "ER": "/app/data/predictions/graphs/classical/erdos_renyi.pickle",
+      "Configuration": "/app/data/predictions/graphs/classical/configuration_model.pickle",
+      "SBM": "/app/data/predictions/graphs/classical/sbm.pickle",
+      "DC-SBM": "/app/data/predictions/graphs/classical/degree_corrected_sbm.pickle"
+    },
+    "paper_graphs": "/app/data/predictions/graphs/classical/degree_corrected_sbm.pickle",
+    "graphons_pt": "/app/data/predictions/graphons/tensors.pt",
+    "digress_samples": "/app/data/predictions/graphs/digress/generated_samples1.txt",
+    "num_generated_graphs": 100
+  },
+  "baselines": {
+    "enabled": true,
+    "models": [
+      "erdos_renyi",
+      "configuration_model",
+      "sbm",
+      "degree_corrected_sbm"
+    ],
+    "seed": 42,
+    "output_dir": "/app/data/predictions/graphs/classical"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "status": "complete",
+  "slug": "ba_n100_m3_nc18",
+  "gpu_id": "2",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 137,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/queue/ba_n100_m3_nc18/attempt_0/launcher.log",
+      "duration_seconds": 18146.176
+    },
+    {
+      "attempt": 1,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/queue/ba_n100_m3_nc18/attempt_1/launcher.log",
+      "duration_seconds": 28774.949
+    }
+  ],
+  "completed_at": "2026-08-02T01:15:27Z"
+}

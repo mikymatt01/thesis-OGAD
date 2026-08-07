@@ -1,0 +1,20 @@
+{
+  "status": "failed",
+  "slug": "sbm_n100_4c_nc1",
+  "gpu_id": "1",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 1,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/queue/sbm_n100_4c_nc1/attempt_0/launcher.log",
+      "duration_seconds": 28145.558
+    },
+    {
+      "attempt": 1,
+      "returncode": 1,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/queue/sbm_n100_4c_nc1/attempt_1/launcher.log",
+      "duration_seconds": 28496.455
+    }
+  ],
+  "failed_at": "2026-07-29T09:37:56Z"
+}

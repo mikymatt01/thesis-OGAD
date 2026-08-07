@@ -1,0 +1,156 @@
+{
+  "runs_root": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001",
+  "jobs": 6,
+  "complete": 6,
+  "failed": 0,
+  "shared_baselines": [
+    {
+      "status": "complete",
+      "slug": "ba_n100_m3_7c1be84ee6",
+      "gpu_id": "0",
+      "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/shared/baselines/ba_n100_m3_7c1be84ee6",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/shared/baselines/ba_n100_m3_7c1be84ee6/launcher_attempt_0.log",
+          "duration_seconds": 19.227
+        }
+      ],
+      "completed_at": "2026-08-03T15:40:20Z"
+    },
+    {
+      "status": "complete",
+      "slug": "ws_n100_k8_p01_f233aa01db",
+      "gpu_id": "1",
+      "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/shared/baselines/ws_n100_k8_p01_f233aa01db",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/shared/baselines/ws_n100_k8_p01_f233aa01db/launcher_attempt_0.log",
+          "duration_seconds": 20.93
+        }
+      ],
+      "completed_at": "2026-08-03T15:40:41Z"
+    }
+  ],
+  "shared_digress": [
+    {
+      "status": "complete",
+      "slug": "ba_n100_m3_a99f810af9",
+      "gpu_id": "0",
+      "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/shared/digress/ba_n100_m3_a99f810af9",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/shared/digress/ba_n100_m3_a99f810af9/launcher_attempt_0.log",
+          "duration_seconds": 1388.932
+        }
+      ],
+      "completed_at": "2026-08-03T16:03:50Z"
+    },
+    {
+      "status": "complete",
+      "slug": "ws_n100_k8_p01_4399758829",
+      "gpu_id": "1",
+      "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/shared/digress/ws_n100_k8_p01_4399758829",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/shared/digress/ws_n100_k8_p01_4399758829/launcher_attempt_0.log",
+          "duration_seconds": 1404.742
+        }
+      ],
+      "completed_at": "2026-08-03T16:27:15Z"
+    }
+  ],
+  "results": [
+    {
+      "status": "complete",
+      "slug": "ba_n100_m3_nc1",
+      "gpu_id": "1",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/queue/ba_n100_m3_nc1/attempt_0/launcher.log",
+          "duration_seconds": 81396.256
+        }
+      ],
+      "completed_at": "2026-08-04T15:03:51Z"
+    },
+    {
+      "status": "complete",
+      "slug": "ws_n100_k8_p01_nc3",
+      "gpu_id": "1",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/queue/ws_n100_k8_p01_nc3/attempt_0/launcher.log",
+          "duration_seconds": 71153.516
+        }
+      ],
+      "completed_at": "2026-08-05T10:49:45Z"
+    },
+    {
+      "status": "complete",
+      "slug": "ws_n100_k8_p01_nc4",
+      "gpu_id": "1",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/queue/ws_n100_k8_p01_nc4/attempt_0/launcher.log",
+          "duration_seconds": 101119.09
+        }
+      ],
+      "completed_at": "2026-08-06T14:55:04Z"
+    },
+    {
+      "status": "complete",
+      "slug": "ba_n100_m3_nc0",
+      "gpu_id": "0",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/queue/ba_n100_m3_nc0/attempt_0/launcher.log",
+          "duration_seconds": 63647.985
+        }
+      ],
+      "completed_at": "2026-08-04T10:08:03Z"
+    },
+    {
+      "status": "complete",
+      "slug": "ba_n100_m3_nc2",
+      "gpu_id": "0",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/queue/ba_n100_m3_nc2/attempt_0/launcher.log",
+          "duration_seconds": 117865.883
+        }
+      ],
+      "completed_at": "2026-08-05T18:52:29Z"
+    },
+    {
+      "status": "complete",
+      "slug": "ws_n100_k8_p01_nc5",
+      "gpu_id": "0",
+      "attempts": [
+        {
+          "attempt": 0,
+          "returncode": 0,
+          "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/queue/ws_n100_k8_p01_nc5/attempt_0/launcher.log",
+          "duration_seconds": 128955.615
+        }
+      ],
+      "completed_at": "2026-08-07T06:41:45Z"
+    }
+  ]
+}

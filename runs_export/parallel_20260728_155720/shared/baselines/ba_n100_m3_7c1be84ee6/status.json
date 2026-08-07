@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "ba_n100_m3_7c1be84ee6",
+  "gpu_id": "3",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/shared/baselines/ba_n100_m3_7c1be84ee6",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/shared/baselines/ba_n100_m3_7c1be84ee6/launcher_attempt_0.log",
+      "duration_seconds": 19.413
+    }
+  ],
+  "completed_at": "2026-07-28T15:58:37Z"
+}

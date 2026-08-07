@@ -1,0 +1,192 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.6.3
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Skipping virtualenv creation, as specified in config file.
+Using device: cuda
+
+Downloading data: 100%|██████████| 500/500 [00:00<00:00, 25675.22files/s]
+Generating train split: 0 examples [00:00, ? examples/s]
+Generating train split: 500 examples [00:00, 63024.85 examples/s]
+
+Map: 100%|██████████| 500/500 [00:00<00:00, 874.29 examples/s] 
+Params {'batch_size': 32, 'dim': 512, 'hybrid_loss_coeff': 0.006, 'image_size': 128, 'lr': 5e-05, 'num_classes': 14, 'num_workers': 0}
+Total Param Count: 28093296
+/app/src/d3pm/ogad_model_finetune.py:186: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler()
+
+  0%|          | 0/13 [00:00<?, ?it/s]/app/src/d3pm/ogad_model_finetune.py:93: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast():
+
+loss: 0.0197, norm: 0.0641, vb_loss: 0.0087, ce_loss: 1.8296: 100%|██████████| 13/13 [00:08<00:00,  1.51it/s]
+Epoch 1: train_loss=0.019658, validation_loss=0.011307
+
+loss: 0.0119, norm: 0.0545, vb_loss: 0.0043, ce_loss: 1.2702: 100%|██████████| 13/13 [00:07<00:00,  1.65it/s]
+Epoch 2: train_loss=0.011894, validation_loss=0.007935
+
+loss: 0.0091, norm: 0.0399, vb_loss: 0.0038, ce_loss: 0.8828: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 3: train_loss=0.009136, validation_loss=0.008688
+
+loss: 0.0055, norm: 0.0282, vb_loss: 0.0020, ce_loss: 0.5771: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 4: train_loss=0.005507, validation_loss=0.003725
+
+loss: 0.0032, norm: 0.0186, vb_loss: 0.0008, ce_loss: 0.3938: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 5: train_loss=0.003212, validation_loss=0.002585
+
+loss: 0.0026, norm: 0.0106, vb_loss: 0.0009, ce_loss: 0.2761: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 6: train_loss=0.002578, validation_loss=0.001955
+
+loss: 0.0020, norm: 0.0051, vb_loss: 0.0007, ce_loss: 0.2074: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 7: train_loss=0.001984, validation_loss=0.001502
+
+loss: 0.0015, norm: 0.0036, vb_loss: 0.0004, ce_loss: 0.1746: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 8: train_loss=0.001489, validation_loss=0.001328
+
+loss: 0.0014, norm: 0.0025, vb_loss: 0.0004, ce_loss: 0.1636: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 9: train_loss=0.001395, validation_loss=0.001398
+
+loss: 0.0014, norm: 0.0031, vb_loss: 0.0004, ce_loss: 0.1699: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 10: train_loss=0.001420, validation_loss=0.001368
+
+loss: 0.0013, norm: 0.0035, vb_loss: 0.0004, ce_loss: 0.1568: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 11: train_loss=0.001335, validation_loss=0.001252
+
+loss: 0.0014, norm: 0.0019, vb_loss: 0.0005, ce_loss: 0.1512: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 12: train_loss=0.001393, validation_loss=0.001239
+
+loss: 0.0013, norm: 0.0017, vb_loss: 0.0004, ce_loss: 0.1487: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 13: train_loss=0.001299, validation_loss=0.001292
+
+loss: 0.0013, norm: 0.0031, vb_loss: 0.0004, ce_loss: 0.1532: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 14: train_loss=0.001304, validation_loss=0.002472
+
+loss: 0.0014, norm: 0.0021, vb_loss: 0.0005, ce_loss: 0.1531: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 15: train_loss=0.001372, validation_loss=0.001285
+
+loss: 0.0013, norm: 0.0038, vb_loss: 0.0004, ce_loss: 0.1517: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 16: train_loss=0.001300, validation_loss=0.001210
+
+loss: 0.0013, norm: 0.0015, vb_loss: 0.0004, ce_loss: 0.1583: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 17: train_loss=0.001320, validation_loss=0.001294
+
+loss: 0.0013, norm: 0.0016, vb_loss: 0.0004, ce_loss: 0.1557: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 18: train_loss=0.001295, validation_loss=0.001260
+
+loss: 0.0014, norm: 0.0024, vb_loss: 0.0005, ce_loss: 0.1494: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 19: train_loss=0.001446, validation_loss=0.001195
+
+loss: 0.0013, norm: 0.0027, vb_loss: 0.0004, ce_loss: 0.1514: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 20: train_loss=0.001305, validation_loss=0.001214
+
+loss: 0.0013, norm: 0.0065, vb_loss: 0.0004, ce_loss: 0.1509: 100%|██████████| 13/13 [00:07<00:00,  1.65it/s]
+Epoch 21: train_loss=0.001265, validation_loss=0.001189
+
+loss: 0.0013, norm: 0.0014, vb_loss: 0.0005, ce_loss: 0.1438: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 22: train_loss=0.001349, validation_loss=0.001194
+
+loss: 0.0016, norm: 0.0120, vb_loss: 0.0007, ce_loss: 0.1456: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 23: train_loss=0.001572, validation_loss=0.001338
+
+loss: 0.0013, norm: 0.0028, vb_loss: 0.0004, ce_loss: 0.1401: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 24: train_loss=0.001280, validation_loss=0.001173
+
+loss: 0.0012, norm: 0.0020, vb_loss: 0.0003, ce_loss: 0.1501: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 25: train_loss=0.001249, validation_loss=0.001494
+
+loss: 0.0013, norm: 0.0027, vb_loss: 0.0004, ce_loss: 0.1495: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 26: train_loss=0.001252, validation_loss=0.001195
+
+loss: 0.0012, norm: 0.0212, vb_loss: 0.0005, ce_loss: 0.1313: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 27: train_loss=0.001242, validation_loss=0.001031
+
+loss: 0.0013, norm: 0.0071, vb_loss: 0.0005, ce_loss: 0.1344: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 28: train_loss=0.001260, validation_loss=0.001218
+
+loss: 0.0012, norm: 0.0033, vb_loss: 0.0004, ce_loss: 0.1330: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 29: train_loss=0.001164, validation_loss=0.001200
+
+loss: 0.0012, norm: 0.0055, vb_loss: 0.0004, ce_loss: 0.1431: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 30: train_loss=0.001226, validation_loss=0.001217
+
+loss: 0.0012, norm: 0.0097, vb_loss: 0.0004, ce_loss: 0.1397: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 31: train_loss=0.001201, validation_loss=0.001210
+
+loss: 0.0013, norm: 0.0025, vb_loss: 0.0004, ce_loss: 0.1441: 100%|██████████| 13/13 [00:07<00:00,  1.65it/s]
+Epoch 32: train_loss=0.001298, validation_loss=0.001067
+
+loss: 0.0012, norm: 0.0030, vb_loss: 0.0004, ce_loss: 0.1309: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 33: train_loss=0.001153, validation_loss=0.001074
+
+loss: 0.0012, norm: 0.0052, vb_loss: 0.0004, ce_loss: 0.1411: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 34: train_loss=0.001206, validation_loss=0.001131
+
+loss: 0.0012, norm: 0.0018, vb_loss: 0.0003, ce_loss: 0.1430: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 35: train_loss=0.001195, validation_loss=0.001143
+
+loss: 0.0012, norm: 0.0108, vb_loss: 0.0004, ce_loss: 0.1357: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 36: train_loss=0.001209, validation_loss=0.001295
+
+loss: 0.0012, norm: 0.0025, vb_loss: 0.0004, ce_loss: 0.1386: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 37: train_loss=0.001202, validation_loss=0.001154
+
+loss: 0.0013, norm: 0.0079, vb_loss: 0.0004, ce_loss: 0.1470: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 38: train_loss=0.001266, validation_loss=0.001239
+
+loss: 0.0012, norm: 0.0037, vb_loss: 0.0004, ce_loss: 0.1401: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 39: train_loss=0.001215, validation_loss=0.001115
+
+loss: 0.0012, norm: 0.0031, vb_loss: 0.0004, ce_loss: 0.1350: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 40: train_loss=0.001176, validation_loss=0.001128
+
+loss: 0.0012, norm: 0.0037, vb_loss: 0.0004, ce_loss: 0.1460: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 41: train_loss=0.001232, validation_loss=0.001137
+
+loss: 0.0012, norm: 0.0081, vb_loss: 0.0004, ce_loss: 0.1314: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 42: train_loss=0.001176, validation_loss=0.001135
+
+loss: 0.0013, norm: 0.0047, vb_loss: 0.0004, ce_loss: 0.1472: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 43: train_loss=0.001253, validation_loss=0.001209
+
+loss: 0.0012, norm: 0.0031, vb_loss: 0.0004, ce_loss: 0.1327: 100%|██████████| 13/13 [00:07<00:00,  1.67it/s]
+Epoch 44: train_loss=0.001150, validation_loss=0.001130
+
+loss: 0.0012, norm: 0.0058, vb_loss: 0.0004, ce_loss: 0.1397: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 45: train_loss=0.001226, validation_loss=0.001145
+
+loss: 0.0012, norm: 0.0074, vb_loss: 0.0004, ce_loss: 0.1372: 100%|██████████| 13/13 [00:07<00:00,  1.65it/s]
+Epoch 46: train_loss=0.001183, validation_loss=0.001119
+
+loss: 0.0012, norm: 0.0064, vb_loss: 0.0004, ce_loss: 0.1386: 100%|██████████| 13/13 [00:07<00:00,  1.67it/s]
+Epoch 47: train_loss=0.001208, validation_loss=0.001157
+
+loss: 0.0012, norm: 0.0076, vb_loss: 0.0004, ce_loss: 0.1394: 100%|██████████| 13/13 [00:07<00:00,  1.67it/s]
+Epoch 48: train_loss=0.001206, validation_loss=0.001122
+
+loss: 0.0013, norm: 0.0037, vb_loss: 0.0004, ce_loss: 0.1438: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 49: train_loss=0.001256, validation_loss=0.001805
+
+loss: 0.0012, norm: 0.0058, vb_loss: 0.0004, ce_loss: 0.1431: 100%|██████████| 13/13 [00:07<00:00,  1.67it/s]
+Epoch 50: train_loss=0.001245, validation_loss=0.001644
+
+loss: 0.0013, norm: 0.0050, vb_loss: 0.0004, ce_loss: 0.1449: 100%|██████████| 13/13 [00:07<00:00,  1.67it/s]
+Epoch 51: train_loss=0.001254, validation_loss=0.001109
+
+loss: 0.0012, norm: 0.0081, vb_loss: 0.0004, ce_loss: 0.1443: 100%|██████████| 13/13 [00:07<00:00,  1.66it/s]
+Epoch 52: train_loss=0.001242, validation_loss=0.001092
+Early stopping at epoch 52
+Best model {'batch_size': 32, 'dim': 512, 'hybrid_loss_coeff': 0.006, 'image_size': 128, 'lr': 5e-05, 'num_classes': 14, 'num_workers': 0} at epoch 27 with validation loss 0.0010310152475722133
+Skipping virtualenv creation, as specified in config file.
+Using device: cuda
+
+[export] 1408 frame intermedi di progress bar rimossi; log integrale in runs/parallel_20260728_155720/runs/20260729_011552_expdeg_n100_lin_nc2/d3pm.log

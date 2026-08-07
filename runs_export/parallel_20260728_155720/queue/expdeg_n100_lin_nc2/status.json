@@ -1,0 +1,20 @@
+{
+  "status": "failed",
+  "slug": "expdeg_n100_lin_nc2",
+  "gpu_id": "2",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 1,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/queue/expdeg_n100_lin_nc2/attempt_0/launcher.log",
+      "duration_seconds": 26518.034
+    },
+    {
+      "attempt": 1,
+      "returncode": 1,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/queue/expdeg_n100_lin_nc2/attempt_1/launcher.log",
+      "duration_seconds": 25992.955
+    }
+  ],
+  "failed_at": "2026-07-29T08:29:05Z"
+}

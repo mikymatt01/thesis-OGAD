@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "er_n100_p005_7f7ec73c60",
+  "gpu_id": "0",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/shared/baselines/er_n100_p005_7f7ec73c60",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/shared/baselines/er_n100_p005_7f7ec73c60/launcher_attempt_0.log",
+      "duration_seconds": 17.459
+    }
+  ],
+  "completed_at": "2026-07-28T15:57:37Z"
+}

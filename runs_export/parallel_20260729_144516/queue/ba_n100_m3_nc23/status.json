@@ -1,0 +1,9 @@
+{
+  "status": "running",
+  "slug": "ba_n100_m3_nc23",
+  "gpu_id": "2",
+  "attempt": 0,
+  "max_retries": 1,
+  "experiment": "runs/parallel_20260729_144516/experiments/ba_n100_m3_nc23.json",
+  "started_at": "2026-08-03T05:39:01Z"
+}

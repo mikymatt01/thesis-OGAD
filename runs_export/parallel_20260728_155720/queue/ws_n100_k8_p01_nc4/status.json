@@ -1,0 +1,9 @@
+{
+  "status": "running",
+  "slug": "ws_n100_k8_p01_nc4",
+  "gpu_id": "3",
+  "attempt": 1,
+  "max_retries": 1,
+  "experiment": "runs/parallel_20260728_155720/experiments/ws_n100_k8_p01_nc4.json",
+  "started_at": "2026-07-29T14:43:08Z"
+}

@@ -1,0 +1,14 @@
+{
+  "status": "complete",
+  "slug": "er_n100_p005_nc0",
+  "gpu_id": "0",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/queue/er_n100_p005_nc0/attempt_0/launcher.log",
+      "duration_seconds": 27986.347
+    }
+  ],
+  "completed_at": "2026-07-30T00:28:32Z"
+}

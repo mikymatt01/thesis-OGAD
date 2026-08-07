@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "expdeg_n100_lin_a5064b1f81",
+  "gpu_id": "2",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/shared/baselines/expdeg_n100_lin_a5064b1f81",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/shared/baselines/expdeg_n100_lin_a5064b1f81/launcher_attempt_0.log",
+      "duration_seconds": 27.936
+    }
+  ],
+  "completed_at": "2026-07-28T15:58:18Z"
+}

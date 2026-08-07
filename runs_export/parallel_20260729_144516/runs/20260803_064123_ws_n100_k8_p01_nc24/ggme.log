@@ -1,0 +1,70 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.7.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Skipping virtualenv creation, as specified in config file.
+Using device: cuda
+path for:  /app/src/ggme
+GGME validation selected candidate_008 with score 54.6825
+OGAD generated sizes: min=100 max=100 mean=100.0
+Test sizes:          min=100 max=100 mean=100.0
+Loaded 100 DiGress graphs
+Loaded 100 OGAD graphs from /app/data/predictions/graphons/tensors.pt
+Loaded 100 Configuration graphs
+Loaded 100 DC-SBM graphs
+Loaded 100 ER graphs
+Loaded 100 SBM graphs
+Test graphs:  60
+[descriptor=degree_distribution] Option 1:
+[descriptor=degree_distribution] The best kernel-hyperparameter combination is the <function gaussian_kernel at 0x7f596837e0e0> with sigma=1. This had a correlation of 0.7178.
+[descriptor=degree_distribution] ======================
+[descriptor=degree_distribution] Option 2:
+[descriptor=degree_distribution] The correlation is 0.717825.
+[descriptor=degree_distribution] ======================
+[descriptor=degree_distribution] Option 3:
+[descriptor=degree_distribution] The MMD between the test and DiGress graphs is 0.3411.
+[descriptor=degree_distribution] The MMD between the test and OGAD graphs is 0.3333.
+[descriptor=degree_distribution] The MMD between the test and Paper graphs is 0.3143.
+[descriptor=degree_distribution] The MMD between the test and Configuration graphs is 0.0408.
+[descriptor=degree_distribution] The MMD between the test and DC-SBM graphs is 0.3143.
+[descriptor=degree_distribution] The MMD between the test and ER graphs is 0.3227.
+[descriptor=degree_distribution] The MMD between the test and SBM graphs is 0.2970.
+[descriptor=clustering_coefficient] Option 1:
+[descriptor=clustering_coefficient] The best kernel-hyperparameter combination is the <function linear_kernel at 0x7f596837e290> with sigma=0.1. This had a correlation of 0.8804.
+[descriptor=clustering_coefficient] ======================
+[descriptor=clustering_coefficient] Option 2:
+[descriptor=clustering_coefficient] The correlation is 0.880446.
+[descriptor=clustering_coefficient] ======================
+[descriptor=clustering_coefficient] Option 3:
+[descriptor=clustering_coefficient] The MMD between the test and DiGress graphs is 1505.2381.
+[descriptor=clustering_coefficient] The MMD between the test and OGAD graphs is 5239.3725.
+[descriptor=clustering_coefficient] The MMD between the test and Paper graphs is 2758.5512.
+[descriptor=clustering_coefficient] The MMD between the test and Configuration graphs is 6003.3401.
+[descriptor=clustering_coefficient] The MMD between the test and DC-SBM graphs is 2758.5512.
+[descriptor=clustering_coefficient] The MMD between the test and ER graphs is 4532.9251.
+[descriptor=clustering_coefficient] The MMD between the test and SBM graphs is 2783.3540.
+[descriptor=normalised_laplacian_spectrum] Option 1:
+[descriptor=normalised_laplacian_spectrum] The best kernel-hyperparameter combination is the <function gaussian_kernel at 0x7f596837e0e0> with sigma=0.1. This had a correlation of 0.8443.
+[descriptor=normalised_laplacian_spectrum] ======================
+[descriptor=normalised_laplacian_spectrum] Option 2:
+[descriptor=normalised_laplacian_spectrum] The correlation is 0.844320.
+[descriptor=normalised_laplacian_spectrum] ======================
+[descriptor=normalised_laplacian_spectrum] Option 3:
+[descriptor=normalised_laplacian_spectrum] The MMD between the test and DiGress graphs is 0.0001.
+[descriptor=normalised_laplacian_spectrum] The MMD between the test and OGAD graphs is 0.0002.
+[descriptor=normalised_laplacian_spectrum] The MMD between the test and Paper graphs is 0.0002.
+[descriptor=normalised_laplacian_spectrum] The MMD between the test and Configuration graphs is 0.0002.
+[descriptor=normalised_laplacian_spectrum] The MMD between the test and DC-SBM graphs is 0.0002.
+[descriptor=normalised_laplacian_spectrum] The MMD between the test and ER graphs is 0.0002.
+[descriptor=normalised_laplacian_spectrum] The MMD between the test and SBM graphs is 0.0002.
