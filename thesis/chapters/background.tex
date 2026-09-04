@@ -1,0 +1,732 @@
+\chapter{Background}
+\label{chap:background}
+
+\section{Basic Graph Theory}
+\label{sec:basic_graph_theory}
+
+Graphs provide a mathematical representation for systems whose structure is determined by relations between individual entities. An undirected graph is written as
+
+\[
+G=(V,E),
+\]
+
+where \(V\) is a finite set of nodes, or vertices, and \(E\) is a set of unordered pairs of nodes representing edges. If \(|V|=n\), the graph contains \(n\) nodes.
+
+For a simple undirected graph, a convenient numerical representation is the adjacency matrix
+
+\[
+A\in\{0,1\}^{n\times n},
+\]
+
+whose entries are defined as
+
+\[
+A_{ij}=
+\begin{cases}
+1, & \text{if } \{i,j\}\in E,\\
+0, & \text{otherwise}.
+\end{cases}
+\]
+
+Because edges are undirected, \(A_{ij}=A_{ji}\), so the adjacency matrix is symmetric. If self-loops are excluded, its diagonal entries satisfy \(A_{ii}=0\).
+
+The adjacency matrix is central to this thesis because the input graph datasets are represented computationally through adjacency matrices. Nevertheless, the matrix representation should be distinguished from the abstract graph itself. The ordering of its rows and columns depends on the labels assigned to the nodes, while in many graph-learning problems those labels have no intrinsic meaning. This distinction becomes particularly important when graph generation and graphon estimation are introduced later in the chapter.
+
+\subsection{Degree, degree distribution, and graph density}
+\label{subsec:degree_density}
+
+The \textbf{degree} of a node \(i\), denoted \(d_i\), is the number of edges incident to it. For a simple undirected graph,
+
+\[
+d_i=\sum_{j=1}^{n}A_{ij}.
+\]
+
+The sequence
+
+\[
+(d_1,\ldots,d_n)
+\]
+
+is called the degree sequence. A corresponding \textbf{degree distribution} describes how frequently different degree values occur within a graph or collection of graphs. For a finite graph, it can be represented empirically using a normalized distribution or a histogram.
+
+Degree information describes local connectivity. Two graphs with the same number of nodes and approximately the same number of edges can nevertheless differ considerably in how those edges are distributed. In one graph, most nodes may have similar degrees; in another, a small number of highly connected nodes may coexist with many low-degree nodes. The degree distribution is therefore useful for characterizing connectivity heterogeneity.
+
+A related global quantity is \textbf{graph density}. For a simple undirected graph with \(n\) nodes and \(m=|E|\) edges,
+
+\[
+\rho(G)=\frac{2m}{n(n-1)}.
+\]
+
+Since a simple undirected graph can contain at most \(n(n-1)/2\) edges, the density represents the fraction of possible edges that are present.
+
+Density alone provides only a coarse structural description. Graphs with identical density can have very different degree distributions, clustering patterns, communities, or global organization. For this reason, several complementary graph descriptors are useful when evaluating generative models.
+
+\subsection{Clustering coefficient}
+\label{subsec:clustering_coefficient}
+
+Degree statistics describe how many neighbors each node has but do not directly capture how those neighbors are connected to one another. The \textbf{local clustering coefficient} measures the tendency of nodes to participate in tightly connected neighborhoods or triangles.
+
+For a node \(i\) with degree \(d_i\geq 2\), let \(T_i\) denote the number of triangles containing \(i\). Its local clustering coefficient can be written as
+
+\[
+C_i=\frac{2T_i}{d_i(d_i-1)}.
+\]
+
+The denominator represents the maximum possible number of edges between the neighbors of \(i\). Values close to one therefore indicate strong local closure, whereas values close to zero indicate that relatively few neighboring nodes are connected.
+
+A distribution or histogram of clustering coefficients provides information complementary to the degree distribution. Two graph families can exhibit similar degrees while differing substantially in their tendency to form triangles. This distinction is particularly relevant for graph families designed to exhibit strong local clustering.
+
+In the evaluation setting considered in this thesis, clustering coefficients are therefore useful for measuring whether generated graphs reproduce local neighborhood cohesiveness rather than merely the overall amount of connectivity.
+
+\subsection{Graph Laplacian and normalized Laplacian spectrum}
+\label{subsec:laplacian_spectrum}
+
+Graph structure can also be represented through matrices derived from the adjacency matrix. Let
+
+\[
+D=\operatorname{diag}(d_1,\ldots,d_n)
+\]
+
+be the diagonal degree matrix. The \textbf{combinatorial graph Laplacian} is
+
+\[
+L=D-A.
+\]
+
+A normalized version is commonly defined as
+
+\[
+\mathcal{L}
+=
+D^{-1/2}LD^{-1/2}
+=
+I-D^{-1/2}AD^{-1/2},
+\]
+
+with an appropriate convention for isolated nodes. For an undirected graph, \(\mathcal{L}\) is symmetric and therefore has real eigenvalues. Under the standard definition, the normalized-Laplacian eigenvalues lie in the interval \([0,2]\) \cite{chung1997spectral}.
+
+The collection of these eigenvalues is called the \textbf{normalized Laplacian spectrum}. Spectral quantities provide graph-wide information that complements degree statistics and clustering coefficients and are widely used to characterize structural properties of graphs \cite{chung1997spectral}.
+
+Together, degree distributions, clustering-coefficient distributions, and normalized-Laplacian spectra provide complementary perspectives on local connectivity, local transitivity, and broader structural organization. These descriptors will be revisited in Section~\ref{sec:evaluation_graph_generative_models} when discussing the evaluation of generated graph distributions.
+
+\section{The Problem of Graph Generation}
+\label{sec:graph_generation_problem}
+
+Graph generation can be formulated as a problem of learning or approximating a probability distribution over graphs. Suppose that observed graphs are drawn from an unknown distribution
+
+\[
+P_{\mathrm{data}}(G).
+\]
+
+A graph-generative model aims to construct a model distribution
+
+\[
+P_{\theta}(G)
+\]
+
+whose samples reproduce the relevant statistical and structural properties of the target distribution. Graph generation is complicated by the discrete and combinatorial nature of graphs and by the fact that the underlying graph distribution should not depend on arbitrary node orderings \cite{niu2020permutation}.
+
+This formulation is important because graph generation is not normally a one-to-one reconstruction problem. A generated graph is not expected to reproduce a particular graph from the test set. Instead, a collection of generated graphs should be statistically compatible with the population represented by unseen reference graphs.
+
+Consequently, diversity and fidelity must be considered jointly. Repeatedly reproducing one representative graph would not capture the variability of the target distribution, while producing diverse graphs with substantially different structural properties would also be inadequate. The objective is to generate new samples that reproduce characteristic structures while retaining appropriate variation.
+
+Graphs make this distribution-learning problem especially challenging because they combine discrete variables, combinatorial structure, arbitrary node orderings, sparsity, and dependencies among structural elements.
+
+\subsection{Discrete and combinatorial structure}
+\label{subsec:discrete_combinatorial_structure}
+
+For a simple unweighted graph, every potential edge is a binary variable. A change in an adjacency matrix therefore corresponds to a discrete structural operation: adding or removing an edge.
+
+Adjacency entries cannot, however, always be treated as unrelated binary variables. For an undirected graph, symmetry imposes
+
+\[
+A_{ij}=A_{ji},
+\]
+
+and the diagonal may be constrained to zero. Depending on the domain, further constraints may concern connectedness, node or edge types, admissible motifs, or other structural properties.
+
+The space of possible graphs also grows combinatorially. A simple undirected graph with \(n\) labeled nodes admits
+
+\[
+2^{n(n-1)/2}
+\]
+
+possible edge configurations. Furthermore, structural characteristics such as triangles, communities, paths, and degree patterns arise through dependencies among multiple edges. A graph generator must therefore capture more than the marginal probability of individual adjacency entries.
+
+\subsection{Arbitrary node ordering}
+\label{subsec:arbitrary_node_ordering}
+
+A central property of graph data is that node labels are often arbitrary. If the nodes are relabeled, the graph structure remains unchanged even though its adjacency matrix changes.
+
+Let \(P\) be a permutation matrix. Relabeling the nodes transforms the adjacency matrix as
+
+\[
+A' = PAP^\top.
+\]
+
+The matrices \(A\) and \(A'\) may look different, but they describe the same graph up to relabeling.
+
+Graph representations and generative models should therefore not derive structural meaning from an arbitrary node ordering. Permutation invariance and permutation equivariance are central considerations in graph generation \cite{niu2020permutation}.
+
+A related ambiguity arises later for graphons, where the latent coordinate representation itself is not unique. The two issues are conceptually related but occur at different levels and are distinguished explicitly in Section~\ref{subsec:graphon_nonidentifiability}.
+
+\subsection{Sparsity and structural variability}
+\label{subsec:sparsity_structural_variability}
+
+Many graph datasets are sparse, meaning that only a small fraction of all possible edges are present. Their adjacency matrices therefore contain many zeros. This characteristic differs from typical dense grid representations and can affect both modeling and evaluation.
+
+Graphs may also vary in size or topology. Even when a particular experimental dataset fixes the number of nodes, the general graph-generation problem is not intrinsically tied to one tensor size. Different samples can in principle contain different numbers of nodes or represent substantially different connectivity patterns.
+
+These characteristics motivate representations that describe graph structure without being tied exclusively to one particular finite adjacency matrix. Graphons provide one such representation and form the central bridge between observed graphs and the generative model considered in this thesis.
+
+\subsection{Structural fidelity and distributional evaluation}
+\label{subsec:structural_fidelity}
+
+A generated graph can be syntactically valid without being structurally representative of the target distribution. Matching graph density, for instance, does not imply matching degree heterogeneity, clustering, community organization, or global connectivity patterns.
+
+Graph-generative evaluation therefore commonly compares distributions of graph descriptors rather than relying on a single statistic. The reliability of such comparisons depends on which descriptors and comparison procedures are selected \cite{obray2022evaluation}.
+
+If the objective is to approximate \(P_{\mathrm{data}}(G)\), evaluation should compare sets of generated and reference graphs and determine whether their structural properties follow similar distributions. This principle motivates the evaluation framework introduced in Section~\ref{sec:evaluation_graph_generative_models}.
+
+Before introducing graphons and learned generative models, however, it is useful to consider several classical probabilistic mechanisms that explicitly define distributions over graphs.
+
+\section{Graphons}
+\label{sec:graphons}
+
+\subsection{Definition and interpretation}
+\label{subsec:graphon_definition}
+
+A \textbf{graphon} is a symmetric measurable function
+
+\[
+W:[0,1]^2\rightarrow[0,1]
+\]
+
+satisfying
+
+\[
+W(u,v)=W(v,u).
+\]
+
+Graphons arise as limit objects in the theory of dense graph sequences \cite{lovasz2006limits}.
+
+The coordinates \(u\) and \(v\) can be interpreted as latent positions associated with nodes. The value
+
+\[
+W(u,v)
+\]
+
+represents an edge probability associated with the two latent positions.
+
+A graphon therefore provides an edge-probability representation defined over a continuous latent domain rather than one particular binary graph. Importantly, \(W\) is required to be measurable, not necessarily continuous. Block graphons, for example, are piecewise constant and can be discontinuous at block boundaries.
+
+Since classical graphon theory originates in the dense graph-limit setting, interpreting standard graphons as asymptotic models for sparse graph sequences requires additional theoretical care \cite{lovasz2006limits,borgs2019lp}. The present thesis uses graphon-based representations as an intermediate probabilistic domain and does not attempt to develop sparse graph-limit theory.
+
+\subsection{Sampling finite graphs from a graphon}
+\label{subsec:graphon_sampling}
+
+A finite graph with \(n\) nodes can be sampled from a graphon \(W\) in two stages. First, independent latent node positions are drawn:
+
+\[
+U_1,\ldots,U_n
+\overset{\mathrm{i.i.d.}}{\sim}
+\operatorname{Uniform}(0,1).
+\]
+
+Second, for every unordered pair \(i<j\), an edge is sampled conditionally according to
+
+\[
+A_{ij}
+\sim
+\operatorname{Bernoulli}
+\left(W(U_i,U_j)\right),
+\]
+
+with \(A_{ji}=A_{ij}\) for an undirected graph. This is the standard \(W\)-random graph construction \cite{lovasz2006limits}.
+
+Conditional on the latent coordinates, the matrix
+
+\[
+P_{ij}=W(U_i,U_j)
+\]
+
+contains edge probabilities, whereas the observed adjacency matrix \(A\) contains one binary realization of those probabilities. This distinction is fundamental to the estimation problem considered in Section~\ref{sec:graphon_estimation}.
+
+\subsection{Relationship between graphons and adjacency matrices}
+\label{subsec:graphon_adjacency}
+
+A finite graph with \(n\) nodes can be embedded into the graphon framework as a step function by partitioning \([0,1]\) into \(n\) equal-length subintervals, one for each node, and assigning the corresponding adjacency value \(A_{ij}\) to each rectangular region \cite{lovasz2006limits}.
+
+This construction shows that a finite graph can be represented as a binary piecewise-constant function on the unit square. It should not, however, be confused with estimating a latent graphon that may have generated the graph. The binary step function reproduces the observed edges, including finite-sample randomness, whereas graphon estimation seeks an underlying edge-probability structure.
+
+The conceptual distinction is therefore
+
+\[
+\text{observed adjacency matrix}
+\neq
+\text{latent probability matrix}
+\neq
+\text{graphon}.
+\]
+
+\subsection{Constant graphons}
+\label{subsec:constant_graphons}
+
+The simplest graphon is the constant function
+
+\[
+W(u,v)=p,
+\]
+
+where \(p\in[0,1]\).
+
+Sampling from this graphon gives
+
+\[
+P(A_{ij}=1)=p
+\]
+
+for every distinct pair of nodes, producing the independent-edge \(G(n,p)\) model \cite{lovasz2006limits}.
+
+The constant graphon therefore provides a particularly transparent connection between graphon theory and a classical random graph model.
+
+\subsection{Block-structured graphons}
+\label{subsec:block_graphons}
+
+A Stochastic Block Model corresponds naturally to a piecewise-constant graphon. Suppose the interval \([0,1]\) is partitioned into \(K\) regions. If \(u\) lies in region \(r\) and \(v\) lies in region \(s\), define
+
+\[
+W(u,v)=B_{rs}.
+\]
+
+The resulting graphon consists of rectangular regions whose values correspond to block-to-block connection probabilities; this is a direct instance of the finite step-function graphon construction \cite{lovasz2006limits}.
+
+Sampling latent positions determines the associated regions, after which Bernoulli edge sampling produces an SBM-type graph.
+
+This example also illustrates why arbitrary node ordering matters in finite observations. If nodes associated with the same latent region are arranged together, the block structure can be visible in the adjacency or probability matrix; an arbitrary permutation can obscure the same structure without changing the graph.
+
+\subsection{Smooth and rank-structured graphon-like representations}
+\label{subsec:smooth_rank_graphons}
+
+Graphons are not restricted to constant or blockwise forms. Particular graphons may also exhibit smoothly varying or factorized probability structure.
+
+For example, let
+
+\[
+g:[0,1]\rightarrow\mathbb{R}_{\geq0}
+\]
+
+describe a latent connectivity propensity. A suitably normalized function of the form
+
+\[
+W(u,v)\propto g(u)g(v)
+\]
+
+has a factorized, rank-one structure. If \(g\) varies smoothly, this particular graphon also varies smoothly over the latent domain.
+
+This construction provides intuition for the expected-degree synthetic case used in the thesis. It is analogous to the product structure of expected-degree models such as Chung--Lu random graphs \cite{chung2002connected}. It should not be interpreted as an exact equivalence between every expected-degree model and a fixed dense graphon, since expected-degree models may involve sparse regimes or size-dependent normalizations.
+
+Barab\'asi--Albert and Watts--Strogatz graphs are intentionally not presented as canonical graphon examples. Their roles are instead to provide structurally distinct synthetic stress cases.
+
+\subsection{Finite graph permutations and graphon non-identifiability}
+\label{subsec:graphon_nonidentifiability}
+
+The arbitrary ordering of nodes in a finite graph has a related analogue in graphon theory, but the two concepts should be distinguished.
+
+For finite graphs, different node permutations can produce different adjacency matrices representing the same graph, as discussed in Section~\ref{subsec:arbitrary_node_ordering}.
+
+For graphons, the latent coordinate representation itself is not unique. Graphons are identifiable only up to suitable measure-preserving relabelings or transformations of the latent space; consequently, different coordinate representations can encode the same graph-generating structure \cite{lovasz2006limits,gao2015rate}.
+
+The key point is that the spatial arrangement of a graphon on the unit square should not itself be treated as uniquely meaningful. This non-identifiability becomes important in graphon estimation because the observed graph provides neither canonical node labels nor directly observed latent positions.
+
+\subsection{Mathematical graphons and numerical graphon representations}
+\label{subsec:numerical_graphon_representation}
+
+A graphon is a measurable edge-probability function defined on the continuous domain \([0,1]^2\). Computational models, by contrast, require finite representations.
+
+A graphon can therefore be evaluated or approximated on a finite grid of resolution \(r\), producing
+
+\[
+\widetilde{W}\in[0,1]^{r\times r}.
+\]
+
+The matrix \(\widetilde{W}\) is a finite-resolution numerical representation of the graphon rather than the graphon itself.
+
+For the generative stage considered later in the thesis, such a representation can additionally be quantized into a finite number of states,
+
+\[
+X\in\{0,\ldots,K-1\}^{r\times r}.
+\]
+
+The resulting tensor is referred to here as a \textbf{discretized graphon-like representation}. The exact resolution and discretization procedure are implementation choices and therefore belong to the Method chapter.
+
+\subsection{Why graphons are useful as an intermediate representation}
+\label{subsec:graphons_intermediate_representation}
+
+Graphons provide a useful conceptual intermediate domain between finite graphs and generative modeling.
+
+First, they describe edge probabilities rather than one particular realization of binary edges, separating latent structural tendency from finite sampling variability.
+
+Second, a graphon is not intrinsically tied to one finite number of nodes. The \(W\)-random graph construction can be instantiated for different finite values of \(n\) using the same graphon \cite{lovasz2006limits}.
+
+Third, graphons can be approximated on a regular finite grid, yielding representations that can be processed by models designed for fixed-dimensional tensors.
+
+These properties motivate the representation flow
+
+\[
+\text{finite graphs}
+\rightarrow
+\text{estimated graphon representations}
+\rightarrow
+\text{generative modeling}.
+\]
+
+The first transformation is itself a non-trivial estimation problem.
+
+\section{Graphon Estimation from Observed Graphs}
+\label{sec:graphon_estimation}
+
+Graphon estimation attempts to recover or approximate an underlying graphon-based edge-probability structure from finite graph observations. Unlike ordinary nonparametric regression with known design points, graphon estimation must account for latent node positions and the lack of an identifiable node ordering \cite{gao2015rate}.
+
+It is an inverse problem. In the forward direction, a graphon \(W\) and latent positions \(U_i\) determine edge probabilities
+
+\[
+P_{ij}=W(U_i,U_j),
+\]
+
+from which binary edges are sampled. During estimation, only the resulting graph observations are available, while both the graphon and the latent coordinates are unknown.
+
+Several sources of difficulty arise simultaneously.
+
+\subsection{Finite observations and sampling noise}
+\label{subsec:finite_observations_noise}
+
+An adjacency matrix contains binary edge outcomes rather than directly observed edge probabilities. Consequently, a finite graph contains sampling variability around the latent probability structure.
+
+Recovering a graphon therefore requires estimating regularities from a finite collection of edge observations rather than directly reading probability values from the adjacency matrix.
+
+\subsection{Arbitrary node ordering}
+\label{subsec:graphon_arbitrary_ordering}
+
+As discussed in Section~\ref{subsec:arbitrary_node_ordering}, the observed ordering of nodes is generally arbitrary. In a graphon model, there is no reason to expect adjacency-matrix row \(i\) to correspond meaningfully to latent coordinate \(i/n\).
+
+A smooth or block-structured probability pattern may therefore be obscured by an arbitrary node permutation. The unidentified ordering of the nodes is a central distinction between graphon estimation and standard nonparametric regression \cite{gao2015rate}.
+
+\subsection{Latent positions are unobserved}
+\label{subsec:latent_positions}
+
+The coordinates
+
+\[
+U_1,\ldots,U_n
+\]
+
+used in graphon sampling are latent variables. The estimator observes connectivity but not where the nodes lie in the latent domain.
+
+Graphon estimation therefore involves estimating an edge-probability structure without directly observing the latent design positions that index that structure \cite{gao2015rate}.
+
+\subsection{Graphon non-identifiability}
+\label{subsec:estimation_nonidentifiability}
+
+The ambiguity discussed in Section~\ref{subsec:graphon_nonidentifiability} also limits what can be recovered uniquely.
+
+Since graphons are identifiable only up to suitable latent-space relabelings or transformations, the estimation target should not be interpreted as one uniquely ordered function on the unit square \cite{lovasz2006limits,gao2015rate}.
+
+In practice, however, a consistent numerical organization can still be important. A downstream generative model benefits when structurally similar graphon estimates are represented comparably rather than differing primarily because of arbitrary coordinate choices.
+
+Graphon estimation therefore involves both a theoretical identifiability issue and a practical representation or alignment issue.
+
+\subsection{Heterogeneous and sparse structure}
+\label{subsec:heterogeneous_sparse_structure}
+
+Heterogeneous graph structure can make simple ordering heuristics inadequate, particularly when structurally different nodes have similar values under a predefined sorting metric such as degree \cite{azizpour2025scalable}.
+
+Since classical graphon theory originates in the dense graph-limit setting, interpreting standard graphons as asymptotic models for sparse graph sequences requires additional theoretical care \cite{lovasz2006limits,borgs2019lp}. This thesis does not attempt to develop sparse graph-limit theory.
+
+\subsection{Function approximation and implicit representations}
+\label{subsec:implicit_representations}
+
+Graphon estimators can represent the unknown probability structure through structured finite approximations or learned functions. Gao, Lu, and Zhou, for example, study blockwise estimation \cite{gao2015rate}, while neural coordinate-based representations provide another possible approximation strategy.
+
+An \textbf{implicit neural representation} represents a signal through a neural function of its coordinates rather than through an explicitly stored array of values. Coordinate-based neural representations have been studied for several signal domains \cite{sitzmann2020implicit}.
+
+For a graphon approximation, this idea can be expressed through a parameterized function
+
+\[
+f_\theta:[0,1]^2\rightarrow[0,1]
+\]
+
+such that
+
+\[
+f_\theta(u,v)\approx W(u,v).
+\]
+
+The neural approximator may impose additional regularity depending on its architecture and parameterization, but such regularity is a property of the chosen approximation model rather than a defining property of graphons.
+
+Once learned, a coordinate-based representation can be evaluated on a selected grid to obtain the finite numerical representation required by subsequent computational stages.
+
+\subsection{Connection to OGAD}
+\label{subsec:sigl_connection}
+
+In the OGAD pipeline, the graphon-estimation stage is performed using \textbf{SIGL}, or Scalable Implicit Graphon Learning. SIGL combines implicit neural graphon representations with learned node organization for graphon estimation \cite{azizpour2025scalable}.
+
+For the purposes of this Background chapter, its relevant role is simply
+
+\[
+\text{observed finite graphs}
+\rightarrow
+\text{estimated graphon representations}.
+\]
+
+The specific SIGL architecture, optimization procedure, node-ordering strategy, graphon resolution, training settings, and other implementation choices belong to the Method chapter.
+
+The resulting finite numerical graphon representations provide the input domain for the generative stage described next.
+
+\section{Evaluation of Graph Generative Models}
+\label{sec:evaluation_graph_generative_models}
+
+\subsection{Distributional rather than one-to-one evaluation}
+\label{subsec:distributional_evaluation}
+
+A graph-generative model is intended to approximate a distribution over graphs. Its evaluation should therefore compare sets or distributions of generated graphs with reference graphs rather than match individual samples one-to-one. Descriptor-based distributional comparisons, frequently implemented through MMD, are a common evaluation approach for graph generative models \cite{obray2022evaluation}.
+
+Let
+
+\[
+\mathcal{G}_{\mathrm{ref}}
+=
+\{G_1,\ldots,G_N\}
+\]
+
+denote reference graphs and
+
+\[
+\mathcal{G}_{\mathrm{gen}}
+=
+\{\widetilde{G}_1,\ldots,\widetilde{G}_M\}
+\]
+
+denote generated graphs.
+
+There is generally no meaningful correspondence between \(G_i\) and \(\widetilde{G}_i\). The relevant question is whether the two graph sets exhibit statistically similar structural properties.
+
+Direct adjacency-matrix distances are poorly suited to this objective because adjacency matrices depend on node ordering and because structural similarity does not require entrywise correspondence. A practical alternative is to map graphs to structural descriptors and compare the resulting descriptor distributions.
+
+\subsection{Degree distributions}
+\label{subsec:evaluation_degree}
+
+The first descriptor used in this thesis is the \textbf{degree distribution}.
+
+For each graph, node degrees are computed and summarized as a histogram or distribution. This descriptor captures how connectivity is distributed across nodes and is therefore sensitive to degree heterogeneity.
+
+A generator can reproduce graph density while still producing an incorrect degree distribution. Degree-based comparison therefore provides a more informative test of local connectivity than density alone.
+
+Degree statistics remain incomplete, however, because they do not describe how edges are arranged among nodes. Graphs with similar degrees can exhibit very different clustering or global organization.
+
+\subsection{Clustering-coefficient distributions}
+\label{subsec:evaluation_clustering}
+
+The second descriptor is the distribution of \textbf{local clustering coefficients}.
+
+For every node, the clustering coefficient measures the extent to which its neighbors are also connected. The resulting coefficients can be summarized as a histogram over \([0,1]\).
+
+This descriptor captures local triangle formation and neighborhood cohesiveness. It complements degree information because graphs with similar degree structure may differ substantially in the density of connections among neighboring nodes.
+
+Clustering-based comparison is therefore particularly informative for graph families whose structure includes strong local transitivity.
+
+\subsection{Normalized-Laplacian spectral distributions}
+\label{subsec:evaluation_spectrum}
+
+The third descriptor is based on the \textbf{normalized Laplacian spectrum}.
+
+For each graph, the eigenvalues of
+
+\[
+\mathcal{L}
+=
+I-D^{-1/2}AD^{-1/2}
+\]
+
+are computed and summarized as a histogram.
+
+The spectrum provides graph-wide information complementary to the local degree and clustering descriptors \cite{chung1997spectral}. Spectral statistics are also among the structural descriptors commonly used in graph-generative-model evaluation \cite{obray2022evaluation}.
+
+The three descriptors therefore capture complementary properties:
+
+\begin{itemize}
+    \item degree distributions characterize \textbf{local connectivity and degree heterogeneity};
+    \item clustering-coefficient distributions characterize \textbf{local triangle formation and neighborhood cohesiveness};
+    \item normalized-Laplacian spectra characterize aspects of \textbf{broader graph structure}.
+\end{itemize}
+
+None completely characterizes a graph distribution. Agreement on these descriptors should therefore be interpreted as evidence of similarity with respect to the selected structural properties, not as proof that the complete graph distributions are identical.
+
+\subsection{From graph distributions to descriptor distributions}
+\label{subsec:descriptor_distributions}
+
+Let
+
+\[
+f(G)
+\]
+
+denote a structural descriptor computed from graph \(G\). Applying \(f\) to every reference and generated graph yields
+
+\[
+\{f(G):G\in\mathcal{G}_{\mathrm{ref}}\}
+\]
+
+and
+
+\[
+\{f(G):G\in\mathcal{G}_{\mathrm{gen}}\}.
+\]
+
+These sets can be regarded as empirical samples from distributions in \textbf{descriptor space}.
+
+The evaluation procedure can therefore be summarized conceptually as
+
+\[
+\text{graphs}
+\rightarrow
+\text{structural descriptors}
+\rightarrow
+\text{descriptor distributions}
+\rightarrow
+\text{distributional comparison}.
+\]
+
+Different descriptors induce different views of the original graph distributions. A statistical discrepancy is then required to compare the corresponding descriptor distributions.
+
+\subsection{Maximum Mean Discrepancy}
+\label{subsec:mmd}
+
+\textbf{Maximum Mean Discrepancy}, or MMD, is a kernel-based discrepancy between probability distributions \cite{gretton2012kernel}.
+
+Let \(P\) and \(Q\) denote two distributions over descriptor values, and let
+
+\[
+k(x,y)
+\]
+
+be a positive-definite kernel.
+
+A common population expression is
+
+\[
+\operatorname{MMD}^2(P,Q)
+=
+\mathbb{E}_{X,X'\sim P}[k(X,X')]
++
+\mathbb{E}_{Y,Y'\sim Q}[k(Y,Y')]
+-
+2\mathbb{E}_{X\sim P,Y\sim Q}[k(X,Y)].
+\]
+
+Here, \(X\) and \(X'\) are independent samples from \(P\), while \(Y\) and \(Y'\) are independent samples from \(Q\).
+
+The first two terms are expected within-distribution kernel values, whereas the third is the expected cross-distribution kernel value. Intuitively, the expression quantifies how the within-distribution kernel relationships differ from those observed across the two distributions.
+
+MMD can equivalently be interpreted as the distance between distribution embeddings in a reproducing kernel Hilbert space \cite{gretton2012kernel}. When the selected kernel is \textbf{characteristic}, the associated kernel mean embedding is injective over probability distributions, so zero population MMD implies \(P=Q\) \cite{sriperumbudur2011universality}.
+
+In graph-generative evaluation, the population distributions are unavailable and MMD is therefore estimated from finite samples of reference and generated descriptors.
+
+\subsection{Kernels and interpretation}
+\label{subsec:mmd_kernels}
+
+The kernel determines which differences between descriptor values are emphasized.
+
+For example, a linear kernel can be written as
+
+\[
+k(x,y)=x^\top y,
+\]
+
+while a Gaussian kernel has the form
+
+\[
+k(x,y)
+=
+\exp
+\left(
+-\frac{\lVert x-y\rVert^2}{2\sigma^2}
+\right),
+\]
+
+where \(\sigma\) controls the bandwidth.
+
+Descriptor choice, kernel family, and kernel parameters jointly affect MMD-based graph-generator evaluation. O'Bray et al.\ show that such choices can substantially influence metric values and even comparisons between generative models \cite{obray2022evaluation}.
+
+Consequently, MMD should not be interpreted as an absolute or universal measure of graph-generation quality. Its value is meaningful with respect to the chosen structural representation and kernel configuration.
+
+This reinforces the importance of using complementary graph descriptors. Degree, clustering, and spectral statistics reveal different properties of the generated distribution, while none alone provides a complete description.
+
+\subsection{Connection to OGAD}
+\label{subsec:ggme_connection}
+
+OGAD uses \textbf{GGME} for distributional evaluation of generated graphs. The GGME evaluation framework compares graph distributions through structural descriptors and MMD, following the graph-generative evaluation methodology studied by O'Bray et al.\ \cite{obray2022evaluation}.
+
+At the conceptual level, the evaluation follows
+
+\[
+\text{reference and generated graphs}
+\rightarrow
+\text{structural descriptors}
+\rightarrow
+\text{descriptor distributions}
+\rightarrow
+\text{MMD-based comparison}.
+\]
+
+The descriptors used in the thesis are degree distributions, clustering-coefficient distributions, and normalized-Laplacian spectral distributions. This choice is specific to the OGAD evaluation pipeline.
+
+The exact histogram settings, kernel configurations, sample counts, and aggregation procedures belong to the Method and Experiments chapters.
+
+\section{Conceptual Overview of the Thesis Pipeline}
+\label{sec:conceptual_pipeline}
+
+The concepts developed throughout this chapter can now be combined into the overall logic of the thesis.
+
+Graph generation is treated as the problem of approximating a distribution over finite graphs rather than reproducing individual samples. In OGAD, graphon-based representations provide an intermediate probabilistic domain between observed graphs and the generative model.
+
+Because a graphon is not directly observed, it must first be estimated from finite adjacency matrices despite sampling noise, arbitrary node orderings, unobserved latent positions, and graphon non-identifiability. In the OGAD pipeline, the resulting graphon representation is represented numerically and supplied to the generative stage in discretized form. Generated graphon-like representations are subsequently converted into or used to sample finite graphs, which can then be compared with held-out reference graphs.
+
+The conceptual pipeline is therefore
+
+\[
+\boxed{
+\begin{aligned}
+\text{training graphs}
+&\rightarrow
+\text{graphon estimation}
+\\
+&\rightarrow
+\text{generation of discretized graphon-like representations}
+\\
+&\rightarrow
+\text{graph sampling or conversion}
+\\
+&\rightarrow
+\text{distributional evaluation}.
+\end{aligned}
+}
+\]
+
+Within OGAD, \textbf{SIGL is used for graphon estimation, D3PM is used for the generation of discretized graphon-like representations, and GGME is used for distributional graph evaluation}. These statements describe the roles of the components within the thesis pipeline.
+
+SIGL is described by Azizpour, Zilberstein, and Segarra \cite{azizpour2025scalable}, where it is introduced as a graphon-estimation method combining implicit neural representations with learned node ordering. D3PM provides the discrete-state diffusion framework used by the generative stage \cite{austin2021structured}. The graph-generative evaluation methodology underlying GGME is studied by O'Bray et al.\ \cite{obray2022evaluation}. \textbf{DiGress} provides an alternative diffusion-based generator operating directly in the graph domain; the original DiGress work presents it as a discrete denoising diffusion model for graph generation \cite{vignac2023digress}. Classical probabilistic graph models provide additional comparison baselines.
+
+Equivalently, the main representational transition can be summarized as
+
+\[
+\text{graph}
+\rightarrow
+\text{graphon-based probabilistic representation}
+\rightarrow
+\text{finite discretized generative representation}
+\rightarrow
+\text{graph}.
+\]
+
+This chapter establishes why these transformations are conceptually meaningful without specifying how OGAD implements them. Detailed comparisons with previous approaches belong to the \textbf{Related Works} chapter. The concrete estimation, discretization, generation, conversion, and evaluation procedures belong to the \textbf{Method} chapter, while dataset configurations, baseline settings, evaluation protocols, and empirical results belong to \textbf{Experiments}.

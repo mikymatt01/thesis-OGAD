@@ -1,0 +1,44 @@
+\documentclass[a4paper, twoside,openright]{report}
+\usepackage[T1]{fontenc} % Font encoding, T1 = it
+\usepackage{lmodern} % Latin Modern fonts, better scaling with T1 encoding
+\usepackage[utf8]{inputenc} % Input encoding - per caratteri particolari
+\usepackage[main=english,italian]{babel} % Main language English, with possible Italian parts
+\usepackage{graphicx} % Per includere immagini esterne
+\usepackage{lipsum} % genera testo fittizio
+\usepackage{amsmath,amssymb}
+\usepackage{csquotes}
+\usepackage[
+  backend=biber,
+  style=numeric,
+  sorting=none
+]{biblatex}
+\usepackage[a4paper,top=3cm,bottom=3cm,left=3cm,right=3cm]{geometry} %impaginazione e margini documento
+\usepackage[fontsize=13pt]{scrextend} %dimensione font
+\usepackage[
+  hidelinks,
+  linktoc=all
+]{hyperref} % Link cliccabili per indice, riferimenti e citazioni
+\addbibresource{references.bib}
+\raggedbottom % Se la pagina non è completa, lascia lo spazio alla fine
+\pagestyle{headings}
+
+\begin{document}
+
+% input file frontespizio.tex
+\input{frontespizio}
+
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+
+\pagenumbering{arabic}
+\input{chapters/introduction}
+\input{chapters/background}
+\input{chapters/related_works}%
+\input{chapters/methodology}
+\input{chapters/results}
+\input{chapters/conclusion}
+
+\printbibliography
+
+\end{document}

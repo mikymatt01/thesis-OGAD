@@ -1,0 +1,339 @@
+\chapter{Related Works}
+
+\label{chap:related_works}
+
+Research on graph generation spans several methodological areas, including statistical graph modeling, graphon estimation, neural graph generation, diffusion models, and the evaluation of generated graph distributions. The approach investigated in this thesis lies at the intersection of these areas: observed graphs are first mapped to graphon-based representations, generative modeling is performed over finite discretized versions of those representations, and the resulting samples are ultimately converted back into finite graphs for distributional evaluation.
+
+The theoretical concepts underlying this pipeline have already been introduced in Chapter~\ref{chap:background}. In particular, this chapter does not repeat the mathematical definition of a graphon, the general graphon sampling procedure, the distinction between finite node permutations and graphon non-identifiability, the mechanics of discrete diffusion, or the definition of Maximum Mean Discrepancy. Instead, the objective is to position the thesis within previous research by examining how existing methods represent graphs or graph distributions, where generation is performed, how ordering and alignment are handled, and how generated graph distributions are evaluated.
+
+The discussion is organized around five methodological themes. Section~\ref{sec:rw_graphon_estimation} reviews graphon-estimation methods, progressing from structured and smoothing-based estimators to neural implicit representations and SIGL. Section~\ref{sec:rw_graph_generation} considers representative deep graph-generative models and focuses on the different representations in which generation is performed. Section~\ref{sec:rw_diffusion} reviews the development of score-based and diffusion-based graph generation, with particular attention to discrete graph diffusion and DiGress. Section~\ref{sec:rw_graphon_generation} examines work in which graphons participate more directly in generative modeling. Finally, Section~\ref{sec:rw_evaluation} discusses the evaluation methodology developed for graph-generative models and the limitations of commonly used distributional metrics.
+
+
+\section{Probabilistic Graph Models}
+\label{sec:probabilistic_graph_models}
+
+Before the development of learned graph-generative methods, probabilistic graph models provided explicit stochastic mechanisms for generating network structure. Rather than learning an unrestricted distribution from observed graphs, these models encode particular structural assumptions through a relatively small number of parameters or generative rules. Different formulations emphasize different properties, including homogeneous random connectivity, community organization, heterogeneous degrees, preferential attachment, and small-world structure.
+
+These models remain relevant to graph generation for two main reasons. First, they provide interpretable reference points against which more expressive learned generators can be understood. Second, several of them admit a direct interpretation in terms of edge-probability structures, establishing a natural connection with graphon-based modeling. The principal classical models relevant to this work are reviewed below.
+
+\subsection{Erd\H{o}s--R\'enyi model}
+\label{subsec:erdos_renyi}
+
+In the independent-edge \(G(n,p)\) formulation considered here, a graph contains \(n\) nodes and every possible undirected edge is included independently with probability
+
+\[
+p\in[0,1].
+\]
+
+Thus, for two distinct nodes,
+
+\[
+A_{ij}\sim\operatorname{Bernoulli}(p).
+\]
+
+The independent-edge \(G(n,p)\) construction was introduced by Gilbert \cite{gilbert1959random}; the terminology ``Erd\H{o}s--R\'enyi'' is commonly used more broadly for classical random graph models.
+
+Every node pair has the same edge probability before sampling. It follows directly that the expected degree of a node is
+
+\[
+\mathbb{E}[d_i]=(n-1)p,
+\]
+
+and the expected density is \(p\).
+
+The model provides a simple homogeneous reference distribution. It does not explicitly encode communities, preferential attachment, or local geometric structure. This simplicity makes it useful both as a classical graph-generation baseline and as a controlled synthetic case.
+
+It also admits the most direct connection between a probabilistic graph model and a graphon. A constant graphon
+
+\[
+W(u,v)=p
+\]
+
+for all \(u,v\in[0,1]\) induces the same \(G(n,p)\) independent-edge sampling mechanism \cite{lovasz2006limits}. Consequently, Erd\H{o}s--R\'enyi data provide a natural case in which the latent edge-probability structure is homogeneous.
+
+\subsection{Stochastic Block Model}
+\label{subsec:sbm}
+
+A \textbf{Stochastic Block Model}, or SBM, introduces latent groups of nodes. Each node is assigned to one of \(K\) blocks, and the probability of an edge depends on the blocks of its endpoints \cite{holland1983stochastic}.
+
+Let
+
+\[
+z_i\in\{1,\ldots,K\}
+\]
+
+denote the block membership of node \(i\), and let
+
+\[
+B\in[0,1]^{K\times K}
+\]
+
+be a matrix of block-to-block edge probabilities. Then
+
+\[
+A_{ij}\sim
+\operatorname{Bernoulli}
+\left(B_{z_i,z_j}\right).
+\]
+
+For undirected graphs, \(B\) is symmetric.
+
+If within-block probabilities are larger than between-block probabilities, the model expresses assortative community structure. More generally, the block-probability matrix can encode different patterns of interaction among groups.
+
+The SBM is particularly important for this thesis because its connection to graphons is direct. If the interval \([0,1]\) is partitioned into regions corresponding to the \(K\) blocks and \(W(u,v)\) is constant within each block pair, the resulting function is a \textbf{block-structured graphon}. This is the graphon analogue of a finite block-probability model \cite{lovasz2006limits}.
+
+The SBM therefore serves both as a classical baseline and as a controlled graph family whose graphon representation has a clear piecewise-constant structure.
+
+\subsection{Degree-Corrected Stochastic Block Model}
+\label{subsec:dcsbm}
+
+The standard SBM assigns block-dependent connection probabilities but has limited ability to express substantial variation in expected degree among nodes within the same community.
+
+The \textbf{Degree-Corrected Stochastic Block Model} extends the SBM by introducing node-specific parameters that modulate block-dependent connectivity, thereby allowing heterogeneous expected degrees within a block \cite{karrer2011stochastic}.
+
+The model is relevant in this thesis primarily as a baseline combining community information with degree heterogeneity. It therefore provides a more flexible comparison point than the standard SBM when variation in node connectivity is important.
+
+\subsection{Configuration Model}
+\label{subsec:configuration_model}
+
+The \textbf{Configuration Model} denotes a family of random graph constructions associated with a specified degree sequence. A common construction assigns each vertex a prescribed number of half-edges, or stubs, and pairs those stubs to create edges. Depending on the precise sample space and labeling convention, configuration-model constructions may allow self-loops and multiple edges, while simple-graph variants impose additional restrictions \cite{fosdick2018configuring}.
+
+The key conceptual feature is that degree information is explicitly controlled while much of the higher-order organization is randomized.
+
+This makes the Configuration Model a useful graph-generation baseline. It provides a reference for determining how much of the target structure can be explained by degree information alone, while descriptors such as clustering and spectral statistics can expose organization that is not captured by the degree sequence.
+
+\subsection{Expected-degree models}
+\label{subsec:expected_degree_models}
+
+Expected-degree random graph models associate nodes with parameters controlling their expected connectivity. In the Chung--Lu formulation, edges are selected independently with probabilities proportional to products of prescribed expected degrees, subject to conditions that yield valid probabilities \cite{chung2002connected}.
+
+Schematically,
+
+\[
+p_{ij}\propto w_iw_j,
+\]
+
+where \(w_i\) and \(w_j\) represent node-specific connectivity parameters.
+
+Such models produce heterogeneous edge probabilities without requiring discrete communities. When node-specific propensities follow a systematic latent pattern, the corresponding probability matrix can exhibit a smoothly varying or approximately rank-structured form.
+
+This observation does not imply that every expected-degree model is canonically equivalent to a fixed standard graphon. In particular, some formulations are designed for sparse regimes or involve size-dependent normalization. Instead, expected-degree graphs provide a useful synthetic setting for studying heterogeneous, degree-driven probability structures and smoother or rank-structured graphon-like representations.
+
+\subsection{Barab\'asi--Albert model}
+\label{subsec:barabasi_albert}
+
+The Barab\'asi--Albert model constructs graphs through growth and preferential attachment. New nodes are added sequentially and preferentially connect to nodes that already have relatively high degree \cite{barabasi1999emergence}.
+
+In its canonical form, the probability of selecting an existing node is proportional to its current degree,
+
+\[
+P(i)\propto d_i.
+\]
+
+The model produces strongly heterogeneous connectivity and, under its canonical assumptions, a power-law degree distribution \cite{barabasi1999emergence}.
+
+Within this thesis, Barab\'asi--Albert graphs are not treated as a canonical graphon example. Their role is instead to provide a synthetic stress case whose hub-oriented and heterogeneous degree structure differs substantially from the homogeneous Erd\H{o}s--R\'enyi setting and the explicit block structure of an SBM.
+
+\subsection{Watts--Strogatz model}
+\label{subsec:watts_strogatz}
+
+The Watts--Strogatz model constructs graphs by starting from a regular ring lattice and probabilistically rewiring edges \cite{watts1998collective}.
+
+The initial lattice contains strong local organization because nodes are connected primarily to nearby neighbors. Rewiring introduces longer-range shortcuts while allowing substantial local clustering to remain. At intermediate rewiring regimes, the construction can combine relatively short characteristic path lengths with high clustering, the characteristic small-world behavior studied by Watts and Strogatz \cite{watts1998collective}.
+
+As with Barab\'asi--Albert graphs, Watts--Strogatz graphs are not treated as canonical graphon examples. Instead, they provide a structurally different synthetic stress case, particularly for local clustering and small-world organization.
+
+Taken together, these classical models illustrate different ways of defining graph distributions through explicit structural assumptions, ranging from homogeneous random connectivity and community structure to degree heterogeneity, network growth, and small-world organization. They provide a natural point of reference for the graphon-based and learned generative approaches reviewed in the following sections.
+
+\section{Graphon Estimation}
+\label{sec:rw_graphon_estimation}
+
+Graphon estimation has been approached through a variety of statistical and computational strategies. Although these methods share the goal of recovering latent edge-probability structure from finite graph observations, they differ substantially in how they address unknown node organization and in the form of the representation that they estimate. These differences are particularly relevant when an estimated graphon is not only an object of statistical interest but also a precursor to a downstream generative representation.
+
+\subsection{Structured, ordering-based, and smoothing estimators}
+\label{subsec:rw_classical_graphon_estimators}
+
+An important family of graphon estimators approximates the underlying probability structure using piecewise-constant models. Airoldi, Costa, and Chan formulate graphon estimation through stochastic blockmodel approximations, exploiting the fact that a blockmodel can be interpreted as a step-function approximation of a more general graphon \cite{airoldi2013stochastic}. This perspective provides a natural connection between finite community models and nonparametric graphon estimation: increasing the flexibility of the block structure allows increasingly detailed approximations, while retaining a computationally explicit finite representation.
+
+Block approximations also play an important role in the theoretical analysis of graphon estimation. Gao, Lu, and Zhou study rate-optimal graphon estimation and establish minimax rates over classes of graphons with different levels of regularity \cite{gao2015rate}. Their analysis shows that the unknown organization of the nodes contributes fundamentally to the statistical difficulty of the problem. From the perspective of this thesis, this work is primarily important as a theoretical reference point: it characterizes what can be recovered statistically under structural assumptions, rather than prescribing the particular computational representation used by OGAD.
+
+A different strategy attempts to infer a useful ordering of the observed nodes before smoothing the adjacency matrix. Chan and Airoldi propose the sorting-and-smoothing estimator, in which nodes are first ordered according to empirical degree and the reordered adjacency matrix is subsequently approximated through a histogram and denoising procedure \cite{chan2014consistent}. This approach exploits a connection between degree information and latent graphon coordinates under appropriate regularity conditions. Its methodology illustrates a general principle that reappears in later graphon estimators: because the rows and columns of an adjacency matrix arrive in an arbitrary order, estimation can benefit from constructing an ordering in which nearby indices are expected to correspond to similar latent connectivity profiles.
+
+Degree is itself invariant to node relabeling and therefore provides a simple ordering statistic. However, the ordering induced by degree need not uniquely identify latent positions: ties can occur, and different latent positions may exhibit similar expected degrees despite having different connectivity profiles. Consequently, degree information alone cannot provide a universally informative coordinate system for arbitrary graphons. This limitation motivates methods that infer similarity from richer connectivity information rather than relying only on scalar node statistics.
+
+Neighbourhood-based estimators follow this direction. Zhang, Levina, and Zhu estimate the matrix of edge probabilities by smoothing nodes whose observed adjacency neighbourhoods are similar \cite{zhang2017estimating}. Their target is most directly the finite probability matrix associated with the observed graph rather than a unique canonical graphon representation. This distinction is useful in the present context. Estimating a finite edge-probability matrix and estimating a graphon are closely related tasks, but they need not produce the same type of object for downstream processing. A method designed primarily to recover the finite probability matrix can perform well for edge-probability estimation without necessarily providing a representation intended to be queried at arbitrary latent coordinates or resolutions.
+
+Spectral and low-rank ideas provide another alternative to explicit sorting. Xu analyzes the use of Universal Singular Value Thresholding for graphon estimation and derives convergence guarantees under structural assumptions on the graphon \cite{xu2018rates}. Such methods exploit approximate low-dimensional structure in the edge-probability matrix rather than first constructing a total node ordering. Their relevance is particularly clear for graphons whose discretizations admit efficient low-rank approximation. At the same time, low-rank structure constitutes a particular inductive bias and need not describe all graphon geometries equally well.
+
+These families therefore make different compromises. Block estimators favor explicitly structured piecewise-constant approximations; sorting-and-smoothing procedures construct a one-dimensional organization before regularization; neighbourhood methods infer local similarity directly from connectivity patterns; and spectral estimators exploit matrix structure. None of these choices is intrinsically optimal for every downstream purpose. In a pipeline where the estimated object will later serve as data for another generative model, properties such as the consistency of the representation across observations, its resolution, and its suitability for finite numerical encoding become relevant in addition to estimation accuracy itself.
+
+\subsection{Alignment-aware and neural graphon representations}
+\label{subsec:rw_neural_graphon_estimators}
+
+More recent graphon-estimation work has increasingly considered the problem of learning from multiple graphs that need not share a known node correspondence. This setting makes alignment especially important: two graphs may represent related samples of an underlying graph-generating mechanism while differing in size, ordering, and individual node identities.
+
+Xu et al. address this problem through structured Gromov--Wasserstein barycenters \cite{xu2021structured}. Their formulation represents graphons through step functions and uses Gromov--Wasserstein geometry to compare relational structures without requiring an explicit one-to-one correspondence between graph nodes. The barycentric perspective allows information from multiple graphs to contribute to a common latent representation while accounting for the fact that adjacency matrices cannot generally be compared entry by entry when their node identities are unaligned. Relative to simple degree sorting, this approach therefore treats alignment as an optimization problem over relational structure.
+
+A further change in representation is introduced by Xia, Mishne, and Wang with Implicit Graphon Neural Representation (IGNR) \cite{xia2023implicit}. Rather than storing only a fixed grid of graphon values, IGNR parameterizes the graphon through a coordinate-based neural network. The resulting representation can be evaluated at coordinates in the graphon domain and therefore does not tie the learned function permanently to one discretization resolution. The method additionally addresses unaligned and differently sized graphs using an alignment procedure based on Gromov--Wasserstein ideas. Importantly for the present thesis, IGNR does not restrict the neural graphon representation to estimation alone: the authors also study its use for generative modeling and develop an autoencoding extension.
+
+SIGL, proposed by Azizpour, Zilberstein, and Segarra, continues the implicit-representation direction while placing particular emphasis on scalable estimation \cite{azizpour2025scalable}. SIGL combines a coordinate-based implicit neural representation with a graph neural network used to infer an ordering of nodes that supports graphon learning. Instead of relying solely on empirical degree as a proxy for latent location, the ordering mechanism can use richer structural information extracted from the observed graphs. The implicit representation then provides a parameterization that can be queried numerically at a chosen finite resolution.
+
+For the present thesis, SIGL is particularly relevant because it is the graphon estimator used in the OGAD pipeline. The significance of SIGL in Related Works, however, lies in its methodological position rather than in the particular configuration adopted by OGAD. It represents a transition from estimators based on fixed histograms, explicit smoothing, or predefined matrix structure toward learned coordinate-based representations coupled with data-driven alignment. Exact choices concerning resolution, training, clustering, or preprocessing belong to the Method chapter.
+
+Taken together, the development from block approximations to implicit neural representations highlights two recurring challenges in graphon estimation. The first is the construction of a useful organization or alignment of finite graph observations. The second is the choice of representation for the estimated probability structure. Both questions become especially important when the output of graphon estimation is intended to serve as the input to a separate generative stage rather than only as a final estimate.
+
+
+\section{Deep Graph Generative Models}
+\label{sec:rw_graph_generation}
+
+Before considering neural graph generators, it is useful to distinguish them from the classical probabilistic models used as reference generators in this thesis. Erdős--Rényi, the Configuration Model, the Stochastic Block Model, and the Degree-Corrected Stochastic Block Model encode explicit statistical assumptions and therefore provide interpretable non-neural comparison points against learned generative methods. Their mathematical definitions and structural assumptions have already been introduced in Section~\ref{sec:probabilistic_graph_models} and are not repeated here.
+
+Neural graph-generative models differ not only in their learning objectives but also in the representation over which generation is performed. Some construct graphs explicitly as sequences of discrete decisions; others decode a latent variable directly into a graph; still others generate surrogate objects, such as random walks or learned embeddings, from which graph structure is recovered. This distinction is useful for positioning graphon-mediated generation because the use of an intermediate representation is not unique to graphons.
+
+\subsection{Autoregressive and sequential generation}
+\label{subsec:rw_autoregressive_generation}
+
+Autoregressive methods transform graph generation into a sequence prediction problem. GraphRNN, introduced by You et al., is a representative example \cite{you2018graphrnn}. It decomposes the probability of a graph into a sequence of node- and edge-generation decisions and models those decisions using recurrent neural networks. This formulation gives the model an explicit discrete construction process and avoids the need to generate all possible edges simultaneously.
+
+The sequential formulation nevertheless requires a graph to be represented through an ordering of its construction decisions. Since the same unlabeled graph can correspond to many node orderings, a completely unrestricted sequential representation would assign many different sequences to the same underlying structure. GraphRNN reduces this space using breadth-first-search-based orderings, thereby imposing a structured traversal rather than treating every permutation independently \cite{you2018graphrnn}. The approach illustrates a broader property of autoregressive graph generation: the probabilistic model is defined over an ordered computational representation even though the target graph itself is generally considered independent of arbitrary node labels.
+
+GRAN, proposed by Liao et al., develops this family further by generating blocks of nodes and associated edges rather than adding every component through a strictly one-element-at-a-time process \cite{liao2019efficient}. Its generation mechanism combines autoregressive factorization with graph neural network computations and considers canonical node orderings to reduce dependence on any single arbitrary representation. Blockwise generation shortens the effective generation sequence and allows dependencies among several newly introduced edges to be modeled jointly.
+
+The comparison between GraphRNN and GRAN demonstrates that ordering is not simply an implementation detail for autoregressive graph generation. It is part of the probabilistic representation through which the graph distribution is factorized. Different methods therefore attempt either to constrain the admissible orderings, marginalize over multiple possibilities, or design architectures whose predictions are less sensitive to a particular ordering choice.
+
+For the thesis, autoregressive models provide an important contrast to graphon-mediated generation. They remain close to the finite graph construction process: even when sophisticated ordering strategies are employed, their generative decisions ultimately correspond to nodes and edges of the graph itself. A graphon-based intermediate representation instead separates the domain in which the generative model operates from the discrete graph obtained at the end of the pipeline.
+
+\subsection{Latent and indirect graph representations}
+\label{subsec:rw_latent_graph_generation}
+
+Latent-variable approaches provide a different strategy. GraphVAE, proposed by Simonovsky and Komodakis, encodes graphs into a continuous latent representation and decodes a latent sample into a probabilistic graph of bounded maximum size \cite{simonovsky2018graphvae}. Because the decoded graph does not inherit an observed node correspondence, the method incorporates graph matching into its reconstruction objective. This explicitly exposes the interaction between latent-variable generation and permutation ambiguity: even when generation takes place from a compact latent code, the decoded graph must still be compared with a target whose node labels are arbitrary.
+
+Generative adversarial approaches have also used representations other than full adjacency matrices. NetGAN, introduced by Bojchevski et al., learns to generate biased random walks from an input network using an adversarial objective \cite{bojchevski2018netgan}. Graph structure is subsequently recovered from statistics of the generated walks. The model therefore does not generate adjacency matrices directly; instead, it learns a distribution over sequences whose transition patterns encode structural information about the original graph.
+
+NetGAN is particularly useful for the conceptual organization of the literature because it shows that moving graph generation into an alternative structural domain predates graphon-mediated methods. The important distinction is therefore not simply between ``direct'' and ``indirect'' graph generation. Different intermediate domains preserve different aspects of graph structure and impose different inductive biases. Random walks emphasize local transition patterns, generic latent vectors delegate the representation to an encoder, and graphon-based approaches encode pairwise edge probabilities over a latent coordinate domain.
+
+These earlier models also motivate a distinction that becomes important when considering diffusion. A generative model can operate directly on graph variables, on a learned latent representation, or on an explicitly structured intermediate representation. The following section uses this distinction to organize diffusion-based graph generators.
+
+\section{Diffusion-Based Graph Generation}
+\label{sec:rw_diffusion}
+
+Diffusion models generate data by learning to reverse a progressive corruption process. A predefined forward process gradually transforms data into increasingly corrupted states, while a learned reverse process successively denoises them and ultimately generates new data \cite{ho2020denoising}. Depending on the underlying state space, diffusion can operate through continuous perturbations or through transitions between discrete categorical states \cite{austin2021structured}. In graph generation, this distinction is particularly relevant because diffusion may be defined directly over graph representations or over alternative intermediate spaces.
+
+\subsection{Score-based generation in the graph domain}
+\label{subsec:rw_score_graph_generation}
+
+Niu et al. provide an early application of score-based generative modeling to graphs \cite{niu2020permutation}. Their formulation explicitly addresses the requirement that the generated graph distribution should not depend on arbitrary node permutations. Rather than treating permutation handling as a preprocessing step alone, the model employs a permutation-equivariant score network whose predictions define a permutation-invariant distribution over graphs. Generation is then performed through a score-based sampling procedure over continuously perturbed graph representations.
+
+Jo, Lee, and Hwang subsequently formulate graph generation through a system of stochastic differential equations \cite{jo2022score}. Their approach models the evolution of node and edge representations jointly and trains corresponding score functions for graph-valued data. This provides a continuous-time formulation in which dependencies between node and edge variables are explicitly considered during the diffusion and reverse-generation processes.
+
+Together, these works show how continuous score-based generative frameworks can be adapted to graph-structured data while accounting for graph symmetries and dependencies. Their use of continuously perturbed graph representations contrasts with discrete-state approaches, which define the corruption process directly over categorical graph variables rather than placing the diffusion process in a continuous state space.
+
+\subsection{Discrete-state diffusion and direct graph generation}
+\label{subsec:rw_discrete_graph_diffusion}
+
+Austin et al. introduce Structured Denoising Diffusion Models in Discrete State-Spaces, commonly referred to as D3PMs \cite{austin2021structured}. D3PMs extend diffusion-based generation to categorical data by defining the forward corruption process through stochastic transitions between discrete states and learning a corresponding reverse process. The structure of these categorical transitions can be adapted to the characteristics of the underlying domain, making D3PMs a general framework for discrete diffusion rather than a graph-specific model.
+
+This framework provides a natural basis for diffusion models that operate directly on categorical graph variables. DiGress applies discrete denoising diffusion to graphs represented through categorical node and edge attributes \cite{vignac2023digress}. Its forward process progressively corrupts these variables, while a graph transformer is trained to predict denoised categorical structure during the reverse process.
+
+Compared with continuous score-based graph generation, DiGress therefore keeps the generative state explicitly categorical throughout the diffusion process. This avoids the need to define the diffusion state itself through a continuous relaxation, while still requiring the model to capture dependencies across the finite graph representation and interactions between node and edge variables.
+
+EDGE, proposed by Chen et al., introduces a different discrete diffusion process designed with graph sparsity and scalability in mind \cite{chen2023efficient}. Its forward process progressively removes edges until the terminal state approaches an empty graph. The reverse process reconstructs edges while restricting computation to relevant subsets of nodes, and degree information is incorporated into the generative mechanism. EDGE thus illustrates how the corruption process itself can encode graph-specific structural assumptions rather than serving only as a generic source of noise.
+
+More recent approaches further broaden the range of discrete formulations. DISCO, for example, formulates graph generation as a discrete-state continuous-time diffusion process while preserving appropriate invariance and equivariance properties with respect to node permutations \cite{xu2024discrete}. These methods show that direct categorical graph diffusion can differ substantially in its state representation, corruption process, temporal formulation, and denoising architecture.
+
+\subsection{Diffusion in latent and intermediate representations}
+\label{subsec:rw_latent_diffusion}
+
+Diffusion need not operate directly on node and edge variables. Latent Graph Diffusion, proposed by Zhou, Wang, and Zhang, instead performs diffusion in a learned latent representation \cite{zhou2024latent}. An encoder maps graph structure and features into a latent space, the diffusion model learns the distribution in that space, and a decoder maps generated latent representations back to graph-structured outputs.
+
+This changes the role of the diffusion model relative to direct graph-domain approaches. Rather than modeling the original node and edge variables throughout the generative process, part of the structural representation is delegated to the encoder and decoder, while diffusion operates on the resulting latent variables. The distinction therefore concerns not only whether the diffusion state is continuous or discrete, but also the representation in which generation takes place.
+
+This separation between the generative domain and the final discrete graph domain provides a useful conceptual comparison with graphon-mediated generation. In latent graph diffusion, the intermediate representation is learned through an encoder--decoder architecture and need not have an explicit graph-probabilistic interpretation. Graphon-mediated approaches instead operate through a structured graphon or graphon-derived representation that represents edge-probability structure independently of any single finite graph realization. The following section reviews approaches based on this latter representational perspective.
+
+\section{Graphon-Mediated Graph Generation}
+\label{sec:rw_graphon_generation}
+
+The literature directly combining graphon representations with neural graph generation is smaller than the broader literatures on either graphon estimation or graph-generative models considered independently. Nevertheless, several works are particularly relevant because they use graphons not merely as theoretical models of graph distributions but as computational objects involved in generation.
+
+This distinction is important. Many graphon-estimation methods can, in principle, produce an estimated probability function from which finite graphs can subsequently be sampled. Such sampling follows directly from the graphon model discussed in Chapter~\ref{chap:background}, but it does not by itself constitute a learned distribution over different graphon representations. The works considered in this section move closer to that objective by incorporating graphons into neural generative architectures or diffusion processes.
+
+\subsection{Neural graphons as generative representations}
+\label{subsec:rw_neural_graphon_generation}
+
+IGNR is relevant to both graphon estimation and graph generation \cite{xia2023implicit}. As discussed in Section~\ref{subsec:rw_neural_graphon_estimators}, it parameterizes graphons using coordinate-based neural networks and can learn from unaligned graph observations. Beyond estimation, Xia, Mishne, and Wang investigate how the learned representation can be used to generate graph samples and extend the formulation toward graphon autoencoding.
+
+This is methodologically significant because it treats a learned graphon as more than a final nonparametric estimate. The graphon becomes an intermediate representation from which graph instances can be produced, thereby connecting graphon learning with neural generative modeling. At the same time, the generative mechanism remains closely coupled to the continuous-coordinate neural graphon parameterization used by the estimator.
+
+In a 2021 preprint, Xu et al. take a more explicit autoencoding perspective in \emph{Learning Graphon Autoencoders for Generative Graph Modeling} \cite{xu2021graphonautoencoder}. Their framework constructs representations of graphons in an autoencoder architecture so that graphon-level structure can be embedded, reconstructed, and used for generative graph modeling. Rather than treating each observed adjacency matrix independently, the approach exploits the graphon perspective to obtain a representation associated with the underlying graph-generating structure.
+
+The Graphon Autoencoder is especially close to the present thesis at the level of motivation because graphons participate directly in the generative representation. However, its modeling mechanism differs from the pipeline investigated here. OGAD does not use a graphon autoencoder to define its generative latent space. Instead, graphon estimation and generative modeling remain separate stages: estimated graphons are converted into finite numerical and subsequently discretized graphon-like representations, over which a discrete generative model is trained.
+
+This separation is conceptually useful. It allows the graphon estimator and the generative model to contribute different inductive biases: the estimation stage constructs a probabilistic structural representation from graphs, while the generative stage learns the distribution of finite discretizations derived from those estimates. Whether this separation is beneficial is an empirical question and is not assumed by the Related Works discussion.
+
+\subsection{Diffusion from a graphon perspective}
+\label{subsec:rw_graphon_diffusion}
+
+Recent research has also begun to connect graphons explicitly with diffusion-based graph generation. DiPhon, proposed by Rozada et al., formulates diffusion from a graphon perspective \cite{rozada2026diphon}. DiPhon studies this problem in the dense-graph setting, where graphons provide the relevant size-agnostic limit representation. The work defines a stochastic diffusion process over graphon-valued objects and derives a corresponding finite-graph process intended to reflect the graphon-level dynamics. In contrast with generic categorical diffusion on node and edge labels, graph-limit structure therefore enters the construction of the diffusion model itself.
+
+DiPhon is particularly relevant when positioning the present thesis because it rules out a simple separation in which graphon methods and diffusion-based graph generation are treated as entirely disjoint research directions. Graphons have already been considered explicitly as part of a diffusion-based generative formulation. At the same time, the relationship between graphons and diffusion in DiPhon differs from that investigated by OGAD.
+
+In DiPhon, the diffusion dynamics themselves are developed from the graphon perspective and connected to a finite-graph process \cite{rozada2026diphon}. In OGAD, by contrast, graphons enter through an explicit estimation stage applied to the training graphs. The estimated mathematical object is represented numerically at finite resolution and then discretized into a graphon-like tensor suitable for a discrete-state generative model. D3PM therefore does not directly generate arbitrary measurable graphon functions; it models the finite discretized representation produced by the pipeline. Generated representations are subsequently converted or sampled back into finite graphs.
+
+The distinction is consequently not whether graphons and diffusion can be combined, since existing work shows that they can. It concerns how the two components are connected. DiPhon incorporates graphon structure into the definition of the diffusion process, whereas the thesis pipeline uses graphon estimation to construct an intermediate data domain to which an existing discrete-state diffusion framework can be applied.
+
+Given the recency of DiPhon and its current status as a preprint, it is appropriate to treat it as evidence of an emerging research direction rather than as an established methodological family. Its existence nevertheless makes broad priority claims inappropriate. In particular, the literature does not support stating that the present thesis is the first work to combine graphons with diffusion-based graph generation.
+
+\subsection{Positioning graphon-mediated generation}
+\label{subsec:rw_graphon_generation_positioning}
+
+The reviewed literature suggests a useful distinction among several ways in which graphons can participate in graph generation. First, classical graphon estimators produce probability representations from which graphs may be sampled, without necessarily learning a distribution over graphons. Second, methods such as IGNR and Graphon Autoencoders integrate graphon representations more directly with neural generative modeling \cite{xia2023implicit,xu2021graphonautoencoder}. Third, recent work such as DiPhon incorporates graphon structure into diffusion-based graph generation itself \cite{rozada2026diphon}.
+
+The approach studied in this thesis belongs to the same broad methodological neighborhood but combines these components differently. It uses an independently motivated graphon-estimation method, converts its outputs into finite discretized graphon-like representations, models the distribution of those representations using discrete diffusion, and finally returns to the finite graph domain.
+
+This positioning is deliberately narrower than a novelty claim. Across the works reviewed in this chapter, graphon estimation, discrete diffusion, and graph-distribution evaluation are often addressed as distinct methodological problems, while the thesis studies their composition within a single graph-generation pipeline. The experiments later in the thesis determine the practical consequences of this construction.
+
+\section{Evaluation of Graph Generative Models}
+\label{sec:rw_evaluation}
+
+Evaluating graph-generative models introduces a different problem from training them. Because a generator aims to reproduce a distribution of graph structures rather than reconstruct a single reference graph, evaluation generally compares collections of generated and reference graphs. As explained in Section~\ref{sec:evaluation_graph_generative_models}, this can be done by mapping graphs to structural descriptors and comparing the resulting empirical distributions. Related work has both established this evaluation practice and identified important limitations in it.
+
+\subsection{Structural statistics and distributional comparison}
+\label{subsec:rw_structural_evaluation}
+
+The use of graph statistics combined with distributional distances became common in the evaluation of deep graph generators. GraphRNN, for example, evaluates generated graph sets through differences between distributions of structural statistics such as degree, clustering, and motif-related quantities, using Maximum Mean Discrepancy as a two-sample comparison tool \cite{you2018graphrnn}. Similar protocols were subsequently adopted by many graph-generation papers because they provide a way to compare graph sets without requiring node-level correspondence between generated and reference samples \cite{obray2022evaluation}.
+
+This evaluation strategy has an intuitive advantage: structural descriptors can be chosen to measure graph properties directly related to the application. Degree statistics reflect connectivity heterogeneity, clustering captures local transitivity, and spectral or motif-based descriptors provide complementary structural information. A generator can therefore be assessed along several graph-theoretic dimensions rather than through an entry-wise comparison of adjacency matrices.
+
+The main limitation is that the resulting score does not compare graph distributions independently of the chosen representation. It compares the distributions induced after the graphs have been mapped through a particular descriptor and a particular statistical distance. Consequently, two models may appear similar under one descriptor while differing strongly under another. The choice of descriptor is therefore part of the evaluation methodology rather than a neutral preprocessing decision.
+
+O'Bray et al. provide a systematic analysis of this problem \cite{obray2022evaluation}. They examine commonly used metrics for graph-generative models and show that practical conclusions can be sensitive to details of the evaluation procedure, including choices made in the computation of MMD-based scores. Their study highlights problems with treating a single implementation of a structural-statistic distance as an absolute measure of generative quality.
+
+A central consequence is that MMD should not be interpreted independently of the representation and kernel through which it is computed. Even though characteristic kernels have strong theoretical properties when applied directly to samples in an appropriate space, graph-generation benchmarks typically apply kernels after graphs have been reduced to finite descriptors or histograms. A low discrepancy for one descriptor therefore establishes similarity with respect to that descriptor; it does not demonstrate equality of the full graph distributions.
+
+This observation is directly relevant to the evaluation stage of the present thesis. OGAD uses GGME to compare generated and reference graph sets through degree, clustering-coefficient, and normalized-Laplacian spectral descriptors. These measurements provide complementary structural views, but they should be interpreted as descriptor-specific evidence rather than a complete characterization of the underlying graph distribution.
+
+\subsection{Learned and representation-based evaluation}
+\label{subsec:rw_learned_evaluation}
+
+The limitations of hand-designed structural statistics have motivated attempts to evaluate generated graphs through richer learned representations. Rather than choosing a small collection of graph descriptors manually, these approaches map each graph into a feature space produced by a graph neural network and compare distributions within that representation.
+
+Thompson et al. investigate graph-generative evaluation using representations obtained from graph neural networks, including randomly initialized networks \cite{thompson2022evaluation}. The motivation is to obtain graph-level features that aggregate multiple aspects of structure without requiring a separately designed statistic for each property. Such features can then support measures of distributional similarity and diversity in a common representation space.
+
+Shirzad, Hassani, and Sutherland study a complementary learned approach based on contrastively trained graph representations \cite{shirzad2022evaluating}. Instead of relying on untrained network features, they learn graph embeddings intended to capture structurally meaningful distinctions and evaluate graph generators through the resulting feature distributions. Their analysis is particularly useful because it does not imply that learned metrics universally supersede traditional graph statistics. Performance depends on what structural differences an evaluation representation is capable of detecting.
+
+Other work has explored explicitly graph-theoretic descriptors that go beyond the statistics traditionally used in generative benchmarks. Southern et al., for example, develop evaluation measures based on graph curvature and topological filtrations \cite{southern2023curvature}. This direction preserves interpretability through mathematically defined graph features while attempting to capture structural differences that may not be visible through degree or clustering distributions alone.
+
+These methods reveal a broader trade-off in graph-generation evaluation. Handcrafted structural statistics are interpretable and allow the evaluator to specify which graph properties are being measured, but they necessarily provide a partial view of graph structure. Learned embeddings can aggregate a richer collection of patterns but introduce dependence on the representation architecture and, when trained, on the data and objective used to learn that representation. No evaluation feature space is therefore entirely assumption-free.
+
+For this reason, the evaluation methodology used in a graph-generation study should be considered part of the experimental design. The present thesis follows the established descriptor-based distributional evaluation paradigm through GGME. Alternative learned evaluation approaches provide useful context for interpreting those measurements, but replacing or extending the selected metrics would constitute a different experimental protocol rather than a background requirement.
+
+\section{Summary and Methodological Positioning}
+\label{sec:rw_summary}
+
+The literature reviewed in this chapter can be organized primarily according to the representation used during estimation and generation. Graphon-estimation methods differ in how they address the latent organization of finite graph observations and in how they represent the resulting edge-probability structure. Structured approximations, ordering and smoothing procedures, matrix-based estimators, alignment-aware methods, and implicit neural representations therefore reflect different choices concerning both alignment and representation.
+
+Graph-generative models similarly operate in several distinct domains. Autoregressive models generate ordered sequences of graph-construction decisions, while other methods generate probabilistic graphs from latent variables or use indirect structural representations such as random walks. Diffusion models further span direct graph-domain formulations, including categorical node and edge diffusion, and approaches in which diffusion operates over learned latent representations. The relevant distinction is thus not simply between neural model families, but between the data representations on which their generative processes are defined.
+
+Graphon-mediated approaches provide another point in this design space. Previous work has used neural graphon representations for generative modeling and has also connected graphons explicitly with diffusion \cite{xia2023implicit,xu2021graphonautoencoder,rozada2026diphon}. The approach investigated in this thesis differs in its particular composition: graphons are first estimated from observed graphs, represented numerically and discretized into graphon-like tensors, modeled with discrete diffusion, and subsequently converted or sampled back into finite graphs. The generative domain is therefore neither the original finite graph representation nor a generic learned latent code, but a finite graphon-derived representation.
+
+Evaluation completes this composition by comparing the resulting graph distributions through structural descriptors and distributional metrics. As emphasized by the evaluation literature, such measurements should be interpreted with respect to the descriptors and kernels through which they are computed rather than as representation-independent measures of graph-distribution equality \cite{obray2022evaluation}. Overall, the thesis studies the empirical consequences of composing graphon estimation, discretized graphon representation, discrete generative modeling, return to finite graphs, and distributional evaluation; it does not assume that this composition is universally preferable to the alternative generative domains reviewed above.
