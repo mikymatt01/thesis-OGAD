@@ -1,5 +1,186 @@
 \chapter{Experiments}
 
+
+\section{Evaluation of Graph Generative Models}
+\label{sec:evaluation_graph_generative_models}
+
+\subsection{Distributional rather than one-to-one evaluation}
+\label{subsec:distributional_evaluation}
+
+A graph-generative model is intended to approximate a distribution over graphs. Its evaluation should therefore compare sets or distributions of generated graphs with reference graphs rather than match individual samples one-to-one. Descriptor-based distributional comparisons, frequently implemented through MMD, are a common evaluation approach for graph generative models \cite{obray2022evaluation}.
+
+Let
+
+\[
+\mathcal{G}_{\mathrm{ref}}
+=
+\{G_1,\ldots,G_N\}
+\]
+
+denote reference graphs and
+
+\[
+\mathcal{G}_{\mathrm{gen}}
+=
+\{\widetilde{G}_1,\ldots,\widetilde{G}_M\}
+\]
+
+denote generated graphs.
+
+There is generally no meaningful correspondence between \(G_i\) and \(\widetilde{G}_i\). The relevant question is whether the two graph sets exhibit statistically similar structural properties.
+
+Direct adjacency-matrix distances are poorly suited to this objective because adjacency matrices depend on node ordering and because structural similarity does not require entrywise correspondence. A practical alternative is to map graphs to structural descriptors and compare the resulting descriptor distributions.
+
+\subsection{Degree distributions}
+\label{subsec:evaluation_degree}
+
+One commonly used descriptor is the \textbf{degree distribution}.
+
+For each graph, node degrees are computed and summarized as a histogram or distribution. This descriptor captures how connectivity is distributed across nodes and is therefore sensitive to degree heterogeneity.
+
+A generator can reproduce graph density while still producing an incorrect degree distribution. Degree-based comparison therefore provides a more informative test of local connectivity than density alone.
+
+Degree statistics remain incomplete, however, because they do not describe how edges are arranged among nodes. Graphs with similar degrees can exhibit very different clustering or global organization.
+
+\subsection{Clustering-coefficient distributions}
+\label{subsec:evaluation_clustering}
+
+Another descriptor is the distribution of \textbf{local clustering coefficients}.
+
+For every node, the clustering coefficient measures the extent to which its neighbors are also connected. The resulting coefficients can be summarized as a histogram over \([0,1]\).
+
+This descriptor captures local triangle formation and neighborhood cohesiveness. It complements degree information because graphs with similar degree structure may differ substantially in the density of connections among neighboring nodes.
+
+Clustering-based comparison is therefore particularly informative for graph families whose structure includes strong local transitivity.
+
+\subsection{Normalized-Laplacian spectral distributions}
+\label{subsec:evaluation_spectrum}
+
+A complementary descriptor is based on the \textbf{normalized Laplacian spectrum}.
+
+For each graph, the eigenvalues of
+
+\[
+\mathcal{L}
+=
+I-D^{-1/2}AD^{-1/2}
+\]
+
+are computed and summarized as a histogram.
+
+The spectrum provides graph-wide information complementary to the local degree and clustering descriptors \cite{chung1997spectral}. Spectral statistics are also among the structural descriptors commonly used in graph-generative-model evaluation \cite{obray2022evaluation}.
+
+The three descriptors therefore capture complementary properties:
+
+\begin{itemize}
+    \item degree distributions characterize \textbf{local connectivity and degree heterogeneity};
+    \item clustering-coefficient distributions characterize \textbf{local triangle formation and neighborhood cohesiveness};
+    \item normalized-Laplacian spectra characterize aspects of \textbf{broader graph structure}.
+\end{itemize}
+
+None completely characterizes a graph distribution. Agreement on these descriptors should therefore be interpreted as evidence of similarity with respect to the selected structural properties, not as proof that the complete graph distributions are identical.
+
+\subsection{From graph distributions to descriptor distributions}
+\label{subsec:descriptor_distributions}
+
+Let
+
+\[
+f(G)
+\]
+
+denote a structural descriptor computed from graph \(G\). Applying \(f\) to every reference and generated graph yields
+
+\[
+\{f(G):G\in\mathcal{G}_{\mathrm{ref}}\}
+\]
+
+and
+
+\[
+\{f(G):G\in\mathcal{G}_{\mathrm{gen}}\}.
+\]
+
+These sets can be regarded as empirical samples from distributions in \textbf{descriptor space}.
+
+The evaluation procedure can therefore be summarized conceptually as
+
+\[
+\text{graphs}
+\rightarrow
+\text{structural descriptors}
+\rightarrow
+\text{descriptor distributions}
+\rightarrow
+\text{distributional comparison}.
+\]
+
+Different descriptors induce different views of the original graph distributions. A statistical discrepancy is then required to compare the corresponding descriptor distributions.
+
+\subsection{Maximum Mean Discrepancy}
+\label{subsec:mmd}
+
+\textbf{Maximum Mean Discrepancy}, or MMD, is a kernel-based discrepancy between probability distributions \cite{gretton2012kernel}.
+
+Let \(P\) and \(Q\) denote two distributions over descriptor values, and let
+
+\[
+k(x,y)
+\]
+
+be a positive-definite kernel.
+
+A common population expression is
+
+\[
+\operatorname{MMD}^2(P,Q)
+=
+\mathbb{E}_{X,X'\sim P}[k(X,X')]
++
+\mathbb{E}_{Y,Y'\sim Q}[k(Y,Y')]
+-
+2\mathbb{E}_{X\sim P,Y\sim Q}[k(X,Y)].
+\]
+
+Here, \(X\) and \(X'\) are independent samples from \(P\), while \(Y\) and \(Y'\) are independent samples from \(Q\).
+
+The first two terms are expected within-distribution kernel values, whereas the third is the expected cross-distribution kernel value. Intuitively, the expression quantifies how the within-distribution kernel relationships differ from those observed across the two distributions.
+
+MMD can equivalently be interpreted as the distance between distribution embeddings in a reproducing kernel Hilbert space \cite{gretton2012kernel}. When the selected kernel is \textbf{characteristic}, the associated kernel mean embedding is injective over probability distributions, so zero population MMD implies \(P=Q\) \cite{sriperumbudur2011universality}.
+
+In graph-generative evaluation, the population distributions are unavailable and MMD is therefore estimated from finite samples of reference and generated descriptors.
+
+\subsection{Kernels and interpretation}
+\label{subsec:mmd_kernels}
+
+The kernel determines which differences between descriptor values are emphasized.
+
+For example, a linear kernel can be written as
+
+\[
+k(x,y)=x^\top y,
+\]
+
+while a Gaussian kernel has the form
+
+\[
+k(x,y)
+=
+\exp
+\left(
+-\frac{\lVert x-y\rVert^2}{2\sigma^2}
+\right),
+\]
+
+where \(\sigma\) controls the bandwidth.
+
+Descriptor choice, kernel family, and kernel parameters jointly affect MMD-based graph-generator evaluation. O'Bray et al.\ show that such choices can substantially influence metric values and even comparisons between generative models \cite{obray2022evaluation}.
+
+Consequently, MMD should not be interpreted as an absolute or universal measure of graph-generation quality. Its value is meaningful with respect to the chosen structural representation and kernel configuration.
+
+This reinforces the importance of using complementary graph descriptors. Degree, clustering, and spectral statistics reveal different properties of the generated distribution, while none alone provides a complete description.
+
+
 \subsection{Roles of the models in this thesis}
 \label{subsec:model_roles}
 

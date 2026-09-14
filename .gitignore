@@ -7,6 +7,7 @@ data/models/d3pm.pkl
 src/vanilla/outputs
 data/predictions/graphs/digress
 data/train/graphons
+thesis/main.*
 
 # Local experiment runs (logs + metrics): restano in locale, integrali.
 # Il sottoinsieme versionato sta in runs_export/, generato da
