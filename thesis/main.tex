@@ -1,37 +1,115 @@
-\documentclass[a4paper, twoside,openright]{report}
-\usepackage[T1]{fontenc} % Font encoding, T1 = it
-\usepackage{lmodern} % Latin Modern fonts, better scaling with T1 encoding
-\usepackage[utf8]{inputenc} % Input encoding - per caratteri particolari
-\usepackage[main=english,italian]{babel} % Main language English, with possible Italian parts
-\usepackage{graphicx} % Per includere immagini esterne
-\usepackage{lipsum} % genera testo fittizio
+\documentclass[a4paper,twoside,openright]{report}
+
+% --------------------------------------------------
+% Encoding and language
+% --------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[main=english,italian]{babel}
+
+% --------------------------------------------------
+% General packages
+% --------------------------------------------------
+\usepackage{graphicx}
+\usepackage{lipsum}
 \usepackage{amsmath,amssymb}
 \usepackage{csquotes}
+
+% --------------------------------------------------
+% Bibliography
+% --------------------------------------------------
 \usepackage[
   backend=biber,
   style=numeric,
   sorting=none
 ]{biblatex}
-\usepackage[a4paper,top=3cm,bottom=3cm,left=3cm,right=3cm]{geometry} %impaginazione e margini documento
-\usepackage[fontsize=13pt]{scrextend} %dimensione font
+
+\addbibresource{references.bib}
+
+% --------------------------------------------------
+% Page layout
+% --------------------------------------------------
+\usepackage[
+  a4paper,
+  top=3cm,
+  bottom=3cm,
+  left=3cm,
+  right=3cm
+]{geometry}
+
+\usepackage[fontsize=13pt]{scrextend}
+
+% --------------------------------------------------
+% Paragraph formatting
+% --------------------------------------------------
+
+% Indentation for normal paragraphs.
+% The first paragraph after a heading remains unindented.
+\setlength{\parindent}{0pt}
+
+
+% --------------------------------------------------
+% Section titles
+% --------------------------------------------------
+\usepackage{titlesec}
+
+% Chapter formatting
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}
+  {\hspace{\parindent}\chaptertitlename\ \thechapter}
+  {20pt}
+  {\hspace{\parindent}}
+
+\titlespacing{\chapter}
+  {0pt}
+  {50pt}
+  {40pt}
+
+% Subsection formatting.
+% raggedright prevents long titles from overflowing
+% into the right margin.
+\titleformat{\subsection}[hang]
+  {\normalfont\large\bfseries\raggedright}
+  {\thesubsection}
+  {1em}
+  {}
+
+% --------------------------------------------------
+% Hyperlinks
+% --------------------------------------------------
 \usepackage[
   hidelinks,
   linktoc=all
-]{hyperref} % Link cliccabili per indice, riferimenti e citazioni
-\addbibresource{references.bib}
-\raggedbottom % Se la pagina non è completa, lascia lo spazio alla fine
+]{hyperref}
+
+% --------------------------------------------------
+% Page style
+% --------------------------------------------------
+\raggedbottom
 \pagestyle{headings}
+
 
 \begin{document}
 
-% input file frontespizio.tex
+% --------------------------------------------------
+% Front page
+% --------------------------------------------------
 \input{frontespizio}
 
+% --------------------------------------------------
+% Table of contents
+% --------------------------------------------------
 \pagenumbering{roman}
+
 \tableofcontents
 \clearpage
 
+% --------------------------------------------------
+% Main matter
+% --------------------------------------------------
 \pagenumbering{arabic}
+
 \input{chapters/introduction}
 \input{chapters/background}
 \input{chapters/related_works}
@@ -39,6 +117,9 @@
 \input{chapters/results}
 \input{chapters/conclusion}
 
+% --------------------------------------------------
+% Bibliography
+% --------------------------------------------------
 \printbibliography
 
 \end{document}
