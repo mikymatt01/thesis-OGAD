@@ -1,2 +1,205 @@
-\chapter{Conclusion}
+\chapter{Conclusions and Future Work}
+\label{chap:conclusions}
 
+This thesis investigated graphon-mediated discrete diffusion as an alternative approach to graph generation. The central idea was to introduce an intermediate probability representation between observed finite graphs and the generative model, rather than applying diffusion directly to graph adjacency variables.
+
+The resulting OGAD pipeline combines graphon estimation, generative modeling, graph sampling, and distributional evaluation. Training graphs are first transformed into estimated graphons through SIGL. These continuous estimates are evaluated on finite grids and quantized into categorical tensors, which constitute the state space of a D3PM. Generated categorical samples are then mapped back to probability-valued grids and converted into finite graphs through graphon sampling. Finally, the generated graph distributions are compared with reference graphs using structural descriptors and Maximum Mean Discrepancy.
+
+The objective of this work was not to establish a universally superior graph generator, but to determine whether graphon-derived representations constitute a viable generative domain and to characterize the structural behavior induced by this choice. The experiments show that OGAD can generate distributions across graph families governed by substantially different structural mechanisms, but its relative performance depends strongly on both the target distribution and the structural property being evaluated. Its most consistent strength concerns clustering-related structure, whereas degree and normalized-Laplacian statistics remain more challenging.
+
+The results therefore support graphon-mediated discrete diffusion as a viable but structurally selective approach to graph generation, while also exposing representational choices that provide natural directions for further development.
+
+\section{Answers to the Research Questions}
+\label{sec:conclusions_rq}
+
+The experimental study was organized around the three research questions introduced in Chapter~\ref{chap:introduction}.
+
+\paragraph{RQ1: Can generation through an intermediate graphon representation recover graph distributions characterized by different structural mechanisms?}
+
+OGAD was successfully applied to all five graph families considered in this thesis: Erd\H{o}s--R'enyi, Stochastic Block Model, Barab'asi--Albert, Watts--Strogatz, and expected-degree graphs. The approach is therefore not restricted to a single explicitly specified probabilistic graph family.
+
+Its structural fidelity, however, is descriptor dependent. OGAD preserves clustering-related structure more consistently than degree or spectral structure: its mean clustering rank is \(2.20\), compared with \(4.60\) for degree distribution and \(4.00\) for normalized-Laplacian spectrum. Particularly favorable clustering results are obtained on SBM and expected-degree graphs.
+
+The answer to RQ1 is therefore qualified. An intermediate graphon representation can support generation across distributions characterized by different mechanisms, but it does not reproduce all structural properties with equal fidelity.
+
+\paragraph{RQ2: How does graphon-mediated discrete diffusion compare with direct graph diffusion and classical probabilistic generators under a common evaluation procedure?}
+
+No evaluated generator dominates across every graph family and structural descriptor.
+
+Among the learned approaches, DiGress provides the most consistent aggregate results, whereas OGAD exhibits a particularly favorable profile for clustering on some datasets. Classical generators can outperform both learned approaches when their assumptions align closely with the target distribution or evaluated statistic, as illustrated by the matched Erd\H{o}s--R'enyi generator and by the Configuration Model for degree preservation.
+
+The comparison therefore reveals different structural profiles rather than a universal ordering among generators. In particular, the observed differences between OGAD and DiGress cannot be attributed uniquely to the graphon representation, since the two systems also differ in architecture, optimization, and generation procedure. Isolating the contribution of the representation itself requires a more controlled comparison.
+
+\paragraph{RQ3: Is relative generative performance consistent across structural descriptors and graph families?}
+
+The results provide a negative answer.
+
+The ranking of the generators changes substantially across both datasets and descriptors. A model that reproduces degree statistics accurately does not necessarily preserve clustering or spectral structure equally well, and vice versa. OGAD provides a clear example of this behavior through the gap between its clustering performance and its degree and spectral results.
+
+Generative quality should therefore not be reduced to a single notion of structural fidelity. The descriptor-level MMD values and their rank-based summaries provide complementary views of model behavior and should be interpreted jointly.
+
+\section{Main Contributions}
+\label{sec:conclusions_contributions}
+
+The main methodological contribution of this thesis is an explicit end-to-end formulation of graph generation through estimated graphon representations.
+
+A central aspect of this formulation is the distinction between the objects manipulated by the pipeline:
+
+$$
+W
+\neq
+\widehat{W}^{(R)}
+\neq
+X_K,
+$$
+
+where \(W\) denotes a continuous graphon, \(\widehat{W}^{(R)}\) its evaluation on a finite grid of resolution \(R\), and \(X_K\) the corresponding representation after quantization into \(K\) categorical states. D3PM therefore operates neither directly on a mathematical graphon nor on a binary adjacency matrix, but on a finite categorical representation derived from an estimated probability function.
+
+The thesis demonstrates how these representations can be connected within a complete generative process: graphon estimation maps observed graphs into a probability-valued domain, discrete diffusion models the resulting categorical tensors, and graphon sampling converts generated probability representations back into finite graphs.
+
+Finally, OGAD, DiGress, and classical probabilistic generators are evaluated under a common distributional framework. This comparison highlights the descriptor-dependent nature of graph-generation quality and makes it possible to examine different structural inductive biases within the same experimental setting.
+
+\section{Limitations}
+\label{sec:conclusions_limitations}
+
+The conclusions of this thesis should be interpreted within several experimental and methodological boundaries.
+
+First, the evaluation is restricted to synthetic datasets containing graphs with \(100\) nodes. This provides a controlled environment with known structural mechanisms, but does not establish how OGAD behaves on larger, variable-size, heterogeneous, or real-world graph collections. Extending the analysis to genuinely sparse regimes would also require considering the limitations of the classical dense-graphon framework.
+
+A more fundamental limitation concerns the representation passed from graphon estimation to the generative model. SIGL learns an implicit continuous graphon that can be evaluated at arbitrary numerical resolutions \cite{azizpour2025scalable}, whereas OGAD first evaluates this representation on a fixed grid:
+
+$$
+W
+\longrightarrow
+\widehat{W}^{(R)}
+\in
+[0,1]^{R\times R}.
+$$
+
+The experiments use \(R=128\). Once the continuous function is represented on this finite grid, structures requiring finer spatial resolution cannot be represented explicitly by the downstream model. This constitutes a \emph{potential finite-resolution bottleneck} introduced by the OGAD interface rather than by the continuous SIGL representation itself.
+
+A second and distinct bottleneck arises from categorical quantization:
+
+$$
+\widehat{W}^{(R)}
+\longrightarrow
+X_K
+\in
+\{0,\ldots,K-1\}^{R\times R}.
+$$
+
+For a grid value \(w\in[0,1]\), OGAD applies
+
+$$
+\mathcal{Q}_K(w)
+=
+\operatorname{clamp}
+\left(
+\operatorname{round}\left((K-1)w\right),
+0,
+K-1
+\right),
+$$
+
+while a generated category \(k\) is mapped back through
+
+$$
+\mathcal{D}_K(k)=\frac{k}{K-1}.
+$$
+
+Quantization is a many-to-one transformation: different probability values may be represented by the same categorical state. Consequently, the original continuous information cannot in general be reconstructed exactly after dequantization. Under nearest-level quantization, the entry-wise reconstruction error before any subsequent processing is bounded by
+
+$$
+\left|
+w-\mathcal{D}_K(\mathcal{Q}_K(w))
+\right|
+\leq
+\frac{1}{2(K-1)}.
+$$
+
+This categorical discretization should nevertheless be regarded as a \emph{potential representational bottleneck}, not as an experimentally established explanation for OGAD's performance. The experiments do not contain a controlled comparison against an otherwise equivalent continuous-valued generator and therefore cannot determine how much of the final structural discrepancy is caused by quantization.
+
+Other limitations concern the scope of the current implementation and experimental protocol. Graph size is not jointly learned with graph structure, graphon-level generation is represented by a finite collection of generated probability templates, and the hyperparameter exploration is not perfectly homogeneous across all graph families. These aspects do not invalidate the comparison performed in this thesis, but delimit the conclusions that can be drawn from it.
+
+Evaluation itself also provides only a partial view of generative quality. Degree distribution, clustering coefficient, and normalized-Laplacian spectrum capture complementary aspects of graph structure but cannot characterize an entire graph distribution. Moreover, MMD-based comparisons depend on the selected structural representation and kernel \cite{obray2022evaluation}. The reported values should therefore be interpreted as similarity under the adopted evaluation protocol rather than as evidence of equality between complete graph distributions.
+
+Finally, OGAD is evaluated primarily as an end-to-end system. Structural distortion may be introduced during graphon estimation, finite-grid evaluation, categorical quantization, diffusion generation, or finite-graph sampling. The current experiments characterize the behavior of the complete pipeline but do not isolate the contribution of each transformation.
+
+\section{Future Work}
+\label{sec:conclusions_future_work}
+
+The most immediate direction for future work is to determine whether the representational bottlenecks identified above materially affect graph-generation quality.
+
+A first step would be a systematic ablation of the two discretization parameters. Varying the graphon resolution \(R\) would quantify sensitivity to spatial discretization, while varying the number of categorical states \(K\) would measure the effect of probability quantization. For graph families with known underlying probability structures, such as Erd\H{o}s--R'enyi and SBM, generation from SIGL estimates could additionally be compared with generation starting from the corresponding known graphons, separating graphon-estimation error from errors introduced downstream.
+
+The most direct extension of the current generative model would be to remove categorical quantization altogether and operate on continuous-valued probability grids. The present pipeline follows
+
+$$
+W
+\longrightarrow
+\widehat{W}^{(R)}
+\longrightarrow
+X_K
+\longrightarrow
+\text{D3PM}
+\longrightarrow
+\widetilde{W}^{(R)},
+$$
+
+whereas a continuous-valued alternative could follow
+
+$$
+W
+\longrightarrow
+\widehat{W}^{(R)}
+\longrightarrow
+\text{continuous-valued diffusion}
+\longrightarrow
+\widetilde{W}^{(R)}.
+$$
+
+Such a formulation would eliminate the mappings
+\(\mathcal{Q}_K\) and \(\mathcal{D}_K\), allowing the generative model to preserve probability-valued states throughout the diffusion process.
+
+This extension is conceptually different from merely replacing a discrete-time diffusion schedule with a continuous-time one. The relevant distinction is the \emph{state space}: the current D3PM operates on a finite categorical alphabet, whereas the proposed alternative would model continuous probabilities. A continuous-valued process could still be implemented numerically using a finite number of denoising steps.
+
+The bounded nature of graphon values introduces an additional design requirement, since generated states should remain compatible with \([0,1]\). One possibility is to transform bounded probabilities into an unconstrained latent space. A more intrinsically graphon-oriented solution is to use stochastic dynamics that preserve the probability domain. Recent work such as DiPhon formulates continuous diffusion on graphons through a Jacobi stochastic differential equation and provides a concrete example of such a direction \cite{rozada2026diphon}.
+
+A controlled comparison among categorical graphon diffusion, continuous-valued graphon diffusion, and direct graph diffusion would therefore constitute a particularly informative continuation of this thesis. Matching model capacity and experimental conditions as closely as possible would help isolate whether differences in structural fidelity originate from the intermediate representation itself.
+
+A more ambitious extension would address the remaining finite-resolution bottleneck. Since SIGL represents a graphon through an implicit function that can be queried at arbitrary resolution \cite{azizpour2025scalable}, a future generative model could attempt to learn a distribution directly over implicit functions
+
+$$
+W_\theta(u,v),
+\qquad
+(u,v)\in[0,1]^2,
+$$
+
+instead of over fixed \(R\times R\) matrices. Finite probability representations would then be instantiated only when graphs of a particular size or numerical resolution are required. Such a model would more directly preserve the resolution-independent interpretation of graphons, although it would also introduce challenges related to symmetry, bounded outputs, graphon non-identifiability, and generative modeling in function space.
+
+These two developments correspond to different levels of extension. Continuous-valued diffusion over finite grids would remove the categorical-value bottleneck while preserving the fixed spatial representation. A graphon-native or function-space model would additionally attempt to remove, or postpone until graph sampling, the finite-resolution bottleneck itself.
+
+Finally, the empirical scope should be broadened to larger, variable-size, and real-world graph collections, preferably across multiple random seeds. Additional structural descriptors could complement the current evaluation, and explicit multi-objective model selection could be investigated when preservation of different structural properties leads to conflicting preferences among candidate generators.
+
+\section{Final Remarks}
+\label{sec:conclusions_final}
+
+The principal conclusion of this thesis is not that graphon-mediated generation replaces direct graph generation, but that it provides a meaningful alternative generative formulation with a distinct structural behavior.
+
+OGAD demonstrates that estimated graphons can be connected to discrete diffusion through a finite categorical representation and subsequently converted back into finite graph distributions through probabilistic graphon sampling. The experiments show that this approach can preserve some properties particularly effectively, most notably clustering-related structure on selected graph families, while other properties remain more difficult to reproduce.
+
+At the same time, the analysis exposes a central tension in the current formulation:
+
+$$
+W
+\longrightarrow
+\widehat{W}^{(R)}
+\longrightarrow
+X_K.
+$$
+
+Graphons provide a continuous probability-valued representation with potential resolution flexibility, whereas the D3PM interface requires both finite spatial evaluation and categorical quantization. These transformations enable discrete diffusion, but also introduce information bottlenecks that are not intrinsic to the graphon representation.
+
+The present experiments do not establish that these bottlenecks are responsible for the observed limitations of OGAD. They instead motivate the next question naturally arising from this work: whether graphon-mediated generation can retain more structural information when probability-valued representations remain continuous throughout the generative process.
+
+Within the scope of this thesis, graphon-mediated discrete diffusion should therefore be regarded as a promising but not yet general-purpose approach to graph generation. Its contribution lies both in demonstrating the feasibility of the proposed pipeline and in identifying the representation-level trade-offs that emerge when continuous graphons are connected to discrete generative models. Investigating how to preserve the continuity and resolution flexibility of the intermediate graphon representation constitutes the most natural continuation of this work.

@@ -1,9 +1,10 @@
 \chapter{Method}
 \label{chap:method}
 
-The preceding chapters introduced the theoretical concepts required to understand graphon-based graph generation and positioned the present work within the relevant literature. In particular, Chapter~\ref{chap:background} introduced graphons, graphon estimation, discrete diffusion, and distributional evaluation, while Chapter~\ref{chap:related_works} discussed the corresponding methodological alternatives. The purpose of this chapter is different: it specifies how these components are instantiated and connected in OGAD.
+The preceding chapters introduced the theoretical and methodological context required to describe OGAD. Chapter~\ref{chap:background} presented the graph foundations, the graph-generation problem, graphons, and graphon estimation, while Chapter~\ref{chap:related_works} reviewed the relevant graphon-estimation, graph-generation, diffusion, and evaluation methods. The purpose of this chapter is different: it specifies how these components are instantiated and connected in OGAD.
 
-The central methodological question is how a collection of observed finite graphs is transformed into a learned generator of new finite graphs. OGAD addresses this question through an intermediate graphon-derived representation. Training graphs are first used to estimate graphons with SIGL. The estimated functions are evaluated on fixed finite grids, which are subsequently quantized into categorical tensors. A discrete diffusion model is then trained over these tensors. Generated categorical tensors are dequantized into probability-like graphon grids, from which new finite graphs are sampled using Bernoulli edge draws. Finally, the resulting graph distributions are evaluated through GGME and compared with direct graph-generation and classical probabilistic baselines.
+OGAD transforms a collection of observed finite graphs into a generator of new finite graphs through an intermediate graphon-derived representation. Training graphs are first processed by SIGL to obtain graphon estimates. These functions are evaluated on fixed finite grids and quantized into categorical tensors, over which a discrete diffusion model is trained. Generated categorical tensors are subsequently dequantized into probability-like graphon grids, from which finite graphs are sampled through Bernoulli edge draws. The resulting graph distributions are evaluated through the GGME pipeline and compared with direct graph-generation and classical probabilistic baselines.
+
 
 \section{Method Overview}
 \label{sec:method_overview}
@@ -24,9 +25,9 @@ p_\theta(X)
 \left\{\widetilde{G}_j\right\},
 \]
 
-where \(\mathcal{G}_{\mathrm{train}}\) denotes the observed training graphs, \(\widehat{W}^{(R)}_i\) denotes a finite numerical graphon estimate evaluated on an \(R\times R\) grid, \(X_i\) is its categorical representation used by the diffusion model, \(p_\theta\) denotes the learned distribution over such categorical tensors, \(\widetilde{W}_j\) denotes a generated probability-like grid after dequantization and post-processing, and \(\widetilde{G}_j\) denotes a finite graph sampled from that grid.
+where \(\mathcal{G}_{\mathrm{train}}\) denotes the observed training graphs, \(\widehat{W}^{(R)}_i\) a finite numerical graphon estimate evaluated on an \(R\times R\) grid, \(X_i\) its categorical representation used by the diffusion model, \(p_\theta\) the learned distribution over such tensors, \(\widetilde{W}_j\) a generated probability-like grid after dequantization and post-processing, and \(\widetilde{G}_j\) a finite graph sampled from that grid.
 
-This notation deliberately distinguishes three objects that play different roles in the pipeline:
+The notation distinguishes three objects that play different roles:
 
 \[
 W
@@ -36,22 +37,19 @@ W
 X.
 \]
 
-Here, \(W:[0,1]^2\rightarrow[0,1]\) is a mathematical graphon of the type introduced in Section~\ref{sec:graphons}; \(\widehat{W}^{(R)}\) is a finite numerical evaluation of an estimated graphon; and \(X\) is an integer-valued categorical tensor obtained by quantizing the finite grid. D3PM therefore does not operate directly on an arbitrary measurable graphon function. It operates on a fixed-dimensional categorical representation derived from an estimated graphon.
-
-This sequence defines the principal methodological organization of OGAD. The graphon-estimation stage transforms finite, arbitrarily ordered graph observations into graphon-based probability representations with a learned node organization. Finite-grid evaluation makes these representations compatible with fixed-dimensional neural processing. Quantization transforms the numerical grids into the finite state space required by discrete diffusion. Dequantization and graph sampling subsequently return the generated objects to the finite graph domain in which evaluation is performed.
+Here, \(W:[0,1]^2\rightarrow[0,1]\) is a mathematical graphon of the type introduced in Section~\ref{sec:graphons}; \(\widehat{W}^{(R)}\) is a finite numerical evaluation of an estimated graphon; and \(X\) is an integer-valued categorical tensor obtained by quantizing that finite grid. D3PM therefore operates neither on an arbitrary measurable graphon function nor directly on a binary graph, but on a fixed-dimensional categorical representation derived from an estimated graphon.
 
 % TODO: Figure -- end-to-end OGAD methodological pipeline
+
 
 \section{Input Graphs and Data Partitioning}
 \label{sec:method_input_partitioning}
 
-OGAD operates on datasets containing finite undirected graphs represented by adjacency matrices. In the persistent dataset representation, individual graphs are stored as sparse CSR adjacency matrices. Sparse storage is useful for reducing the storage cost of graph datasets, but the SIGL stage consumes dense floating-point adjacency matrices. Consequently, each graph selected for graphon estimation is validated and converted from its sparse representation into a dense floating-point matrix before being passed to SIGL.
+OGAD operates on finite simple undirected graphs represented by adjacency matrices, following the assumptions introduced in Section~\ref{sec:basic_graph_theory}. Input graphs are stored sparsely and converted to dense floating-point adjacency matrices before SIGL processing.
 
-The graph observations are treated as simple undirected structures. Their adjacency matrices are therefore symmetric, and downstream graph generation likewise constructs symmetric binary adjacency matrices with zero diagonal. The arbitrary ordering of rows and columns should not be interpreted as structural information; the importance of this distinction for graph and graphon learning was discussed in Sections~\ref{subsec:arbitrary_node_ordering} and~\ref{subsec:graphon_arbitrary_ordering}.
+The pipeline uses two distinct validation mechanisms, operating on different representations and serving different purposes.
 
-A particularly important aspect of OGAD is that it uses two distinct validation mechanisms. These mechanisms operate on different objects and serve different purposes.
-
-When GGME-based candidate selection is enabled, the first split is performed directly on the original training graphs. Let the complete training set be denoted by \(\mathcal{G}_{\mathrm{train}}\). It is partitioned as
+When GGME-based candidate selection is enabled, the original training set is first partitioned as
 
 \[
 \mathcal{G}_{\mathrm{train}}
@@ -67,9 +65,21 @@ When GGME-based candidate selection is enabled, the first split is performed dir
 \varnothing.
 \]
 
-In the thesis implementation, this partition uses an 80/20 split with random seed \(0\). The larger subset, \(\mathcal{G}_{\mathrm{model}}\), is the only subset passed to the SIGL estimation procedure. The remaining graphs, \(\mathcal{G}_{\mathrm{GGME-val}}\), are retained for the later graph-level comparison of trained D3PM candidates. They are therefore not included in graphon estimation.
+The thesis implementation uses an 80/20 split with random seed \(0\). Only
 
-The second validation mechanism is introduced only after SIGL has produced the finite graphon dataset. Let
+\[
+\mathcal{G}_{\mathrm{model}}
+\]
+
+is passed to graphon estimation. The held-out subset
+
+\[
+\mathcal{G}_{\mathrm{GGME-val}}
+\]
+
+is reserved for the later graph-level comparison of trained D3PM candidates. When GGME-based candidate selection is disabled, all available training graphs are instead passed to graphon estimation.
+
+After SIGL has produced the finite graphon dataset, a second split is performed. Let
 
 \[
 \mathcal{W}
@@ -81,43 +91,58 @@ The second validation mechanism is introduced only after SIGL has produced the f
 \right\}
 \]
 
-denote the collection of finite graphon representations produced by SIGL. These graphon samples are independently partitioned into D3PM training and validation subsets,
+denote the collection of estimated finite graphon grids. These samples are divided into
 
 \[
 \mathcal{W}
 =
 \mathcal{W}_{\mathrm{D3PM-train}}
 \cup
+\mathcal{W}_{\mathrm{D3PM-val}},
+\]
+
+again using an 80/20 split with seed \(0\). The validation subset
+\(\mathcal{W}_{\mathrm{D3PM-val}}\) is used during diffusion-model fitting for early stopping and best-checkpoint identification within each candidate configuration.
+
+The two validation sets therefore have different roles:
+
+\[
+\mathcal{G}_{\mathrm{GGME-val}}
+\quad\text{and}\quad
 \mathcal{W}_{\mathrm{D3PM-val}}.
 \]
 
-The thesis implementation again uses an 80/20 split with seed \(0\). This graphon-level validation set is used to monitor the D3PM optimization process, perform early stopping, and identify the best validation-loss checkpoint for a given candidate configuration.
+The former contains finite graphs and is used for graph-domain candidate selection; the latter contains graphon grids and is used during D3PM optimization. Neither participates in final model selection against the test set. The final test/reference graph set remains outside training and candidate selection and is accessed only during final evaluation, including to provide the empirical node-count distribution used for final graph sampling.
 
-The two validation mechanisms are therefore conceptually and operationally distinct. \(\mathcal{G}_{\mathrm{GGME-val}}\) contains held-out finite graphs originating from the original training data and is used to compare complete candidate generators after graph generation. By contrast, \(\mathcal{W}_{\mathrm{D3PM-val}}\) contains estimated graphon grids and is used while fitting each D3PM candidate. Neither validation set should be confused with the final test/reference graph set, which remains outside all training and candidate-selection procedures and is accessed only during the final evaluation stage, including to provide the empirical node-count distribution used to condition final graph sampling.
 
 \section{Graphon Estimation with SIGL}
 \label{sec:method_sigl}
 
-OGAD estimates graphons using Scalable Implicit Graphon Learning, or SIGL, introduced by Azizpour, Zilberstein, and Segarra \cite{azizpour2025scalable}. The conceptual graphon-estimation problem and the role of learned implicit representations were introduced in Section~\ref{sec:graphon_estimation}, while related estimation approaches were discussed in Section~\ref{sec:rw_graphon_estimation}. The present section focuses specifically on the instantiated OGAD procedure.
+OGAD estimates graphons using Scalable Implicit Graphon Learning (SIGL), introduced by Azizpour, Zilberstein, and Segarra \cite{azizpour2025scalable}. The general graphon-estimation problem was introduced in Section~\ref{sec:graphon_estimation}, while SIGL and related estimators were reviewed in Section~\ref{sec:rw_graphon_estimation}. This section therefore focuses on the specific procedure instantiated by OGAD.
+
 
 \subsection{Clustering and Bootstrap Construction}
 \label{subsec:method_sigl_clustering}
 
-When clustering is enabled, OGAD first groups the graphs in \(\mathcal{G}_{\mathrm{model}}\) according to structural descriptors. For each graph, the clustering representation incorporates information derived from its degree distribution, local clustering coefficients, and normalized-Laplacian spectrum. These descriptor components summarize complementary local and global aspects of graph structure. The resulting feature vectors are standardized before KMeans clustering is applied.
+When clustering is enabled, the graphs in
 
-Let \(C_{\mathrm{req}}\) denote the requested number of clusters. The implementation retains only cluster labels that actually contain graphs. The effective number of clusters,
+\[
+\mathcal{G}_{\mathrm{model}}
+\]
+
+are first represented using structural information derived from their degree distributions, local clustering coefficients, and normalized-Laplacian spectra. These descriptors were introduced in Sections~\ref{subsec:degree_density}, \ref{subsec:clustering_coefficient}, and~\ref{subsec:laplacian_spectrum}. The resulting feature vectors are standardized before KMeans clustering is applied.
+
+Let \(C_{\mathrm{req}}\) denote the requested number of clusters. Only cluster labels containing graphs are retained, so the effective number of clusters may satisfy
 
 \[
 C_{\mathrm{eff}}
 \leq
-C_{\mathrm{req}},
+C_{\mathrm{req}}.
 \]
 
-can consequently be smaller than the requested number. This distinction matters because subsequent graphon-estimation jobs are constructed from the non-empty clusters rather than from the nominal value of \(C_{\mathrm{req}}\).
+Bootstrap resampling is then performed independently within every non-empty cluster. For a cluster containing \(n_c\) graphs, one bootstrap replicate draws \(n_c\) graph indices with replacement and uses the resulting collection as one SIGL estimation job.
 
-After clustering, bootstrap resampling is performed independently within each non-empty cluster. For a cluster containing \(n_c\) graphs, one bootstrap replicate consists of drawing \(n_c\) graph indices with replacement from that cluster. The sampled collection defines one SIGL graphon-estimation job.
-
-To avoid overloading the symbol \(R\), which is reserved below for graphon-grid resolution, let \(B_{\mathrm{boot}}\) denote the configured number of bootstrap replicates per effective cluster. In the clustered configuration used by OGAD, original unresampled cluster jobs are not additionally included. The number of graphon-estimation jobs is therefore
+Let \(B_{\mathrm{boot}}\) denote the configured number of bootstrap replicates per effective cluster. In the clustered configuration used in the thesis, the original unresampled cluster collections are not additionally included. Since \(B_{\mathrm{boot}}>1\) in these executions, the resulting number of graphon-estimation jobs is
 
 \[
 N_W
@@ -125,20 +150,57 @@ N_W
 C_{\mathrm{eff}}B_{\mathrm{boot}}.
 \]
 
-This identity describes the clustered bootstrap configuration instantiated in the thesis pipeline; it is not a general identity of SIGL itself. In particular, the effective graphon count depends on the number of non-empty clusters returned by the clustering stage.
+This relation describes the instantiated clustered-bootstrap configuration rather than a general property of SIGL. When clustering is disabled, the implementation instead constructs one graphon-estimation job per model-training graph.
 
-Clustering and bootstrap resampling serve different roles. Clustering first restricts graphon-estimation jobs to structurally related subsets of the training distribution. Bootstrap resampling then produces multiple finite graph collections from each such subset. Each collection becomes an independent input to the graphon-estimation procedure described next.
+Clustering and bootstrapping play distinct roles: clustering restricts individual graphon-estimation jobs to structurally related graph subsets, while bootstrap resampling produces multiple finite samples from each such subset.
+
 
 \subsection{One Graphon-Estimation Job}
 \label{subsec:method_sigl_job}
 
-Within one SIGL job, a graph convolutional network is used to infer a scalar coordinate for every node. The network receives random scalar node features, processes them through GCN layers with ReLU activations, and applies a final scalar projection. The projected value passes through a sigmoid and is subsequently min--max normalized within the graph. Nodes are then sorted according to these normalized scalar coordinates, thereby applying the induced ordering consistently to the rows and columns of the corresponding adjacency matrix.
+Within each SIGL job, a graph convolutional network predicts one scalar coordinate per node from random scalar node features. The features are processed through GCN layers with ReLU activations followed by a scalar projection, sigmoid activation, and within-graph min--max normalization. Nodes are then sorted according to the resulting coordinates, and the induced permutation is applied consistently to the rows and columns of the corresponding adjacency matrix.
 
-This learned coordinate organization is used within each graphon-estimation job; it should not be interpreted as establishing a single globally aligned coordinate system across independently estimated graphons from different clusters or bootstrap jobs.
+This ordering is learned independently within each estimation job and should not be interpreted as defining one global coordinate alignment across graphons estimated from different clusters or bootstrap samples.
 
-The sorted adjacency matrices are subsequently average-pooled. Pooling reduces the finite adjacency observations to collections of coordinate--value pairs: locations in the pooled matrix provide two-dimensional coordinate inputs, while pooled adjacency values provide regression targets for the graphon model.
+The reordered adjacency matrices are average-pooled. Let
 
-These observations are used to train the final implicit graphon representation. OGAD follows SIGL in using a SIREN-style multilayer perceptron with sinusoidal hidden activations \cite{sitzmann2020implicit}. The output layer uses a sigmoid so that the estimated values have the intended interpretation as edge probabilities. The graphon regression objective is a weighted mean-squared error. If graph \(g\) contributes \(n_g\) nodes to a graphon-estimation job, its contribution is weighted proportionally to
+\[
+\widehat{H}_g
+\in
+\mathbb{R}^{k_g\times k_g}
+\]
+
+denote the pooled representation associated with graph \(g\). In the implementation, pooled cells are associated with midpoint coordinates
+
+\[
+u_{g,i}
+=
+\frac{i+\tfrac{1}{2}}{k_g},
+\qquad
+v_{g,j}
+=
+\frac{j+\tfrac{1}{2}}{k_g},
+\]
+
+for
+
+\[
+i,j\in\{0,\ldots,k_g-1\}.
+\]
+
+Thus each pooled cell supplies a coordinate--value observation
+
+\[
+\left(
+u_{g,i},
+v_{g,j},
+\widehat{H}_g(i,j)
+\right)
+\]
+
+for the final implicit graphon regression.
+
+As reviewed in Section~\ref{subsec:rw_neural_graphon_estimators}, the original SIGL formulation fits the final implicit representation from pooled coordinate--value observations. In the OGAD implementation, observations contributed by each graph are additionally weighted according to graph size. If graph \(g\) contains \(n_g\) nodes, its graph-level weight is
 
 \[
 w_g
@@ -147,11 +209,37 @@ w_g
 {\sum_h n_h},
 \]
 
-where the denominator is the total number of nodes contributed by all graphs in that job. Larger graphs therefore contribute proportionally more weight to the pooled regression observations.
+where the denominator is the total number of nodes contributed by the graphs in the current estimation job.
 
-The learned scalar ordering, adjacency pooling, implicit regression, and finite-grid evaluation constitute the methodological SIGL procedure instantiated by OGAD. Several architectural dimensions are fixed implementation choices for the thesis executions rather than intrinsic requirements of SIGL: the coordinate-prediction GCN uses hidden dimensions \(8,8,8\), while the SIREN graphon network uses hidden dimensions \(20,20\).
+The final representation is a SIREN-style multilayer perceptron with sinusoidal hidden activations \cite{sitzmann2020implicit} and a sigmoid output. The coordinate-prediction GCN instantiated in the thesis uses hidden dimensions \(8,8,8\), while the SIREN graphon model uses hidden dimensions \(20,20\).
 
-Once fitted, the implicit representation is evaluated numerically on a regular finite grid. If \(R\) denotes the requested resolution, the resulting numerical representation is
+Once fitted, the implicit function is evaluated on a regular midpoint grid. For
+
+\[
+r,s\in\{0,\ldots,R-1\},
+\]
+
+define
+
+\[
+u_r
+=
+\frac{r+\tfrac{1}{2}}{R},
+\qquad
+v_s
+=
+\frac{s+\tfrac{1}{2}}{R}.
+\]
+
+If \(f_{\theta^\star}\) denotes the fitted implicit representation, its finite evaluation is
+
+\[
+\widehat{W}^{(R)}_{rs}
+=
+f_{\theta^\star}(u_r,v_s),
+\]
+
+yielding
 
 \[
 \widehat{W}^{(R)}
@@ -159,14 +247,31 @@ Once fitted, the implicit representation is evaluated numerically on a regular f
 [0,1]^{R\times R}.
 \]
 
-The grid is evaluated at regularly spaced midpoint coordinates. Before being persisted for the next stage, it is symmetrized by averaging it with its transpose and its diagonal is set to zero. In the thesis executions, the graphon-grid resolution is fixed to \(R=128\). Like the GCN and INR dimensions above, this resolution is an instantiated implementation setting rather than a requirement of SIGL itself.
+Before persistence, the grid is symmetrized,
 
-The distinction between the learned implicit representation and this finite grid is important. SIGL parameterizes a function that can be evaluated at coordinates, whereas the subsequent D3PM stage requires a finite fixed-dimensional tensor. The \(128\times128\) grid is therefore the interface through which the estimated graphon becomes training data for the generative model.
+\[
+\widehat{W}^{(R)}
+\leftarrow
+\frac{
+\widehat{W}^{(R)}
++
+\widehat{W}^{(R)\top}
+}{2},
+\]
+
+and its diagonal is set to zero. In the thesis executions,
+
+\[
+R=128.
+\]
+
+The resulting \(128\times128\) matrix is the interface between the continuous implicit graphon estimate and the subsequent fixed-dimensional generative model.
+
 
 \section{Finite Graphon Representation and Discretization}
 \label{sec:method_graphon_discretization}
 
-The transition from SIGL to D3PM introduces the most important representational change in OGAD. As discussed in Section~\ref{subsec:numerical_graphon_representation}, a mathematical graphon and its finite numerical approximation are distinct objects. OGAD introduces a third object by quantizing the numerical grid:
+The transition from SIGL to D3PM introduces the central representational change of OGAD:
 
 \[
 W
@@ -176,43 +281,61 @@ W
 X.
 \]
 
-The estimated SIGL graphon is first evaluated on its \(R\times R\) grid. The resulting finite matrix is serialized as a grayscale image and subsequently loaded by the D3PM data pipeline as a normalized single-channel tensor. One D3PM data example therefore has shape
+The distinction between a mathematical graphon and a finite numerical graphon representation was introduced in Section~\ref{subsec:numerical_graphon_representation}. OGAD additionally maps the finite grid into a categorical state space.
+
+The estimated graphon grids are persisted as grayscale images and subsequently reloaded as normalized single-channel tensors. This serialization step does not alter their intended interpretation as finite edge-probability representations. Each D3PM input has shape
 
 \[
 [1,R,R],
 \]
 
-which becomes \([1,128,128]\) in the thesis implementation.
-
-The image representation is an implementation-level persistence mechanism rather than a change in the mathematical interpretation of the values. The relevant input to categorical quantization is the normalized tensor obtained after the stored graphon grid has been reloaded.
-
-Let \(W_{ij}\) denote one value of this loaded finite graphon tensor, with \(W_{ij}\in[0,1]\), and let \(K\) denote the number of categorical classes used by a D3PM candidate. OGAD applies the quantization rule
+which becomes
 
 \[
-Q_K(W_{ij})
+[1,128,128]
+\]
+
+in the thesis implementation.
+
+Let
+
+\[
+\widehat{W}^{(R)}_{ij}\in[0,1]
+\]
+
+denote one value of the reloaded finite graphon tensor, and let \(K\) be the number of categorical states used by a D3PM candidate. OGAD applies the element-wise quantization operator
+
+\[
+\mathcal{Q}_K
+\left(
+\widehat{W}^{(R)}_{ij}
+\right)
 =
 \operatorname{clamp}
 \left(
 \operatorname{round}
 \left(
-(K-1)W_{ij}
+(K-1)\widehat{W}^{(R)}_{ij}
 \right),
 0,
 K-1
 \right).
 \]
 
-The resulting class value satisfies
+The resulting categorical state is
 
 \[
 X_{ij}
 =
-Q_K(W_{ij})
+\mathcal{Q}_K
+\left(
+\widehat{W}^{(R)}_{ij}
+\right)
 \in
-\{0,\ldots,K-1\}.
+\{0,\ldots,K-1\},
 \]
 
-Applying this operation element-wise produces an integer-valued tensor
+and element-wise quantization produces
 
 \[
 X
@@ -220,14 +343,15 @@ X
 \{0,\ldots,K-1\}^{1\times R\times R}.
 \]
 
-Thus the graphon itself has not become a discrete mathematical object. Rather, a finite numerical evaluation of an estimated graphon has been encoded in a categorical state space so that it can be modeled by D3PM. This distinction is maintained throughout the remainder of the chapter.
+Thus the mathematical graphon itself has not become discrete. A finite numerical representation has instead been encoded in the categorical state space required by D3PM.
+
 
 \section{Discrete Diffusion over Graphon Representations}
 \label{sec:method_d3pm}
 
-OGAD models the categorical graphon tensors using the Discrete Denoising Diffusion Probabilistic Model framework introduced by Austin et al.\ \cite{austin2021structured}. The general principles of discrete diffusion were introduced in Section~\ref{sec:diffusion_discrete_generation}; here the focus is the particular state space and transition process implemented by OGAD.
+OGAD models the categorical graphon tensors using the D3PM framework introduced by Austin et al.~\cite{austin2021structured}. The general categorical diffusion formulation was reviewed in Section~\ref{subsec:rw_discrete_graph_diffusion}; the present section specifies the state space, transition process, denoising architecture, and objective instantiated in OGAD.
 
-For one graphon sample, the clean state is
+For one graphon sample,
 
 \[
 X_0
@@ -235,12 +359,31 @@ X_0
 \{0,\ldots,K-1\}^{1\times R\times R}.
 \]
 
-Each grid position is therefore a categorical variable with \(K\) possible values. OGAD configures the diffusion model with \(T=1000\) diffusion steps and uses a uniform categorical corruption process. The same transition matrix is applied independently at every spatial position of the graphon tensor.
+Each spatial position is therefore a categorical random variable with \(K\) possible states. The D3PM module is instantiated with
+
+\[
+T=1000.
+\]
+
+The transition schedule is precomputed for \(T=1000\), while the implemented training and reverse-sampling loops operate over
+
+\[
+t\in\{1,\ldots,T-1\}.
+\]
+
+OGAD uses a uniform categorical forward process shared across all grid locations.
+
 
 \subsection{Forward Process}
 \label{subsec:method_d3pm_forward}
 
-The corruption strength is determined by a cosine-derived schedule implemented by the D3PM component. For \(t=0,\ldots,T\), define
+The corruption strength follows the cosine-derived schedule implemented by the D3PM component. For
+
+\[
+t=0,\ldots,T,
+\]
+
+define
 
 \[
 s_t
@@ -260,7 +403,13 @@ a_t
 \right).
 \]
 
-For \(t\geq1\), the transition strength is
+For
+
+\[
+t=1,\ldots,T,
+\]
+
+the transition strength is
 
 \[
 \beta_t
@@ -272,9 +421,13 @@ For \(t\geq1\), the transition strength is
 \right).
 \]
 
-This expression states the schedule actually used in OGAD rather than replacing it with a generic diffusion schedule from the literature.
+Given \(K\) categories, the one-step transition matrix
 
-Given \(K\) categorical states, the one-step transition matrix \(Q_t\in[0,1]^{K\times K}\) is
+\[
+Q_t\in[0,1]^{K\times K}
+\]
+
+is
 
 \[
 Q_t(i,j)
@@ -290,9 +443,7 @@ i=j.
 \end{cases}
 \]
 
-Each row therefore sums to one. A categorical state retains most of its probability mass on its current class when \(\beta_t\) is small, while the remaining mass is spread uniformly across all classes. Repeated application gradually destroys information about the clean tensor and moves the state toward categorical uncertainty.
-
-The cumulative transition from the clean state to timestep \(t\) is represented by
+Each row therefore defines a categorical probability distribution. The cumulative transition matrix is
 
 \[
 \overline{Q}_t
@@ -300,14 +451,37 @@ The cumulative transition from the clean state to timestep \(t\) is represented 
 Q_1Q_2\cdots Q_t.
 \]
 
-During training, a timestep is sampled and a corrupted tensor \(X_t\) is drawn from the categorical distribution implied by \(\overline{Q}_t\) and the clean tensor \(X_0\). There is no graph-specific or spatially varying transition matrix: the same categorical corruption mechanism applies at every graphon-grid position.
+For a clean categorical value \(x_0\), the forward marginal at timestep \(t\) is obtained from the corresponding row of \(\overline{Q}_t\):
+
+\[
+q(x_t\mid x_0)
+=
+\operatorname{Cat}
+\left(
+x_t;
+\overline{Q}_t[x_0,:]
+\right).
+\]
+
+The same transition matrices are applied independently at every graphon-grid position.
+
+Although the complete schedule is defined up to \(T\), the implemented training procedure samples timesteps uniformly from
+
+\[
+t\in\{1,\ldots,T-1\}
+=
+\{1,\ldots,999\}.
+\]
+
+The corrupted categorical tensor \(X_t\) is then sampled from the forward marginal using the cumulative matrix \(\overline{Q}_t\).
+
 
 \subsection{Denoising Network}
 \label{subsec:method_d3pm_network}
 
-The clean-state prediction network used by OGAD is the \texttt{DiT\_Llama} architecture. Its role is to map the current categorical graphon state \(X_t\), together with the diffusion timestep, to categorical logits for the original clean state \(X_0\).
+The clean-state predictor used by OGAD is the \texttt{DiT\_Llama} architecture. Given the current categorical tensor \(X_t\) and timestep \(t\), the network predicts categorical logits for the clean state \(X_0\).
 
-For the thesis implementation, the principal architectural configuration uses one input channel, hidden dimension \(512\), patch size \(2\), five transformer blocks, and sixteen attention heads. An input tensor of size \(128\times128\) is first processed by a convolutional stem. The resulting feature map is divided into non-overlapping \(2\times2\) patches. Since
+The instantiated model uses one input channel, hidden dimension \(512\), patch size \(2\), five transformer blocks, and sixteen attention heads. For a \(128\times128\) input, the \(2\times2\) patch decomposition produces
 
 \[
 \frac{128}{2}
@@ -316,10 +490,10 @@ For the thesis implementation, the principal architectural configuration uses on
 =
 64\times64
 =
-4096,
+4096
 \]
 
-the spatial graphon grid becomes a sequence of \(4096\) tokens. After projection to the transformer hidden dimension, the principal representation flow is
+spatial tokens. After embedding, the principal representation flow is
 
 \[
 [B,1,128,128]
@@ -329,37 +503,47 @@ the spatial graphon grid becomes a sequence of \(4096\) tokens. After projection
 [B,1,128,128,K].
 \]
 
-The transformer stack uses timestep embeddings to condition the denoising computation on the current noise level. Rotary positional information is incorporated into self-attention, while adaptive normalization and modulation use the timestep representation within the transformer blocks. After the transformer layers, the token sequence is projected back to the spatial resolution and converted into one categorical-logit vector of length \(K\) at each graphon-grid position.
+The transformer uses timestep conditioning, rotary positional information, and adaptive normalization. The implementation also introduces a gated residual contribution based on a one-hot representation of the current noisy state \(X_t\).
 
-The implementation additionally contains a gated residual contribution derived from the current noisy categorical state. This residual biases the final clean-state logits using a one-hot representation of \(X_t\), while the transformer remains responsible for predicting the denoised categorical structure.
-
-Most importantly, the semantic prediction target is
+The semantic prediction target is therefore
 
 \[
-\widehat{p}_\theta(X_0\mid X_t,t).
+\widehat{p}_\theta
+\left(
+X_0
+\mid
+X_t,t
+\right).
 \]
 
-The network does not predict Gaussian noise, nor does it directly emit an independently parameterized \(X_{t-1}\). Its output consists of categorical logits for the clean graphon representation.
+The network does not predict Gaussian noise and does not directly parameterize \(X_{t-1}\); it predicts logits for the original clean categorical tensor.
+
 
 \subsection{Reverse Model and Training Objective}
 \label{subsec:method_d3pm_objective}
 
-D3PM combines the predicted clean-state probabilities with the analytical categorical posterior associated with the known forward process. Let
+Uppercase \(X_t\) denotes the complete categorical graphon tensor at timestep \(t\), whereas lowercase \(x_t\) denotes the categorical state at one individual grid position.
+
+The clean-state probabilities predicted by the network are converted into reverse-transition probabilities using the known categorical forward process.
+
+At one grid position, let
 
 \[
 \widehat{\pi}_\theta
 =
 \operatorname{softmax}
 \left(
-f_\theta(X_t,t)
+f_\theta(x_t,t)
 \right)
 \]
 
-denote the predicted class probabilities for \(X_0\) at one grid position. For timesteps above the final denoising step, the reverse distribution is obtained by combining these probabilities with \(Q_t\) and \(\overline{Q}_{t-1}\). Up to normalization, the implemented posterior construction can be written as
+denote the predicted probability vector for \(x_0\).
+
+For \(t>1\), define the unnormalized reverse-probability vector
 
 \[
-p_\theta(x_{t-1}\mid x_t)
-\propto
+r_\theta(\cdot\mid x_t)
+=
 Q_t^\top[x_t,:]
 \odot
 \left(
@@ -368,14 +552,34 @@ Q_t^\top[x_t,:]
 \right),
 \]
 
-where \(\odot\) denotes element-wise multiplication. At the final denoising step, the clean-state logits themselves define the prediction. The network therefore predicts \(X_0\), while the D3PM transition model analytically converts that prediction into the distribution required for reverse sampling.
+where \(Q_t^\top[x_t,:]\) denotes the row indexed by the observed category \(x_t\) in \(Q_t^\top\), equivalently the \(x_t\)-th column of \(Q_t\), and \(\odot\) denotes element-wise multiplication.
 
-Training uses the hybrid objective introduced by the D3PM formulation \cite{austin2021structured},
+The normalized reverse distribution is
+
+\[
+p_\theta
+\left(
+x_{t-1}=k
+\mid
+x_t
+\right)
+=
+\frac{
+r_{\theta,k}(\cdot\mid x_t)
+}{
+\sum_{\ell=0}^{K-1}
+r_{\theta,\ell}(\cdot\mid x_t)
+}.
+\]
+
+The implementation performs this computation in log space for numerical stability. For \(t=1\), the posterior construction is replaced by the predicted \(x_0\) logits themselves.
+
+Training uses
 
 \[
 \mathcal{L}
 =
-\mathcal{L}_{\mathrm{VB}}
+\mathcal{L}_{\mathrm{vb}}
 +
 \lambda
 \mathcal{L}_{\mathrm{CE}},
@@ -383,78 +587,125 @@ Training uses the hybrid objective introduced by the D3PM formulation \cite{aust
 
 where \(\lambda\) is the configured hybrid-loss coefficient.
 
-The first component, \(\mathcal{L}_{\mathrm{VB}}\), is the categorical variational term. It is computed from the Kullback--Leibler divergence between the true categorical posterior
+Let \(\ell\) index all categorical positions after flattening the batch and spatial dimensions, and let \(N\) denote their total number. The implemented variational component is the mean posterior KL divergence
 
 \[
-q(X_{t-1}\mid X_t,X_0)
+\mathcal{L}_{\mathrm{vb}}
+=
+\frac{1}{N}
+\sum_{\ell=1}^{N}
+D_{\mathrm{KL}}
+\left(
+q_\ell
+\left(
+x_{t-1}
+\mid
+x_t,x_0
+\right)
+\;\middle\Vert\;
+p_{\theta,\ell}
+\left(
+x_{t-1}
+\mid
+x_t
+\right)
+\right).
 \]
 
-and the model posterior
+The auxiliary clean-state term is the mean categorical cross-entropy,
 
 \[
-p_\theta(X_{t-1}\mid X_t).
+\mathcal{L}_{\mathrm{CE}}
+=
+-\frac{1}{N}
+\sum_{\ell=1}^{N}
+\log
+\widehat{\pi}_{\theta,\ell}
+\left(
+x_{0,\ell}
+\right).
 \]
 
-The second component, \(\mathcal{L}_{\mathrm{CE}}\), is a cross-entropy loss between the clean tensor \(X_0\) and the network's predicted clean-state logits. Consequently, the auxiliary term directly encourages accurate categorical reconstruction of the original quantized graphon grid.
+No additional timestep-dependent weighting is applied to these terms in the implementation.
 
-Optimization is performed with AdamW. The complete learning-rate grids, candidate-specific values of \(\lambda\), batch configuration, epoch limits, and dataset-specific selected hyperparameters are experimental settings and are therefore reported in the Experiments chapter rather than enumerated here.
+Optimization is performed with AdamW. Learning-rate grids, candidate-specific values of \(\lambda\), batch size, epoch limits, and selected dataset-specific hyperparameters are reported with the experimental configuration.
+
 
 \section{D3PM Training and Candidate Selection}
 \label{sec:method_d3pm_selection}
 
-The D3PM stage distinguishes between selecting a checkpoint within one candidate configuration and selecting a generator across multiple candidate configurations.
+OGAD distinguishes between checkpoint selection within one D3PM candidate and generator selection across candidate configurations.
 
-For each candidate hyperparameter configuration, the SIGL-derived graphon dataset is divided into the D3PM training and validation subsets introduced in Section~\ref{sec:method_input_partitioning}. Training proceeds while the validation objective is monitored. Early stopping is applied, and the checkpoint achieving the best validation loss for that candidate is retained.
-
-The validation set involved here is
+For each candidate, training uses
 
 \[
-\mathcal{W}_{\mathrm{D3PM-val}},
+\mathcal{W}_{\mathrm{D3PM-train}},
 \]
 
-not the held-out graph set \(\mathcal{G}_{\mathrm{GGME-val}}\). Thus checkpoint selection at this stage evaluates reconstruction and denoising behavior in the categorical graphon representation.
-
-After training, each candidate checkpoint is used to generate a batch of sixteen graphon-like tensors. These outputs provide a graph-domain basis for an optional second selection mechanism. When GGME-based graph selection is enabled, the candidate tensors are converted into finite graph samples and compared against
+while the objective on
 
 \[
-\mathcal{G}_{\mathrm{GGME-val}},
+\mathcal{W}_{\mathrm{D3PM-val}}
 \]
 
-the held-out subset of the original training graphs.
+is monitored for early stopping. The checkpoint achieving the best validation loss is retained for that candidate.
 
-Candidate selection therefore operates as follows. First, every candidate retains the epoch with the best D3PM validation loss. Second, its retained checkpoint generates graphon-like tensors. Third, these tensors are converted to finite graphs using the sampling procedure described in Section~\ref{sec:method_graph_sampling}. Fourth, GGME evaluates the resulting graph distribution against the held-out training-derived validation graphs. Finally, candidates are ranked according to the configured GGME selection criterion, and the selected candidate becomes the final OGAD generator for that run.
+Each retained checkpoint is subsequently used to generate sixteen graphon-like tensors. When GGME-based candidate selection is enabled, these tensors are converted into finite graphs according to Section~\ref{sec:method_graph_sampling} and compared with
 
-This graph-level selection can choose a candidate different from the candidate with the globally lowest D3PM validation loss because the two criteria evaluate different objects. D3PM validation measures the diffusion objective on held-out graphon representations, whereas GGME candidate validation measures the structural distribution of finite graphs produced by the resulting generator.
+\[
+\mathcal{G}_{\mathrm{GGME-val}}.
+\]
 
-The final test graph set does not participate in either of these selection operations. It is not used for D3PM early stopping, candidate checkpoint selection, or GGME-based generator selection.
+Candidate selection therefore follows two levels:
+
+\[
+\text{best checkpoint within candidate}
+\longrightarrow
+\text{best generator across candidates}.
+\]
+
+The first level evaluates the diffusion objective on held-out graphon representations. The second evaluates the structural distribution of finite graphs generated by each candidate. Consequently, the generator selected through GGME need not coincide with the candidate having the lowest validation loss across the complete D3PM hyperparameter search.
+
+The final test/reference graphs do not participate in either operation.
+
 
 \section{Sampling Graphon-Like Representations}
 \label{sec:method_d3pm_sampling}
 
-Once a D3PM candidate has been trained, new categorical graphon tensors are generated by running the learned reverse diffusion process. Generation begins from independent uniform categorical noise. For each grid location,
+Candidate graphon generation is initialized from independent uniform categorical noise. At every grid position,
 
 \[
-X_T(i,j)
+X_{\mathrm{init}}(i,j)
 \sim
 \operatorname{Uniform}
 \{0,\ldots,K-1\}.
 \]
 
-The implementation initializes a batch of sixteen tensors in this way. The reverse process then repeatedly predicts clean-state logits and combines them with the analytical D3PM posterior described in Section~\ref{subsec:method_d3pm_objective}.
-
-At intermediate reverse steps, the next categorical state is sampled stochastically from the predicted categorical posterior. At the final reverse step, the implementation introduces no additional categorical sampling noise, so the update reduces to an argmax choice over the final logits. No sampling temperature is applied.
-
-The final output of the reverse process is an integer-valued categorical tensor. To recover a probability-like numerical representation, each generated class \(k\) is dequantized according to
+With \(T=1000\), the reverse loop runs through
 
 \[
-D_K(k)
+t=T-1,T-2,\ldots,1
+\]
+
+or equivalently
+
+\[
+t=999,998,\ldots,1.
+\]
+
+The implementation initializes a batch of sixteen tensors in this way. At every intermediate step, the network predicts clean-state logits, these are converted into posterior logits for \(x_{t-1}\), and the next categorical state is sampled through categorical Gumbel-max sampling. At \(t=1\), no additional Gumbel noise is introduced, so the update becomes an argmax over the final logits. No temperature parameter is used.
+
+The final categorical states are mapped back to numerical values through the dequantization operator
+
+\[
+\mathcal{D}_K(k)
 =
 \frac{k}{K-1},
 \qquad
 k\in\{0,\ldots,K-1\}.
 \]
 
-Before symmetry enforcement, this mapping places every categorical value on the finite numerical set
+Before symmetry enforcement, the possible numerical values therefore belong to
 
 \[
 \left\{
@@ -477,22 +728,21 @@ Each generated matrix is then symmetrized,
 }{2},
 \]
 
-clipped to the interval \([0,1]\), and assigned a zero diagonal. Symmetrization may create probabilities that do not belong to the original dequantization levels. For example, averaging two different quantized values can produce an intermediate probability. The final representation is therefore appropriately described as a generated graphon-like probability grid rather than merely as a categorical image converted back by an exact inverse quantizer.
+clipped to \([0,1]\), and assigned a zero diagonal.
 
-The output of this stage is a collection
+Symmetrization can produce probabilities that do not belong to the original dequantization set. Consequently, the final object is more accurately described as a generated graphon-like probability grid:
 
 \[
 \widetilde{W}_j
 \in
-[0,1]^{R\times R}
+[0,1]^{R\times R}.
 \]
 
-of finite symmetric probability-like grids with zero diagonal.
 
 \section{From Generated Graphons to Finite Graphs}
 \label{sec:method_graph_sampling}
 
-The generated graphon-like matrices must ultimately be converted into finite graphs before structural evaluation can be performed. OGAD uses probabilistic graph sampling for this purpose. It does not threshold the graphon matrix and does not treat the matrix itself as a generated adjacency matrix.
+The graphon sampling principle was introduced in Section~\ref{subsec:graphon_sampling}. OGAD applies its finite-grid counterpart to generated probability matrices rather than interpreting those matrices directly as adjacency matrices.
 
 Let
 
@@ -502,19 +752,29 @@ Let
 [0,1]^{R\times R}
 \]
 
-denote one sanitized generated graphon-like grid. The number of graph nodes, \(M\), is sampled from the empirical node-count distribution of the reference split used at the corresponding evaluation stage. During GGME candidate selection, this empirical distribution is obtained from the held-out training-derived validation graphs. During final evaluation, it is obtained from the final test/reference graphs. The implementation ensures that the selected graph size does not exceed the graphon-grid resolution.
+be one sanitized generated grid. The number of graph nodes \(M\) is sampled from the empirical node-count distribution of the reference split used at the current stage. During GGME candidate selection this distribution is obtained from
 
-Graph generation is therefore conditioned on the empirical node-count distribution of the current reference split. The node-count distribution is not independently generated by the graphon diffusion model; D3PM generates the categorical graphon representation, while the subsequent graph-conversion procedure obtains \(M\) from the relevant empirical reference distribution.
+\[
+\mathcal{G}_{\mathrm{GGME-val}},
+\]
 
-For every generated node \(i\), OGAD independently samples
+while during final evaluation it is obtained from the final test/reference set. If a sampled node count exceeds \(R\), the implementation resamples until
+
+\[
+M\leq R.
+\]
+
+Thus, graph size is conditioned on the empirical reference distribution and is not independently generated by D3PM.
+
+For each generated node \(i\),
 
 \[
 U_i
 \sim
-\mathcal{U}(0,1)
+\mathcal{U}(0,1),
 \]
 
-and converts this value into a discrete graphon-grid index
+and its latent value is mapped to the finite graphon-grid index
 
 \[
 z_i
@@ -526,69 +786,68 @@ R-1,
 \right).
 \]
 
-The indices \(z_i\) are sampled independently. Consequently, two or more generated nodes may select the same graphon-grid index. This is permitted by the method and does not trigger resampling.
+The indices \(z_i\) are sampled independently with replacement.
 
-The edge probability between two generated nodes \(i\) and \(j\) is obtained directly from the corresponding graphon-grid entry,
+For every unordered pair \(i<j\),
 
 \[
 P_{ij}
 =
-\widetilde{W}_{z_i,z_j}.
+\widetilde{W}_{z_i,z_j},
 \]
 
-For every unordered pair \(i<j\), an edge is then sampled as
+and the edge is sampled as
 
 \[
 A_{ij}
 \sim
 \operatorname{Bernoulli}
 \left(
-\widetilde{W}_{z_i,z_j}
+P_{ij}
 \right).
 \]
 
-The final adjacency matrix is made undirected by setting
+The binary adjacency matrix is completed by
 
 \[
 A_{ji}=A_{ij},
-\]
-
-and self-loops are excluded through
-
-\[
+\qquad
 A_{ii}=0.
 \]
 
-This graph-sampling rule is the finite-grid counterpart of the graphon sampling principle introduced in Section~\ref{subsec:graphon_sampling}. The difference is that the learned object available to OGAD is a finite grid rather than an analytically evaluable graphon. Continuous latent samples are therefore mapped to discrete grid cells before probability lookup.
+No interpolation or thresholding of the generated grid is performed, and no connectivity-enforcing post-processing is applied. Disconnected graphs and isolated nodes are therefore retained if they arise from the Bernoulli sampling procedure.
 
-Several implementation details clarify what this conversion does not do. OGAD does not resize or interpolate the generated grid to \(M\times M\). It does not select the top-left \(M\times M\) submatrix. It does not sample grid rows and columns without replacement. It does not threshold graphon values to determine whether an edge exists. Instead, grid indices are independently sampled and their associated probabilities parameterize Bernoulli edge draws.
+For a requested collection of \(N_G\) finite graphs, let
 
-No structural connectivity constraint is imposed after sampling. In particular, the largest connected component is not extracted, isolated nodes are not removed, disconnected graphs are not rejected, and graph generation is not repeated until a connected sample is obtained. The output distribution consequently reflects the edge probabilities of the generated graphon-like representation without an additional connectivity post-processing stage.
+\[
+s\in\{0,\ldots,N_G-1\}
+\]
 
-The D3PM stage produces sixteen graphon-like tensors for a candidate. When more finite graphs are required, these tensors are reused cyclically: graph sample \(s\) uses graphon tensor
+denote the zero-based graph-sample index. Since each selected D3PM candidate provides sixteen graphon-like tensors, sample \(s\) uses tensor index
 
 \[
 s\bmod 16.
 \]
 
-In the thesis evaluation configuration, OGAD produces \(100\) finite graphs for evaluation in this manner. The value \(100\) is an experimental evaluation setting rather than an intrinsic property of the proposed graph-sampling method.
+The tensors are therefore reused cyclically when \(N_G>16\).
+
 
 \section{Evaluation and Model-Selection Integration}
 \label{sec:method_ggme}
 
-OGAD evaluates graph distributions through the GGME methodology associated with O'Bray et al.\ \cite{obray2022evaluation}. The conceptual motivation for distributional graph evaluation, the relevant structural descriptors, and Maximum Mean Discrepancy were introduced in Section~\ref{sec:evaluation_graph_generative_models}. They are not rederived here. Instead, this section specifies how the evaluation procedure is instantiated inside OGAD.
+The motivation for distributional graph evaluation and the structural descriptors used throughout the thesis were introduced in Section~\ref{subsec:structural_fidelity} and Section~\ref{sec:basic_graph_theory}. MMD-based evaluation and its limitations were reviewed in Section~\ref{subsec:rw_structural_evaluation}. This section specifies how the evaluation pipeline is instantiated in OGAD.
 
-Given a finite graph, GGME computes structural descriptor representations. OGAD uses three descriptor families:
+OGAD uses three descriptor families:
 
 \begin{enumerate}
-    \item the node-degree distribution;
-    \item the distribution of local clustering coefficients;
-    \item the normalized-Laplacian spectral distribution.
+    \item node-degree distributions;
+    \item local clustering-coefficient distributions;
+    \item normalized-Laplacian spectral distributions.
 \end{enumerate}
 
-The clustering-coefficient descriptor is represented by a histogram with \(200\) bins over the interval \([0,1]\), while the normalized-Laplacian spectrum is represented by a histogram with \(200\) bins over \([0,2]\). The degree descriptor uses the graph's degree histogram and can therefore have variable length depending on the degree support of the graph. In the executed evaluation path, descriptor histograms are density-normalized. Descriptor vectors whose lengths vary across graphs, most notably degree histograms, are padded to a common length before kernel evaluation and MMD computation.
+The clustering-coefficient descriptor is represented by a histogram with \(200\) bins over \([0,1]\), while the normalized-Laplacian spectrum uses \(200\) bins over \([0,2]\). Degree histograms retain data-dependent support and may therefore vary in length across graphs. Descriptor histograms are density-normalized, and variable-length descriptor arrays are padded to a common length before kernel evaluation.
 
-For a given descriptor, GGME compares generated and reference graph sets using Maximum Mean Discrepancy. Kernel selection considers both Gaussian and linear kernels. For Gaussian kernels, the candidate bandwidths are
+For each descriptor, generated and reference graph sets are compared through exact quadratic MMD. Kernel selection considers linear and Gaussian kernels. For the Gaussian kernel, the candidate bandwidths are
 
 \[
 \sigma
@@ -596,7 +855,7 @@ For a given descriptor, GGME compares generated and reference graph sets using M
 \{0.1,1,10\}.
 \]
 
-The implementation uses GGME's perturbation-based calibration procedure to assess the sensitivity of candidate kernels to controlled structural changes. Reference graphs are perturbed using the \texttt{AddEdges} transformation at perturbation strengths
+Kernel calibration uses controlled structural perturbations of the reference graphs. The \texttt{AddEdges} transformation is applied at perturbation levels
 
 \[
 \rho
@@ -604,15 +863,19 @@ The implementation uses GGME's perturbation-based calibration procedure to asses
 \{0.15,0.20,0.25,\ldots,0.95\},
 \]
 
-with random seed \(42\). For each candidate kernel configuration, discrepancies are computed over the perturbation sequence, and Pearson correlation between perturbation strength and the resulting discrepancy is used by the calibration procedure to select an appropriate kernel configuration for the descriptor. Once the kernel configuration has been determined, OGAD computes the exact MMD rather than a linear-time approximation.
+with random seed \(42\). For each candidate kernel configuration, the discrepancy is evaluated across the perturbation sequence, and Pearson correlation between perturbation strength and discrepancy is used by the calibration procedure to select the kernel configuration. The resulting graph-set comparison uses exact MMD rather than a linear-time approximation.
 
-GGME enters the OGAD pipeline in two logically distinct places.
+GGME enters the pipeline at two distinct stages.
 
-First, \textbf{GGME validation} is used for D3PM candidate selection when graph selection is enabled. Each trained D3PM candidate is used to generate graphon-like tensors and, from them, finite graphs. Those generated graphs are compared against \(\mathcal{G}_{\mathrm{GGME-val}}\), which originates exclusively from the original training data. The resulting GGME measurements provide the structural information required by the configured candidate-selection rule.
+During candidate selection, graphs generated by each retained D3PM candidate are compared with
 
-Second, \textbf{final GGME evaluation} is performed only after a final candidate has been selected. The final generator produces its evaluation graph set, and the descriptor distributions of those graphs are compared against the separate final test/reference graph set.
+\[
+\mathcal{G}_{\mathrm{GGME-val}}.
+\]
 
-The distinction is methodologically important:
+The resulting structural discrepancies are used by the configured candidate-selection rule.
+
+After a final D3PM candidate has been selected, the final generated graph set is compared against the separate test/reference graph set. Thus,
 
 \[
 \text{training-derived GGME validation}
@@ -620,74 +883,14 @@ The distinction is methodologically important:
 \text{final test evaluation}.
 \]
 
-The former participates in model selection; the latter does not. Consequently, final test MMD values do not determine which D3PM candidate is retained.
+Only the former participates in model selection. Final test MMD values are evaluation outputs and do not determine which D3PM candidate is retained.
+
 
 \section{Baseline Integration}
 \label{sec:method_baselines}
 
-The experimental pipeline evaluates OGAD alongside both a direct diffusion-based graph generator and classical probabilistic graph models. Their theoretical properties were introduced in Chapter~\ref{chap:background} and compared with other graph-generation approaches in Chapter~\ref{chap:related_works}; the purpose of the present section is therefore only to describe their integration into the common evaluation procedure.
+OGAD is evaluated alongside DiGress and four classical probabilistic baselines: Erd\H{o}s--R\'enyi, the Configuration Model, the Stochastic Block Model, and the Degree-Corrected Stochastic Block Model. The classical models were reviewed in Section~\ref{sec:probabilistic_graph_models}, while DiGress was discussed in Section~\ref{subsec:rw_direct_graph_diffusion}.
 
-The neural baseline is DiGress, a discrete denoising diffusion model that operates directly on categorical graph structure \cite{vignac2023digress}. Unlike OGAD, which performs diffusion over a finite graphon-derived representation and subsequently samples finite graphs, DiGress generates in the graph domain. Its generated graph samples are nevertheless converted into the same evaluation interface used by OGAD and are processed by the same GGME descriptor and MMD pipeline.
+All baseline models are fitted or trained using training data only. Their generated graph sets are passed to the same GGME descriptor and MMD pipeline used for OGAD, ensuring a common evaluation procedure across methods.
 
-The classical comparison set consists of Erd\H{o}s--R\'enyi, the Configuration Model, the Stochastic Block Model, and the Degree-Corrected Stochastic Block Model. Their definitions were given in Section~\ref{sec:probabilistic_graph_models}. Within the OGAD experimental pipeline, each baseline is fitted using information derived from the training graphs.
-
-The Erd\H{o}s--R\'enyi baseline estimates a global edge probability from the training data. The Configuration Model derives degree information from the observed training graphs and uses sampled degree sequences to construct new simple graphs. The SBM estimates community-dependent block structure and corresponding block connection probabilities. The degree-corrected SBM augments such block structure with heterogeneous degree information so that nodes within the same community need not have equal expected connectivity.
-
-Where possible, DiGress and classical baseline samples are generated once for a dataset and reused across OGAD candidate runs. This avoids regenerating an identical comparison distribution whenever only an OGAD-specific hyperparameter configuration changes. Regardless of when the baseline graph sets are generated, final comparison is performed through the same GGME evaluation pipeline applied to OGAD samples. The experimental chapter reports the exact baseline configurations and the resulting numerical comparisons.
-
-\section{Method Summary}
-\label{sec:method_summary}
-
-OGAD begins and ends in the finite graph domain, while using graphon-derived representations as an intermediate generative space. The complete procedure can be summarized in eight stages:
-
-\begin{enumerate}
-    \item When graph-level validation is enabled, partition the original training graphs into model-training graphs and held-out GGME-validation graphs, keeping the final test set separate.
-
-    \item Cluster the model-training graphs when configured, construct bootstrap graph collections within non-empty clusters, and estimate graphons with SIGL. Each implicit estimate is evaluated on a finite grid before entering the generative stage.
-
-    \item Reload the finite graphon grids as single-channel numerical tensors and quantize their values according to
-    \[
-    Q_K(w)
-    =
-    \operatorname{clamp}
-    \left(
-    \operatorname{round}((K-1)w),
-    0,
-    K-1
-    \right),
-    \]
-    obtaining categorical graphon tensors.
-
-    \item Split the resulting graphon dataset into D3PM training and validation subsets, train each candidate generator, and retain its best validation-loss checkpoint.
-
-    \item When GGME-based candidate selection is enabled, generate graphon-like representations from each retained candidate, convert them to finite graphs, and select the final candidate using the held-out training-derived validation graphs.
-
-    \item Generate categorical graphon tensors from uniform categorical noise and dequantize the final states according to
-    \[
-    D_K(k)
-    =
-    \frac{k}{K-1},
-    \]
-    followed by symmetry enforcement, clipping, and diagonal removal.
-
-    \item Condition graph size on the empirical node-count distribution of the relevant reference split, sample latent graphon-grid indices independently, and generate finite undirected graphs through Bernoulli edge sampling from the resulting graphon probabilities.
-
-    \item Evaluate the final graph distribution with GGME and compare it with DiGress and the classical baseline graph distributions through the same descriptor-based evaluation pipeline.
-\end{enumerate}
-
-The overall representation sequence is therefore
-
-\[
-\text{finite graphs}
-\longrightarrow
-\text{estimated graphons}
-\longrightarrow
-\text{finite graphon grids}
-\longrightarrow
-\text{categorical graphon tensors}
-\longrightarrow
-\text{generated probability grids}
-\longrightarrow
-\text{finite graphs}.
-\]
-
+Where possible, DiGress and classical baseline samples are generated once for a dataset and reused across OGAD candidate runs. This avoids recomputing an unchanged comparison distribution when only OGAD-specific hyperparameters vary. Dataset-specific baseline configurations and numerical results are reported in the Experiments chapter.

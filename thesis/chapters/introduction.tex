@@ -1,3 +1,213 @@
 \chapter{Introduction}
+\label{chap:introduction}
 
-Write the thesis introduction here.
+Graphs provide a natural representation for systems whose behavior depends on relations between interacting entities. In many applications, however, the objective is not limited to analyzing an observed graph: it is also useful to generate new graphs whose structural properties are consistent with those of an underlying data distribution.
+
+Graph generation can therefore be formulated as a distribution-learning problem. Given a collection of observed graphs, a generative model should produce new samples that reproduce relevant structural characteristics of the data without simply reconstructing individual observations. This task differs substantially from generation in regular Euclidean domains. Graphs are discrete combinatorial objects, their node ordering is generally arbitrary, and the same abstract graph can be represented by multiple adjacency matrices related by node permutations. Moreover, graph distributions may differ simultaneously in degree heterogeneity, local clustering, community organization, and global spectral structure.
+
+Modern graph generative models address these difficulties through different representations and learning paradigms. Diffusion models have become an important generative framework by replacing direct sampling with the learned reversal of a progressive corruption process \cite{ho2020denoising}. Discrete Denoising Diffusion Probabilistic Models (D3PMs) extend this principle to categorical state spaces \cite{austin2021structured}, while graph-specific approaches such as DiGress apply discrete diffusion directly to node and edge variables \cite{vignac2023digress}.
+
+This thesis investigates a different representation for diffusion-based graph generation. Rather than learning exclusively in the space of binary graph structures, the proposed OGAD pipeline introduces a graphon-derived intermediate representation between observed graphs and the diffusion model. Graphons are symmetric probability-valued functions that arise as limit objects for dense graph sequences and can encode graph-generating structure independently of a particular finite adjacency realization \cite{lovasz2006limits}. They therefore provide a natural connection between discrete graphs and continuous probability representations.
+
+The central question investigated in this thesis is whether such an intermediate representation can provide a useful domain in which to learn a generative distribution and subsequently recover finite graphs whose structural properties resemble those of the original data.
+
+
+\section{Motivation}
+\label{sec:intro_motivation}
+
+A graph generator is expected to reproduce more than a single aggregate property of the training data. Matching graph density, for example, does not guarantee that generated graphs exhibit similar degree distributions, clustering behavior, community organization, or spectral structure. Successful graph generation therefore requires both an appropriate generative representation and an evaluation procedure capable of comparing graph distributions through complementary structural properties.
+
+Direct generation in the graph domain is a natural approach, but it exposes the generative model to the combinatorial and permutation-related difficulties of graph representations. In particular, when node identities have no intrinsic meaning, a single unlabeled graph can correspond to many adjacency matrices obtained through simultaneous row and column permutations. The learning problem must therefore account for a representation whose numerical form depends on an arbitrary ordering of the nodes.
+
+Graphons provide an alternative perspective. A graphon
+
+\[
+W:[0,1]^2\rightarrow[0,1]
+\]
+
+describes edge probabilities between latent positions and can be used to generate finite graphs by sampling latent node coordinates and subsequently sampling edges according to the corresponding probabilities. In this sense, a graphon separates a probability-valued representation of connectivity from one particular binary graph realization.
+
+Using graphons as intermediate representations nevertheless introduces an additional challenge: the graphon is not directly observed and must be estimated from finite graphs whose node ordering is arbitrary. Scalable Implicit Graphon Learning (SIGL) addresses this problem by combining graph neural networks with implicit neural representations to estimate continuous graphon representations from observed graphs \cite{azizpour2025scalable}.
+
+A learned implicit representation can then be evaluated on a finite grid, producing a fixed-dimensional probability-valued matrix. This observation motivates the central design choice investigated in this thesis: rather than applying diffusion directly to graph adjacency variables, OGAD applies discrete diffusion to quantized finite representations derived from estimated graphons.
+
+Generation is consequently decomposed into two stochastic stages. A discrete diffusion model first generates graphon-like probability representations; finite graphs are then sampled from those representations.
+
+This design does not assume that graphon-mediated generation is universally preferable to direct graph generation. Instead, it introduces an alternative representation whose empirical behavior can be evaluated across different graph families and structural properties. A central objective of the thesis is therefore to determine which structural properties are preserved effectively by this representation and in which settings direct or explicitly structured graph generators remain more effective.
+
+
+\section{Problem Statement}
+\label{sec:intro_problem}
+
+Let
+
+\[
+\mathcal{G}_{\mathrm{train}}
+=
+\{G_1,\ldots,G_N\}
+\]
+
+denote a collection of training graphs sampled from an unknown graph distribution \(P_{\mathrm{data}}\). The graph-generation problem considered in this thesis is to learn a generative mechanism producing graphs
+
+\[
+\widetilde{G}\sim P_{\theta}
+\]
+
+such that the generated distribution \(P_{\theta}\) reproduces relevant structural characteristics of \(P_{\mathrm{data}}\).
+
+The objective is therefore not to reconstruct a particular training graph. Two independently sampled graphs from the same distribution may differ substantially at the level of individual edges while exhibiting similar higher-level structural behavior. Evaluation must consequently be performed at distribution level.
+
+OGAD approaches this problem through an intermediate graphon-derived representation. Instead of learning exclusively in the graph domain, the pipeline first maps observed finite graphs to estimated graphon representations, learns a generative distribution over finite categorical representations derived from those estimates, and finally maps generated representations back to finite graphs.
+
+At a conceptual level, the process is
+
+\[
+\begin{aligned}
+\text{observed graphs}
+&\longrightarrow \text{estimated graphons} \\
+&\longrightarrow \text{finite graphon representations} \\
+&\longrightarrow \text{categorical representations} \\
+&\longrightarrow \text{generated graphon representations} \\
+&\longrightarrow \text{generated finite graphs}.
+\end{aligned}
+\]
+
+The main methodological question addressed by the thesis can therefore be stated as follows:
+
+\begin{quote}
+Can discrete diffusion over graphon-derived representations generate finite graph distributions that preserve relevant structural properties of the observed graphs?
+\end{quote}
+
+An important distinction is that the diffusion model does not operate directly on mathematical graphon functions. Estimated graphons are evaluated on finite grids and subsequently quantized into categorical tensors before being provided to the diffusion model. The distinction between a mathematical graphon, its finite numerical representation, and its categorical diffusion representation is formalized in Chapter~\ref{chap:method}.
+
+
+\section{Proposed Approach}
+\label{sec:intro_approach}
+
+The proposed OGAD pipeline combines graphon estimation, discrete diffusion, graph sampling, and distributional evaluation within a single generative workflow.
+
+The first stage operates on the observed training graphs. SIGL is used to estimate graphon representations from these observations \cite{azizpour2025scalable}. The resulting implicit functions are evaluated on fixed-resolution grids, producing finite probability-valued matrices.
+
+These matrices are subsequently quantized into categorical tensors. This transformation makes it possible to formulate generation over graphon-derived representations as a discrete-state generative problem. A D3PM \cite{austin2021structured} is then trained to reverse a categorical corruption process and generate new graphon-like tensors.
+
+After generation, the categorical outputs are converted back into probability-valued matrices. Finite undirected graphs are then sampled from these matrices through Bernoulli edge draws. The generated graphon representation is therefore not interpreted as an adjacency matrix and is not deterministically thresholded into a graph. Instead, it parameterizes edge probabilities from which a finite graph realization is sampled.
+
+The complete conceptual workflow is
+
+\[
+\begin{array}{c}
+\text{training graphs}
+\\[0.15cm]
+\downarrow
+\\[0.15cm]
+\text{graphon estimation}
+\\[0.15cm]
+\downarrow
+\\[0.15cm]
+\text{finite graphon grids}
+\\[0.15cm]
+\downarrow
+\\[0.15cm]
+\text{categorical graphon tensors}
+\\[0.15cm]
+\downarrow
+\\[0.15cm]
+\text{discrete diffusion}
+\\[0.15cm]
+\downarrow
+\\[0.15cm]
+\text{generated probability grids}
+\\[0.15cm]
+\downarrow
+\\[0.15cm]
+\text{generated finite graphs}.
+\end{array}
+\]
+
+The resulting graph distributions are evaluated through three complementary structural descriptors: degree distribution, clustering-coefficient distribution, and normalized-Laplacian spectrum. Generated and reference descriptor distributions are compared using Maximum Mean Discrepancy (MMD), a kernel-based discrepancy between distributions \cite{gretton2012kernel}.
+
+OGAD is compared with DiGress, which provides a particularly relevant learned baseline because it also employs discrete diffusion while operating directly in the graph domain \cite{vignac2023digress}. The experimental evaluation additionally includes Erd\H{o}s--R\'enyi, Configuration Model, Stochastic Block Model, and Degree-Corrected Stochastic Block Model generators. This makes it possible to compare the graphon-mediated approach both with direct graph diffusion and with classical probabilistic generators characterized by explicit structural assumptions.
+
+
+\section{Objectives and Contributions}
+\label{sec:intro_contributions}
+
+The objective of this thesis is not to establish a universally superior graph generator, but to investigate graphon-mediated discrete diffusion as an alternative representation for graph generation and to characterize its empirical behavior.
+
+The main contributions of the work are the following:
+
+\begin{enumerate}
+
+    \item \textbf{An end-to-end graphon-mediated generative pipeline.}
+    The thesis instantiates a complete workflow that transforms finite training graphs into estimated graphon representations, learns a distribution over quantized finite representations through discrete diffusion, and converts generated probability grids back into finite graphs.
+
+    \item \textbf{Integration of graphon estimation and discrete-state diffusion.}
+    SIGL-based graphon estimation and D3PM generation are connected through an explicit finite representation and quantization stage. The pipeline therefore maintains a clear distinction between continuous estimated graphons, finite probability grids, and categorical diffusion states.
+
+    \item \textbf{Graph-domain validation and distributional evaluation.}
+    Candidate diffusion configurations are assessed after conversion back to finite graphs, so that generator selection can incorporate structural discrepancies measured in the domain in which the final model is evaluated. The final test set remains separate from both model training and candidate selection.
+
+    \item \textbf{A controlled comparison across heterogeneous graph families.}
+    OGAD is evaluated on Erd\H{o}s--R\'enyi, Stochastic Block Model, Barab\'asi--Albert, Watts--Strogatz, and expected-degree graph distributions. These datasets expose the method to homogeneous connectivity, block structure, degree heterogeneity, preferential attachment, and small-world organization.
+
+    \item \textbf{Descriptor-level empirical analysis.}
+    Rather than relying exclusively on a single aggregate score, the experiments analyze degree, clustering, and normalized-Laplacian spectral behavior separately and complement raw MMD values with rank-based summaries across datasets and descriptors.
+
+\end{enumerate}
+
+
+\section{Research Questions}
+\label{sec:intro_research_questions}
+
+The experimental study is organized around three research questions.
+
+\begin{enumerate}
+
+    \item[\textbf{RQ1.}]
+    \textbf{Can generation through an intermediate graphon representation recover graph distributions characterized by different structural mechanisms?}
+
+    This question examines the behavior of the graphon-mediated pipeline across graph families with substantially different forms of organization.
+
+    \item[\textbf{RQ2.}]
+    \textbf{How does graphon-mediated discrete diffusion compare with direct graph diffusion and classical probabilistic generators under a common evaluation procedure?}
+
+    The comparison with DiGress is particularly informative because both approaches employ discrete diffusion while operating on different representations: direct graph structure in DiGress and categorical graphon-derived representations in OGAD.
+
+    \item[\textbf{RQ3.}]
+    \textbf{Is relative generative performance consistent across structural descriptors and graph families?}
+
+    Degree distributions, clustering coefficients, and normalized-Laplacian spectra capture different aspects of graph organization. This question therefore investigates whether the observed behavior is consistent across structural properties or depends on the descriptor and graph family considered.
+
+\end{enumerate}
+
+
+\section{Summary of Experimental Findings}
+\label{sec:intro_findings}
+
+The experimental results show that generative performance depends strongly on both the target graph family and the structural property being evaluated. No single method exhibits a uniform advantage across all datasets and descriptors.
+
+The clearest empirical strength of OGAD concerns clustering-coefficient distributions. It achieves the lowest clustering MMD on the SBM and expected-degree datasets and ranks second on Watts--Strogatz, resulting in a mean clustering rank of \(2.20\) across the five evaluated graph families.
+
+Its behavior is weaker for the other two descriptors. OGAD obtains a mean degree-distribution rank of \(4.60\) and a mean normalized-Laplacian rank of \(4.00\). The Configuration Model is particularly effective for degree preservation, while DiGress is the most consistent learned comparator across the complete suite and obtains the strongest average normalized-Laplacian rank.
+
+At dataset level, the most favorable settings for OGAD are expected-degree graphs and SBM, with mean ranks across descriptors of \(2.67\) and \(3.00\), respectively. Barab\'asi--Albert graphs are substantially more difficult for the proposed approach, while the correctly specified Erd\H{o}s--R\'enyi baseline remains especially competitive on Erd\H{o}s--R\'enyi data.
+
+Overall, these results indicate that graphon-mediated generation exhibits a distinct performance profile rather than a uniform improvement over alternative generators. In the experiments considered here, its most consistent positive behavior concerns clustering-related structure, whereas degree information and global spectral organization are in several settings reproduced more effectively by direct graph diffusion or specialized probabilistic models.
+
+These conclusions must be interpreted within the scope of the experimental study. The evaluation is conducted on synthetic graph families with \(100\) nodes, and the three structural descriptors provide complementary but necessarily incomplete views of graph-distribution similarity. The experimental conclusions therefore characterize the behavior observed under the controlled setting considered in this thesis rather than establishing general performance on larger or real-world graph distributions.
+
+
+\section{Thesis Organization}
+\label{sec:intro_organization}
+
+The remainder of the thesis is organized as follows.
+
+Chapter~\ref{chap:background} introduces the theoretical foundations required by the proposed approach. It presents the graph representations and structural descriptors used throughout the work, formulates graph generation as a distribution-learning problem, introduces graphons and finite graphon representations, and discusses the problem of estimating graphons from finite observations.
+
+Chapter~\ref{chap:related_works} reviews the literature relevant to the thesis. It covers classical probabilistic graph models, graphon-estimation techniques, neural graph generators, continuous and discrete diffusion methods, graphon-mediated generation, and approaches for evaluating generated graph distributions.
+
+Chapter~\ref{chap:method} presents OGAD in detail. It describes input partitioning, SIGL-based graphon estimation, finite graphon discretization and quantization, the D3PM forward and reverse processes, model training and candidate selection, graphon generation, finite-graph sampling, evaluation, and baseline integration.
+
+Chapter~\ref{chap:experiments} describes the experimental setup and evaluates OGAD against DiGress and the classical probabilistic baselines on the five synthetic graph families. The results are analyzed through both raw MMD values and rank-based aggregations across datasets and structural descriptors.
+
+The final part of the thesis draws together the methodological and empirical findings, discusses the limitations of the proposed approach, and identifies directions for further investigation of graphon-mediated generative modeling.

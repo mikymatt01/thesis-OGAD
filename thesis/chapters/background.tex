@@ -1,7 +1,8 @@
 \chapter{Background}
 \label{chap:background}
 
-This chapter introduces the theoretical foundations required to understand the graph-generation framework considered in this thesis. It first presents the graph concepts and structural descriptors used throughout the work, and then introduces graphons as continuous representations of graph-generating structure. The chapter subsequently discusses the problem of estimating graphons from finite observed graphs, the main principles of diffusion-based generation, and the distributional evaluation of graph generative models.
+This chapter introduces the theoretical foundations required to understand the graph-generation framework considered in this thesis. It first presents the graph concepts and structural descriptors used throughout the work and then formulates graph generation as a problem of learning distributions over discrete, permutation-invariant structures. The chapter subsequently introduces graphons as continuous representations of graph-generating structure and discusses the problem of estimating them from finite observed graphs, including the role of implicit neural representations.
+
 
 \section{Graph Foundations}
 \label{sec:basic_graph_theory}
@@ -16,7 +17,7 @@ where \(V\) is a finite set of nodes, or vertices, and \(E\) is a set of unorder
 
 More generally, graphs may be directed or undirected, weighted or unweighted, and may contain additional information associated with their nodes or edges. In machine-learning applications, graph-structured data may therefore include node features, edge features, or labels associated with nodes, edges, or entire graphs, depending on the learning task. For example, the features of all nodes may be collected in a matrix \(X\), where each row describes the attributes of one node.
 
-Unless stated otherwise, this thesis considers simple, undirected, unweighted graphs without self-loops. The graph data used in the considered generative pipeline are represented primarily through their connectivity structure, rather than through additional node or edge attributes.
+Unless stated otherwise, this thesis considers simple, undirected, unweighted graphs without self-loops. The graph data used in the considered generative pipeline are represented primarily through their connectivity structure rather than through additional node or edge attributes.
 
 For a simple undirected graph, a convenient numerical representation is the adjacency matrix
 
@@ -37,6 +38,7 @@ A_{ij}=
 Because edges are undirected, \(A_{ij}=A_{ji}\), so the adjacency matrix is symmetric. If self-loops are excluded, its diagonal entries satisfy \(A_{ii}=0\).
 
 The adjacency matrix is central to this thesis because the input graph datasets are represented computationally through adjacency matrices. Nevertheless, the matrix representation should be distinguished from the abstract graph itself. The ordering of its rows and columns depends on the labels assigned to the nodes, while in many graph-learning problems those labels have no intrinsic meaning. This distinction becomes particularly important when graph generation and graphon estimation are introduced later in the chapter.
+
 
 \subsection{Degree, degree distribution, and graph density}
 \label{subsec:degree_density}
@@ -67,6 +69,7 @@ Since a simple undirected graph can contain at most \(n(n-1)/2\) edges, the dens
 
 Density alone provides only a coarse structural description. Graphs with identical density can have very different degree distributions, clustering patterns, communities, or global organization. For this reason, several complementary graph descriptors are useful when evaluating generative models.
 
+
 \subsection{Clustering coefficient}
 \label{subsec:clustering_coefficient}
 
@@ -83,6 +86,7 @@ The denominator represents the maximum possible number of edges between the neig
 A distribution or histogram of clustering coefficients provides information complementary to the degree distribution. Two graph families can exhibit similar degrees while differing substantially in their tendency to form triangles. This distinction is particularly relevant for graph families designed to exhibit strong local clustering.
 
 Clustering coefficients are therefore useful for measuring whether generated graphs reproduce local neighborhood cohesiveness rather than merely the overall amount of connectivity.
+
 
 \subsection{Graph Laplacian and normalized Laplacian spectrum}
 \label{subsec:laplacian_spectrum}
@@ -113,7 +117,8 @@ where \(I\in\mathbb{R}^{n\times n}\) denotes the identity matrix, with an approp
 
 The collection of these eigenvalues is called the \textbf{normalized Laplacian spectrum}. Spectral quantities provide graph-wide information that complements degree statistics and clustering coefficients and are widely used to characterize structural properties of graphs \cite{chung1997spectral}.
 
-Together, degree distributions, clustering-coefficient distributions, and normalized-Laplacian spectra provide complementary perspectives on local connectivity, local transitivity, and broader structural organization. These descriptors will be revisited in Section~\ref{sec:evaluation_graph_generative_models} when discussing the evaluation of generated graph distributions.
+Together, degree distributions, clustering-coefficient distributions, and normalized-Laplacian spectra provide complementary perspectives on local connectivity, local transitivity, and broader structural organization. Their use in the evaluation of graph-generative models is discussed in Section~\ref{sec:rw_evaluation}.
+
 
 \section{The Problem of Graph Generation}
 \label{sec:graph_generation_problem}
@@ -138,6 +143,7 @@ Consequently, diversity and fidelity must be considered jointly. Repeatedly repr
 
 Graphs make this distribution-learning problem especially challenging because they combine discrete variables, combinatorial structure, arbitrary node orderings, sparsity, and dependencies among structural elements.
 
+
 \subsection{Discrete and combinatorial structure}
 \label{subsec:discrete_combinatorial_structure}
 
@@ -158,6 +164,7 @@ The space of possible graphs also grows combinatorially. A simple undirected gra
 \]
 
 possible edge configurations. Furthermore, structural characteristics such as triangles, communities, paths, and degree patterns arise through dependencies among multiple edges. A graph generator must therefore capture more than the marginal probability of individual adjacency entries.
+
 
 \subsection{Arbitrary node ordering}
 \label{subsec:arbitrary_node_ordering}
@@ -199,7 +206,7 @@ be a permutation, that is, a bijection of the node-index set onto itself. Applyi
 Under this convention, if \(A\) and \(A'\) are the adjacency matrices associated with \(\ell\) and \(\ell'\), respectively, then
 
 \[
-A' = P_\pi A P_\pi^\top.
+A'=P_\pi A P_\pi^\top.
 \]
 
 Thus, \(A\) and \(A'\) may be different matrices while representing the same graph up to node relabeling.
@@ -207,6 +214,7 @@ Thus, \(A\) and \(A'\) may be different matrices while representing the same gra
 Graph representations and generative models should therefore not derive structural meaning from an arbitrary node ordering. Permutation invariance and permutation equivariance are central considerations in graph generation \cite{niu2020permutation}.
 
 A related ambiguity arises later for graphons, where the latent coordinate representation itself is not unique. The two issues are conceptually related but occur at different levels and are distinguished explicitly in Section~\ref{subsec:graphon_nonidentifiability}.
+
 
 \subsection{Sparsity and structural variability}
 \label{subsec:sparsity_structural_variability}
@@ -225,6 +233,7 @@ Graphs within a dataset may also vary in size or topology. Even when a particula
 
 These characteristics motivate representations that describe graph structure without being tied exclusively to one particular finite adjacency matrix. Graphons provide one such representation.
 
+
 \subsection{Structural fidelity and distributional evaluation}
 \label{subsec:structural_fidelity}
 
@@ -232,7 +241,8 @@ A generated graph can be syntactically valid without being structurally represen
 
 Graph-generative evaluation therefore commonly compares distributions of graph descriptors rather than relying on a single statistic. The reliability of such comparisons depends on which descriptors and comparison procedures are selected \cite{obray2022evaluation}.
 
-If the objective is to approximate \(P_{\mathrm{data}}(G)\), evaluation should compare sets of generated and reference graphs and determine whether their structural properties follow similar distributions. This principle motivates the evaluation framework introduced in Section~\ref{sec:evaluation_graph_generative_models}.
+If the objective is to approximate \(P_{\mathrm{data}}(G)\), evaluation should compare sets of generated and reference graphs and determine whether their structural properties follow similar distributions. Related evaluation methodologies and their limitations are reviewed in Section~\ref{sec:rw_evaluation}.
+
 
 \section{Graphons}
 \label{sec:graphons}
@@ -258,7 +268,7 @@ Here, symmetry reflects the undirected nature of the graphs considered in this t
 Graphons arise as limit objects for convergent sequences of dense graphs \cite{lovasz2006limits}. More precisely, let \((G_n)_{n\geq 1}\) be a sequence of finite simple graphs, and let
 
 \[
-N_n = |V(G_n)|
+N_n=|V(G_n)|
 \]
 
 denote the number of vertices of \(G_n\), with \(N_n\to\infty\) as \(n\to\infty\). The edge density of \(G_n\) is
@@ -291,10 +301,11 @@ that preserves adjacency: for every pair \(x,y\in V(F)\),
 \{\varphi(x),\varphi(y)\}\in E(G_n).
 \]
 
-The homomorphism density \(t(F,G_n)\) is the probability that a mapping \(\varphi:V(F)\to V(G_n)\), chosen uniformly at random among all such mappings, is a graph homomorphism. The sequence \((G_n)_{n\geq 1}\) is convergent if, for every fixed finite simple graph \(F\), the limit
+The homomorphism density \(t(F,G_n)\) is the probability that a mapping
+\(\varphi:V(F)\to V(G_n)\), chosen uniformly at random among all such mappings, is a graph homomorphism. The sequence \((G_n)_{n\geq 1}\) is convergent if, for every fixed finite simple graph \(F\), the limit
 
 \[
-\lim_{n\to\infty} t(F,G_n)
+\lim_{n\to\infty}t(F,G_n)
 \]
 
 exists. Every such convergent dense graph sequence admits a graphon as a limit representation \cite{lovasz2006limits}.
@@ -319,6 +330,7 @@ A graphon therefore provides an edge-probability representation defined over a c
 
 Since classical graphon theory originates in the dense graph-limit setting, interpreting standard graphons as asymptotic models for sparse graph sequences requires additional theoretical care \cite{lovasz2006limits,borgs2019lp}. This thesis does not attempt to develop sparse graph-limit theory.
 
+
 \subsection{Relationship between graphons and adjacency matrices}
 \label{subsec:graphon_adjacency}
 
@@ -335,12 +347,13 @@ and
 I_n=\left[\frac{n-1}{n},1\right].
 \]
 
-The finite graph can then be represented by the step graphon \(W_G:[0,1]^2\to[0,1]\) defined by
+The finite graph can then be represented by the step graphon
+\(W_G:[0,1]^2\to[0,1]\) defined by
 
 \[
 W_G(x,y)=A_{ij},
 \qquad
-x\in I_i,\; y\in I_j.
+x\in I_i,\;y\in I_j.
 \]
 
 Each entry \(A_{ij}\) of the adjacency matrix therefore corresponds to the rectangular region \(I_i\times I_j\) of the unit square. Since \(A_{ij}\in\{0,1\}\), \(W_G\) is a binary piecewise-constant function: a region has value \(1\) when the corresponding edge is present and value \(0\) when it is absent. Since the intervals \(I_1,\ldots,I_n\) are associated with the node indices, this representation depends on the chosen node ordering. A different ordering rearranges the corresponding regions of the unit square without changing the underlying graph.
@@ -356,6 +369,7 @@ Figure~\ref{fig:graphon_limit} illustrates the connection between finite graphs,
 
 The step graphon \(W_G\) should not be confused with an underlying graphon \(W\) that may have generated the observed graph. The former is constructed directly from the observed adjacency matrix and reproduces that particular binary graph exactly. Under a graphon generative model, the latter instead describes an underlying edge-probability structure: its values determine how likely pairs of nodes are to be connected. Consequently, an observed adjacency matrix represents one random realization of this probability structure rather than the probability structure itself. The sampling mechanism that relates \(W\) to such an observed adjacency matrix is described next.
 
+
 \subsection{Sampling finite graphs from a graphon}
 \label{subsec:graphon_sampling}
 
@@ -366,7 +380,8 @@ U_i\sim\operatorname{Uniform}(0,1),
 \qquad i=1,\ldots,n.
 \]
 
-For two distinct nodes \(i\) and \(j\), their latent positions determine the point \((U_i,U_j)\in[0,1]^2\) in the domain of the graphon. Evaluating \(W\) at this point gives
+For two distinct nodes \(i\) and \(j\), their latent positions determine the point
+\((U_i,U_j)\in[0,1]^2\) in the domain of the graphon. Evaluating \(W\) at this point gives
 
 \[
 p_{ij}=W(U_i,U_j),
@@ -400,6 +415,7 @@ A_{ii}=0.
 
 This procedure defines the standard \(W\)-random graph construction \cite{lovasz2006limits}. The complete relation can therefore be read sequentially: the latent positions \(U_i\) and \(U_j\) identify a point of \(W\); the value \(W(U_i,U_j)\) determines the edge probability \(p_{ij}\); and a Bernoulli draw with this probability determines the observed binary entry \(A_{ij}\). Thus, \(P\) contains the connection probabilities associated with the sampled latent positions, whereas \(A\) contains one particular binary realization of those probabilities. This distinction is fundamental to the graphon-estimation problem considered in Section~\ref{sec:graphon_estimation}.
 
+
 \subsection{Constant graphons}
 \label{subsec:constant_graphons}
 
@@ -414,12 +430,13 @@ where \(p\in[0,1]\).
 Sampling from this graphon gives
 
 \[
-P(A_{ij}=1)=p
+\mathbb{P}(A_{ij}=1)=p
 \]
 
 for every distinct pair of nodes, producing the independent-edge \(G(n,p)\) model \cite{lovasz2006limits}.
 
 The constant graphon therefore provides a particularly transparent connection between graphon theory and a classical random graph model.
+
 
 \subsection{Block-structured graphons}
 \label{subsec:block_graphons}
@@ -445,7 +462,7 @@ The same probability structure can be represented by a block-structured graphon.
 \[
 W(u,v)=B_{rs},
 \qquad
-u\in I_r,\; v\in I_s.
+u\in I_r,\;v\in I_s.
 \]
 
 The resulting graphon is piecewise constant: each rectangular region \(I_r\times I_s\) has the constant value \(B_{rs}\), corresponding to the connection probability between blocks \(r\) and \(s\) \cite{lovasz2006limits}.
@@ -462,6 +479,7 @@ Figure~\ref{fig:sbm_graphon} illustrates this correspondence for a two-block SBM
 When latent node positions are sampled uniformly from \([0,1]\), the interval containing each position determines its block, and Bernoulli sampling from the corresponding graphon value generates the edges. In this way, a block-structured graphon provides a continuous representation of the probability structure underlying an SBM.
 
 The block structure may also be visible in a finite adjacency or probability matrix when nodes belonging to the same block are placed consecutively. An arbitrary permutation of the node ordering can obscure this visual block pattern without changing the underlying graph, connecting this example to the permutation issue discussed in Section~\ref{subsec:arbitrary_node_ordering}.
+
 
 \subsection{Continuous and product-form graphons}
 \label{subsec:smooth_rank_graphons}
@@ -490,18 +508,25 @@ defines a continuous graphon. This form is called \emph{factorized}, or product-
 The product form also induces a rank-one structure. Given latent positions \(U_1,\ldots,U_n\), let \(q_i=g(U_i)\). Evaluating the graphon at all pairs of latent positions gives
 
 \[
-\widetilde{P}_{ij}=W(U_i,U_j)=c\,q_iq_j,
+\widetilde{P}_{ij}
+=
+W(U_i,U_j)
+=
+c\,q_iq_j,
 \]
 
 or, in matrix form,
 
 \[
-\widetilde{P}=c\,\mathbf{q}\mathbf{q}^{\top},
+\widetilde{P}
+=
+c\,\mathbf{q}\mathbf{q}^{\top},
 \]
 
 where \(\mathbf{q}=(q_1,\ldots,q_n)^\top\). Since this is the outer product of a vector with itself, \(\widetilde{P}\) has rank at most one. For the simple graphs considered in this thesis, only its off-diagonal entries are used as edge probabilities. Larger values of \(g(U_i)\) correspond to larger connection probabilities for node \(i\), and therefore tend to produce larger expected degrees.
 
 This construction provides intuition for expected-degree random graph models. In the Chung--Lu model, for example, nodes are assigned non-negative weights and edge probabilities are proportional to products of node weights \cite{chung2002connected}. The product-form graphon expresses the same basic idea over a continuous latent domain. The correspondence is conceptual rather than exact, since expected-degree models may use graph-size-dependent normalizations and may operate in sparse regimes.
+
 
 \subsection{Finite graph permutations and graphon non-identifiability}
 \label{subsec:graphon_nonidentifiability}
@@ -514,6 +539,7 @@ For graphons, the latent coordinate representation itself is not unique. Graphon
 
 The key point is that the spatial arrangement of a graphon on the unit square should not itself be treated as uniquely meaningful. This non-identifiability becomes important in graphon estimation because the observed graph provides neither canonical node labels nor directly observed latent positions.
 
+
 \subsection{Mathematical graphons and numerical graphon representations}
 \label{subsec:numerical_graphon_representation}
 
@@ -522,7 +548,7 @@ A graphon is a measurable edge-probability function defined on the continuous do
 A graphon can therefore be evaluated or approximated on a finite grid of resolution \(r\), producing
 
 \[
-\widetilde{W}\in[0,1]^{r\times r}.
+\widetilde{W}\in[0,1]^{R\times R}.
 \]
 
 The matrix \(\widetilde{W}\) is a finite-resolution numerical representation of the graphon rather than the graphon itself.
@@ -530,10 +556,11 @@ The matrix \(\widetilde{W}\) is a finite-resolution numerical representation of 
 For finite-state computational models, such a representation can additionally be quantized into a finite number of states,
 
 \[
-X\in\{0,\ldots,K-1\}^{r\times r}.
+X\in\{0,\ldots,K-1\}^{R\times R}.
 \]
 
-The resulting tensor is referred to here as a \textbf{discretized graphon-like representation}. The exact resolution and discretization procedure are implementation choices and therefore belong to the Method chapter.
+Here, \(K\) denotes the number of available discrete states. The resulting tensor is referred to here as a \textbf{discretized graphon-like representation}. The exact resolution and discretization procedure are implementation choices and therefore belong to the Method chapter.
+
 
 \subsection{Computational properties of graphon representations}
 \label{subsec:graphons_intermediate_representation}
@@ -545,6 +572,7 @@ First, they describe edge probabilities rather than one particular realization o
 Second, a graphon is not intrinsically tied to one finite number of nodes. The \(W\)-random graph construction can be instantiated for different finite values of \(n\) using the same graphon \cite{lovasz2006limits}.
 
 Third, graphons can be approximated on a regular finite grid, yielding representations that can be processed by models designed for fixed-dimensional tensors.
+
 
 \section{Graphon Estimation from Observed Graphs}
 \label{sec:graphon_estimation}
@@ -561,6 +589,7 @@ from which binary edges are sampled. During estimation, only the resulting graph
 
 Several sources of difficulty arise simultaneously.
 
+
 \subsection{Finite observations and sampling noise}
 \label{subsec:finite_observations_noise}
 
@@ -568,12 +597,14 @@ An adjacency matrix contains binary edge outcomes rather than directly observed 
 
 Recovering a graphon therefore requires estimating regularities from a finite collection of edge observations rather than directly reading probability values from the adjacency matrix.
 
+
 \subsection{Arbitrary node ordering}
 \label{subsec:graphon_arbitrary_ordering}
 
 As discussed in Section~\ref{subsec:arbitrary_node_ordering}, the observed ordering of nodes is generally arbitrary. In a graphon model, there is no reason to expect adjacency-matrix row \(i\) to correspond meaningfully to latent coordinate \(i/n\).
 
 A smooth or block-structured probability pattern may therefore be obscured by an arbitrary node permutation. The unidentified ordering of the nodes is a central distinction between graphon estimation and standard nonparametric regression \cite{gao2015rate}.
+
 
 \subsection{Latent positions are unobserved}
 \label{subsec:latent_positions}
@@ -588,6 +619,7 @@ used in graphon sampling are latent variables. The estimator observes connectivi
 
 Graphon estimation therefore involves estimating an edge-probability structure without directly observing the latent design positions that index that structure \cite{gao2015rate}.
 
+
 \subsection{Graphon non-identifiability}
 \label{subsec:estimation_nonidentifiability}
 
@@ -598,6 +630,7 @@ Since graphons are identifiable only up to suitable latent-space relabelings or 
 In practice, however, a consistent numerical organization can still be important when graphon estimates are represented and processed computationally, since structurally similar estimates should not differ primarily because of arbitrary coordinate choices.
 
 Graphon estimation therefore involves both a theoretical identifiability issue and a practical representation or alignment issue.
+
 
 \subsection{Function approximation and implicit representations}
 \label{subsec:implicit_representations}
@@ -618,7 +651,11 @@ where \(\theta\) denotes the learnable network parameters, with
 f_{\theta}(u,v)\approx W(u,v).
 \]
 
-Thus, the graphon approximation is encoded by the parameters \(\theta\) rather than by a predetermined array of values. Since a graphon is symmetric, the resulting approximation should preserve the relation \(\widehat{W}(u,v)=\widehat{W}(v,u)\).
+Thus, the graphon approximation is encoded by the parameters \(\theta\) rather than by a predetermined array of values. Since a graphon is symmetric, the resulting approximation should preserve the relation
+
+\[
+\widehat{W}(u,v)=\widehat{W}(v,u).
+\]
 
 Figure~\ref{fig:ignr_representation} shows a concrete example of this idea. In the IGNR model of Xia et al.~\cite{xia2023implicit}, the neural function is learned from observed graphs and represents the graphon independently of a fixed output resolution. During training, the function is evaluated at a resolution suitable for comparison with the observed graph, while after training the same learned function can be evaluated on a grid of any chosen resolution \(R\). This resolution-free property is one of the main motivations for using an implicit representation instead of a fixed-resolution step function \cite{xia2023implicit}.
 
@@ -638,4 +675,10 @@ Once an implicit representation has been learned, a finite numerical approximati
 \qquad i,j=1,\ldots,R.
 \]
 
-The resulting matrix \(\mathbf{W}^{(R)}\in[0,1]^{R\times R}\) is therefore a discretization of the learned continuous function. The resolution \(R\) is chosen when the implicit representation is evaluated and is not an intrinsic property of the learned neural function.
+The resulting matrix
+
+\[
+\mathbf{W}^{(R)}\in[0,1]^{R\times R}
+\]
+
+is therefore a discretization of the learned continuous function. The resolution \(R\) is chosen when the implicit representation is evaluated and is not an intrinsic property of the learned neural function.
