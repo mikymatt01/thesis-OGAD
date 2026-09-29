@@ -90,7 +90,6 @@
 \raggedbottom
 \pagestyle{headings}
 
-
 \begin{document}
 
 % --------------------------------------------------
@@ -99,16 +98,20 @@
 \input{frontespizio}
 
 % --------------------------------------------------
-% Table of contents
+% Front matter
 % --------------------------------------------------
+\cleardoublepage
 \pagenumbering{roman}
 
+\input{chapters/abstract}
+
+\cleardoublepage
 \tableofcontents
-\clearpage
 
 % --------------------------------------------------
 % Main matter
 % --------------------------------------------------
+\cleardoublepage
 \pagenumbering{arabic}
 
 \input{chapters/introduction}

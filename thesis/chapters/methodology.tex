@@ -65,19 +65,7 @@ When GGME-based candidate selection is enabled, the original training set is fir
 \varnothing.
 \]
 
-The thesis implementation uses an 80/20 split with random seed \(0\). Only
-
-\[
-\mathcal{G}_{\mathrm{model}}
-\]
-
-is passed to graphon estimation. The held-out subset
-
-\[
-\mathcal{G}_{\mathrm{GGME-val}}
-\]
-
-is reserved for the later graph-level comparison of trained D3PM candidates. When GGME-based candidate selection is disabled, all available training graphs are instead passed to graphon estimation.
+The thesis implementation uses an 80/20 split with random seed \(0\). Only $\mathcal{G}_{\mathrm{model}}$ is passed to graphon estimation. The held-out subset $\mathcal{G}_{\mathrm{GGME-val}}$ is reserved for the later graph-level comparison of trained D3PM candidates. When GGME-based candidate selection is disabled, all available training graphs are instead passed to graphon estimation.
 
 After SIGL has produced the finite graphon dataset, a second split is performed. Let
 
@@ -120,20 +108,14 @@ The former contains finite graphs and is used for graph-domain candidate selecti
 
 OGAD estimates graphons using Scalable Implicit Graphon Learning (SIGL), introduced by Azizpour, Zilberstein, and Segarra \cite{azizpour2025scalable}. The general graphon-estimation problem was introduced in Section~\ref{sec:graphon_estimation}, while SIGL and related estimators were reviewed in Section~\ref{sec:rw_graphon_estimation}. This section therefore focuses on the specific procedure instantiated by OGAD.
 
-
 \subsection{Clustering and Bootstrap Construction}
 \label{subsec:method_sigl_clustering}
 
-When clustering is enabled, the graphs in
+Clustering and bootstrapping serve distinct but complementary purposes in the construction of the graphon-estimation jobs. Clustering restricts each job to a subset of structurally related graphs, rather than combining graphs with potentially different structural characteristics, while bootstrap resampling produces multiple finite samples from each such subset.
 
-\[
-\mathcal{G}_{\mathrm{model}}
-\]
-
-are first represented using structural information derived from their degree distributions, local clustering coefficients, and normalized-Laplacian spectra. These descriptors were introduced in Sections~\ref{subsec:degree_density}, \ref{subsec:clustering_coefficient}, and~\ref{subsec:laplacian_spectrum}. The resulting feature vectors are standardized before KMeans clustering is applied.
+When clustering is enabled, the graphs in $\mathcal{G}_{\mathrm{model}}$ are first represented using structural information derived from their degree distributions, local clustering coefficients, and normalized-Laplacian spectra. These descriptors were introduced in Sections~\ref{subsec:degree_density}, \ref{subsec:clustering_coefficient}, and~\ref{subsec:laplacian_spectrum}. The resulting feature vectors are standardized before KMeans clustering is applied.
 
 Let \(C_{\mathrm{req}}\) denote the requested number of clusters. Only cluster labels containing graphs are retained, so the effective number of clusters may satisfy
-
 \[
 C_{\mathrm{eff}}
 \leq
@@ -143,7 +125,6 @@ C_{\mathrm{req}}.
 Bootstrap resampling is then performed independently within every non-empty cluster. For a cluster containing \(n_c\) graphs, one bootstrap replicate draws \(n_c\) graph indices with replacement and uses the resulting collection as one SIGL estimation job.
 
 Let \(B_{\mathrm{boot}}\) denote the configured number of bootstrap replicates per effective cluster. In the clustered configuration used in the thesis, the original unresampled cluster collections are not additionally included. Since \(B_{\mathrm{boot}}>1\) in these executions, the resulting number of graphon-estimation jobs is
-
 \[
 N_W
 =
@@ -151,9 +132,6 @@ C_{\mathrm{eff}}B_{\mathrm{boot}}.
 \]
 
 This relation describes the instantiated clustered-bootstrap configuration rather than a general property of SIGL. When clustering is disabled, the implementation instead constructs one graphon-estimation job per model-training graph.
-
-Clustering and bootstrapping play distinct roles: clustering restricts individual graphon-estimation jobs to structurally related graph subsets, while bootstrap resampling produces multiple finite samples from each such subset.
-
 
 \subsection{One Graphon-Estimation Job}
 \label{subsec:method_sigl_job}
@@ -211,8 +189,7 @@ w_g
 
 where the denominator is the total number of nodes contributed by the graphs in the current estimation job.
 
-The final representation is a SIREN-style multilayer perceptron with sinusoidal hidden activations \cite{sitzmann2020implicit} and a sigmoid output. The coordinate-prediction GCN instantiated in the thesis uses hidden dimensions \(8,8,8\), while the SIREN graphon model uses hidden dimensions \(20,20\).
-
+The final representation is a SIREN-style multilayer perceptron with sinusoidal hidden activations \cite{sitzmann2020implicit} and a sigmoid output. The architectural widths were not tuned in this work, but inherited from the reference SIGL implementation: the coordinate-prediction GCN uses hidden dimensions \(8,8,8\), while the SIREN graphon model uses \(20,20\). These values were kept fixed throughout the experiments.
 Once fitted, the implicit function is evaluated on a regular midpoint grid. For
 
 \[
@@ -265,6 +242,7 @@ and its diagonal is set to zero. In the thesis executions,
 R=128.
 \]
 
+This value was chosen as a practical trade-off between preserving sufficient spatial detail in the estimated graphon and keeping the subsequent D3PM training computationally feasible within the available GPU memory. 
 The resulting \(128\times128\) matrix is the interface between the continuous implicit graphon estimate and the subsequent fixed-dimensional generative model.
 
 
@@ -353,19 +331,15 @@ OGAD models the categorical graphon tensors using the D3PM framework introduced 
 
 For one graphon sample,
 
-\[
-X_0
-\in
-\{0,\ldots,K-1\}^{1\times R\times R}.
-\]
+\[ X_0 \in \{0,\ldots,K-1\}^{1\times R\times R}. \]
 
-Each spatial position is therefore a categorical random variable with \(K\) possible states. The D3PM module is instantiated with
+Each spatial position is therefore a categorical random variable with \(K\) possible states. Following the reference D3PM configuration for image generation \cite{austin2021structured}, OGAD uses
 
 \[
-T=1000.
+T=1000
 \]
 
-The transition schedule is precomputed for \(T=1000\), while the implemented training and reverse-sampling loops operate over
+diffusion steps. This value was kept fixed throughout the experiments rather than treated as an additional hyperparameter. The transition schedule is precomputed for \(T=1000\), while the implemented training and reverse-sampling loops operate over
 
 \[
 t\in\{1,\ldots,T-1\}.
@@ -373,25 +347,10 @@ t\in\{1,\ldots,T-1\}.
 
 OGAD uses a uniform categorical forward process shared across all grid locations.
 
-
 \subsection{Forward Process}
 \label{subsec:method_d3pm_forward}
 
-The corruption strength follows the cosine-derived schedule implemented by the D3PM component. For
-
-\[
-t=0,\ldots,T,
-\]
-
-define
-
-\[
-s_t
-=
-\frac{t}{T},
-\]
-
-and
+The corruption strength follows the cosine-derived schedule implemented by the D3PM component. For $t=0,\ldots,T,$ define $s_t = \frac{t}{T},$ and
 
 \[
 a_t
@@ -403,13 +362,7 @@ a_t
 \right).
 \]
 
-For
-
-\[
-t=1,\ldots,T,
-\]
-
-the transition strength is
+For $t=1,\ldots,T,$ the transition strength is
 
 \[
 \beta_t
@@ -421,13 +374,7 @@ the transition strength is
 \right).
 \]
 
-Given \(K\) categories, the one-step transition matrix
-
-\[
-Q_t\in[0,1]^{K\times K}
-\]
-
-is
+Given \(K\) categories, the one-step transition matrix $Q_t\in[0,1]^{K\times K}$ is
 
 \[
 Q_t(i,j)
@@ -479,9 +426,9 @@ The corrupted categorical tensor \(X_t\) is then sampled from the forward margin
 \subsection{Denoising Network}
 \label{subsec:method_d3pm_network}
 
-The clean-state predictor used by OGAD is the \texttt{DiT\_Llama} architecture. Given the current categorical tensor \(X_t\) and timestep \(t\), the network predicts categorical logits for the clean state \(X_0\).
+The clean-state predictor used by OGAD is the \texttt{DiT\_Llama} architecture. The model divides the input graphon representation into small spatial patches and processes them through a sequence of Transformer blocks conditioned on the diffusion timestep \(t\). Given the current categorical tensor \(X_t\), the network predicts categorical logits for the clean state \(X_0\).
 
-The instantiated model uses one input channel, hidden dimension \(512\), patch size \(2\), five transformer blocks, and sixteen attention heads. For a \(128\times128\) input, the \(2\times2\) patch decomposition produces
+The instantiated model uses one input channel, hidden dimension \(512\), patch size \(2\), five Transformer blocks, and sixteen attention heads. For a \(128\times128\) input, the \(2\times2\) patch decomposition produces
 
 \[
 \frac{128}{2}
@@ -525,7 +472,6 @@ The network does not predict Gaussian noise and does not directly parameterize \
 Uppercase \(X_t\) denotes the complete categorical graphon tensor at timestep \(t\), whereas lowercase \(x_t\) denotes the categorical state at one individual grid position.
 
 The clean-state probabilities predicted by the network are converted into reverse-transition probabilities using the known categorical forward process.
-
 At one grid position, let
 
 \[
@@ -537,7 +483,8 @@ f_\theta(x_t,t)
 \right)
 \]
 
-denote the predicted probability vector for \(x_0\).
+denotes the predicted probability distribution over the original clean state \(x_0\).
+Each component \(\widehat{\pi}_{\theta,k}\) estimates the probability that the original state was category \(k\), given \(x_t\) and timestep \(t\).
 
 For \(t>1\), define the unnormalized reverse-probability vector
 
@@ -572,6 +519,7 @@ r_{\theta,\ell}(\cdot\mid x_t)
 }.
 \]
 
+The quantity \(p_\theta(x_{t-1}=k\mid x_t)\) therefore represents the normalized reverse-transition probability that the previous state is category \(k\), given the current state \(x_t\). It is obtained by normalizing \(r_\theta(\cdot\mid x_t)\) over all \(K\) categories.
 The implementation performs this computation in log space for numerical stability. For \(t=1\), the posterior construction is replaced by the predicted \(x_0\) logits themselves.
 
 Training uses
@@ -835,62 +783,10 @@ The tensors are therefore reused cyclically when \(N_G>16\).
 \section{Evaluation and Model-Selection Integration}
 \label{sec:method_ggme}
 
-The motivation for distributional graph evaluation and the structural descriptors used throughout the thesis were introduced in Section~\ref{subsec:structural_fidelity} and Section~\ref{sec:basic_graph_theory}. MMD-based evaluation and its limitations were reviewed in Section~\ref{subsec:rw_structural_evaluation}. This section specifies how the evaluation pipeline is instantiated in OGAD.
+The motivation for distributional graph evaluation and the structural descriptors used throughout the thesis were introduced in Section~\ref{subsec:structural_fidelity} and Section~\ref{sec:basic_graph_theory}. MMD-based evaluation and its limitations were reviewed in Section~\ref{subsec:rw_structural_evaluation}.  This section specifies how OGAD instantiates this evaluation through three descriptor families: node-degree distributions, local clustering-coefficient distributions, and normalized-Laplacian spectral distributions.
 
-OGAD uses three descriptor families:
+Clustering coefficients and normalized-Laplacian spectra are represented by \(200\)-bin histograms over \([0,1]\) and \([0,2]\), respectively, while degree histograms retain data-dependent support. Histograms are density-normalized, and variable-length descriptors are padded before kernel evaluation.
 
-\begin{enumerate}
-    \item node-degree distributions;
-    \item local clustering-coefficient distributions;
-    \item normalized-Laplacian spectral distributions.
-\end{enumerate}
+Generated and reference graph sets are compared using exact MMD with linear or Gaussian kernels, with Gaussian bandwidths \(\sigma\in{0.1,1,10}\). Kernel calibration applies \texttt{AddEdges} perturbations from \(0.15\) to \(0.95\) in increments of \(0.05\), using seed \(42\), and selects the configuration according to the Pearson correlation between perturbation strength and discrepancy.
 
-The clustering-coefficient descriptor is represented by a histogram with \(200\) bins over \([0,1]\), while the normalized-Laplacian spectrum uses \(200\) bins over \([0,2]\). Degree histograms retain data-dependent support and may therefore vary in length across graphs. Descriptor histograms are density-normalized, and variable-length descriptor arrays are padded to a common length before kernel evaluation.
-
-For each descriptor, generated and reference graph sets are compared through exact quadratic MMD. Kernel selection considers linear and Gaussian kernels. For the Gaussian kernel, the candidate bandwidths are
-
-\[
-\sigma
-\in
-\{0.1,1,10\}.
-\]
-
-Kernel calibration uses controlled structural perturbations of the reference graphs. The \texttt{AddEdges} transformation is applied at perturbation levels
-
-\[
-\rho
-\in
-\{0.15,0.20,0.25,\ldots,0.95\},
-\]
-
-with random seed \(42\). For each candidate kernel configuration, the discrepancy is evaluated across the perturbation sequence, and Pearson correlation between perturbation strength and discrepancy is used by the calibration procedure to select the kernel configuration. The resulting graph-set comparison uses exact MMD rather than a linear-time approximation.
-
-GGME enters the pipeline at two distinct stages.
-
-During candidate selection, graphs generated by each retained D3PM candidate are compared with
-
-\[
-\mathcal{G}_{\mathrm{GGME-val}}.
-\]
-
-The resulting structural discrepancies are used by the configured candidate-selection rule.
-
-After a final D3PM candidate has been selected, the final generated graph set is compared against the separate test/reference graph set. Thus,
-
-\[
-\text{training-derived GGME validation}
-\neq
-\text{final test evaluation}.
-\]
-
-Only the former participates in model selection. Final test MMD values are evaluation outputs and do not determine which D3PM candidate is retained.
-
-
-\section{Baseline Integration}
-\label{sec:method_baselines}
-
-OGAD is evaluated alongside DiGress and four classical probabilistic baselines: Erd\H{o}s--R\'enyi, the Configuration Model, the Stochastic Block Model, and the Degree-Corrected Stochastic Block Model. The classical models were reviewed in Section~\ref{sec:probabilistic_graph_models}, while DiGress was discussed in Section~\ref{subsec:rw_direct_graph_diffusion}.
-
-All baseline models are fitted or trained using training data only. Their generated graph sets are passed to the same GGME descriptor and MMD pipeline used for OGAD, ensuring a common evaluation procedure across methods.
-
-Where possible, DiGress and classical baseline samples are generated once for a dataset and reused across OGAD candidate runs. This avoids recomputing an unchanged comparison distribution when only OGAD-specific hyperparameters vary. Dataset-specific baseline configurations and numerical results are reported in the Experiments chapter.
+GGME is used both for D3PM candidate selection and final evaluation. During selection, each retained candidate is evaluated against \(\mathcal{G}_{\mathrm{GGME-val}}\), and the resulting discrepancies determine the selected candidate according to the configured rule. The selected model is then evaluated separately against the test/reference set; these final test MMD values are reported only as evaluation results and do not influence model selection.

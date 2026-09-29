@@ -1,0 +1,24 @@
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Graph generation aims to learn distributions capable of producing new graphs
+that preserve the structural properties of observed data. This thesis introduces
+OGAD (On Graphons And Diffusion), a graph generative pipeline that uses
+graphon-derived representations as an intermediate domain between finite graphs
+and discrete diffusion. Starting from training graphs, OGAD estimates graphons
+with Scalable Implicit Graphon Learning (SIGL), evaluates them on finite grids,
+quantizes the resulting probability matrices into categorical tensors, and
+models their distribution with a Discrete Denoising Diffusion Probabilistic
+Model (D3PM). Generated tensors are converted back into probability grids from
+which finite graphs are sampled.
+
+OGAD is evaluated on five synthetic graph families and compared with DiGress
+and classical probabilistic generators using Maximum Mean Discrepancy over
+degree distributions, clustering coefficients, and normalized-Laplacian
+spectra. Results are strongly descriptor- and dataset-dependent. OGAD is
+particularly effective at preserving clustering structure, achieving the
+lowest clustering discrepancy on Stochastic Block Model and expected-degree
+graphs, while degree and spectral properties are often better captured by
+direct graph diffusion or specialized baselines. Overall, graphon-mediated
+diffusion emerges as a viable alternative for graph generation with a distinct
+structural bias.
