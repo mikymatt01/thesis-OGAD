@@ -5,6 +5,14 @@ The preceding chapters introduced the theoretical and methodological context req
 
 OGAD transforms a collection of observed finite graphs into a generator of new finite graphs through an intermediate graphon-derived representation. Training graphs are first processed by SIGL to obtain graphon estimates. These functions are evaluated on fixed finite grids and quantized into categorical tensors, over which a discrete diffusion model is trained. Generated categorical tensors are subsequently dequantized into probability-like graphon grids, from which finite graphs are sampled through Bernoulli edge draws. The resulting graph distributions are evaluated through the GGME pipeline and compared with direct graph-generation and classical probabilistic baselines.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/method_overview.png}
+    \caption{Overview of the OGAD architecture.}
+    \label{fig:ogad_architecture}
+\end{figure}
+
+DA AGGIUNGERE UNA FIGURA ARCHITETTURALE E DEI PSEUDOCODICI PER FACILITARE LA RIPRODUCIBILITA' DELLO STUDIO.
 
 \section{Method Overview}
 \label{sec:method_overview}

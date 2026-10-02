@@ -9,6 +9,9 @@ Five synthetic graph families are selected to cover complementary structural reg
 
 Generated graph distributions are compared with held-out test graphs using Maximum Mean Discrepancy (MMD) over three structural descriptors: degree distribution, clustering-coefficient distribution, and normalized-Laplacian spectrum, following Section~\ref{sec:method_ggme}. Lower MMD values indicate closer agreement with the reference distribution. Raw MMD results are complemented by rank-based aggregations that summarize relative performance across datasets and structural descriptors.
 
+DA AGGIUNGERE IMMAGINI DI GENERAZIONE DI GRAFI E GRAPHONS E COMMENTI.
+
+
 \section{Experimental Setup}
 \label{sec:exp_setup}
 
@@ -129,7 +132,7 @@ The main experimentally varied quantities are the number of clusters used before
 The principal sweep uses requested cluster counts
 
 \[
-C_{\mathrm{req}}\in\{1,4,8\}.
+C_{\mathrm{req}}\in\{1,4,8,12,16\}.
 \]
 
 As explained in Section~\ref{subsec:method_sigl_clustering}, the requested number of clusters can differ from the number of effective non-empty clusters obtained at runtime.
@@ -145,7 +148,7 @@ For each complete run in the main sweep, the D3PM candidate grid is defined by
 5\times10^{-5}
 \right\},
 \qquad
-K\in\{10,14\},
+K\in\{8,10,12,14,16\},
 \qquad
 \lambda\in\{0.006,0.01\},
 \]
@@ -227,44 +230,43 @@ The first selection operates in graphon representation space through the D3PM va
 
 The final experiments were obtained through a main broad sweep over all five datasets and a subsequent follow-up focused on BA and WS.
 
-\begin{table}[htbp]
-    \centering
-    \caption{Main experimental sweeps contributing to the final evaluation.}
-    \label{tab:exp_campaigns}
-    \begin{tabular}{llll}
-        \hline
-        Sweep & Datasets & Cluster counts & D3PM learning rates \\
-        \hline
-        Main & ER, SBM, BA, WS, EDG
-        & \(1,4,8\)
-        & \(2,3,5\times10^{-5}\) \\
-        Follow-up & BA, WS
-        & \(4,8,16\)
-        & \(1,2,3\times10^{-5}\) \\
-        \hline
-    \end{tabular}
-\end{table}
+% \begin{table}[htbp]
+%     \centering
+%     \caption{Main experimental sweeps contributing to the final evaluation.}
+%     \label{tab:exp_campaigns}
+%     \begin{tabular}{llll}
+%         \hline
+%         Sweep & Datasets & Cluster counts & D3PM learning rates \\
+%         \hline
+%         Main & ER, SBM, BA, WS, EDG
+%         & \(1,4,8\)
+%         & \(2,3,5\times10^{-5}\) \\
+%         Follow-up & BA, WS
+%         & \(4,8,16\)
+%         & \(1,2,3\times10^{-5}\) \\
+%         \hline
+%     \end{tabular}
+% \end{table}
 
-Only runs completing all stages required for final GGME evaluation are included in the analysis.
+Only runs completing all stages required for final GGME evaluation are included in the analysis. Exploratory executions are excluded from the quantitative comparison.
 
-\begin{table}[htbp]
-    \centering
-    \caption{Complete OGAD runs containing all three final GGME descriptor evaluations.}
-    \label{tab:exp_complete_runs}
-    \begin{tabular}{lc}
-        \hline
-        Dataset & Complete runs \\
-        \hline
-        ER  & 7 \\
-        SBM & 6 \\
-        BA  & 6 \\
-        WS  & 4 \\
-        EDG & 6 \\
-        \hline
-    \end{tabular}
-\end{table}
+% \begin{table}[htbp]
+%     \centering
+%     \caption{Complete OGAD runs containing all three final GGME descriptor evaluations.}
+%     \label{tab:exp_complete_runs}
+%     \begin{tabular}{lc}
+%         \hline
+%         Dataset & Complete runs \\
+%         \hline
+%         ER  & 7 \\
+%         SBM & 6 \\
+%         BA  & 6 \\
+%         WS  & 4 \\
+%         EDG & 6 \\
+%         \hline
+%     \end{tabular}
+% \end{table}
 
-Incomplete exploratory executions are excluded from the quantitative comparison.
 
 
 \subsection{Evaluation Protocol}
@@ -344,7 +346,7 @@ Lower mean ranks are better in both cases.
 Tables~\ref{tab:exp_er}--\ref{tab:exp_edg} report the MMD values obtained on the five graph families for degree distribution (DD), clustering-coefficient distribution (CC), and normalized-Laplacian spectrum (NL).
 Lower values indicate closer agreement with the reference distribution, and the best result for each descriptor is highlighted in bold.
 
-\begin{table}[htbp]
+\begin{table}[H]
     \centering
     \caption{MMD results on the Erd\H{o}s--R\'enyi dataset.}
     \label{tab:exp_er}
@@ -365,7 +367,7 @@ Lower values indicate closer agreement with the reference distribution, and the 
 On ER, the matched probabilistic baseline yields the lowest discrepancies for degree and clustering, while DiGress performs best on the spectral descriptor.
 OGAD is comparatively weaker across all three descriptors, illustrating the advantage of a generator whose assumptions directly match the target distribution.
 
-\begin{table}[htbp]
+\begin{table}[H]
     \centering
     \caption{MMD results on the Stochastic Block Model dataset.}
     \label{tab:exp_sbm}
@@ -386,7 +388,7 @@ OGAD is comparatively weaker across all three descriptors, illustrating the adva
 On SBM, OGAD achieves the lowest clustering discrepancy by a substantial margin, whereas DiGress performs best on degree distribution and ER on the spectral descriptor.
 The result highlights a marked strength of OGAD in reproducing clustering structure without a corresponding advantage on all descriptors.
 
-\begin{table}[htbp]
+\begin{table}[H]
     \centering
     \caption{MMD results on the Barab\'asi--Albert dataset.}
     \label{tab:exp_ba}
@@ -407,7 +409,7 @@ The result highlights a marked strength of OGAD in reproducing clustering struct
 BA is a more challenging setting for OGAD.
 The Configuration Model provides the closest degree match, while DiGress obtains the lowest discrepancies for both clustering and spectrum.
 
-\begin{table}[htbp]
+\begin{table}[H]
     \centering
     \caption{MMD results on the Watts--Strogatz dataset.}
     \label{tab:exp_ws}
@@ -428,7 +430,7 @@ The Configuration Model provides the closest degree match, while DiGress obtains
 On WS, OGAD is second only to DiGress for both clustering and spectral similarity, but performs poorly on degree distribution.
 This contrast again shows that agreement on local and spectral structure does not necessarily imply an accurate degree match.
 
-\begin{table}[htbp]
+\begin{table}[H]
     \centering
     \caption{MMD results on the expected-degree graph dataset.}
     \label{tab:exp_edg}
