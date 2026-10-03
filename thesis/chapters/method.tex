@@ -12,8 +12,6 @@ OGAD transforms a collection of observed finite graphs into a generator of new f
     \label{fig:ogad_architecture}
 \end{figure}
 
-DA AGGIUNGERE UNA FIGURA ARCHITETTURALE E DEI PSEUDOCODICI PER FACILITARE LA RIPRODUCIBILITA' DELLO STUDIO.
-
 \section{Method Overview}
 \label{sec:method_overview}
 
@@ -141,6 +139,47 @@ C_{\mathrm{eff}}B_{\mathrm{boot}}.
 
 This relation describes the instantiated clustered-bootstrap configuration rather than a general property of SIGL. When clustering is disabled, the implementation instead constructs one graphon-estimation job per model-training graph.
 
+\begin{algorithm}[H]
+    \caption{Construction of SIGL graphon-estimation jobs}
+    \label{alg:sigl_job_construction}
+    \begin{algorithmic}[1]
+    
+    \Require Model-training graphs $\mathcal{G}_{\mathrm{model}}$,
+             requested clusters $C_{\mathrm{req}}$,
+             bootstrap replicates $B_{\mathrm{boot}}$
+    \Ensure SIGL estimation jobs $\mathcal{J}$
+    
+    \State $\mathcal{J} \gets \emptyset$
+    
+    \If{clustering is enabled}
+        \ForAll{$G \in \mathcal{G}_{\mathrm{model}}$}
+            \State Compute degree-distribution, clustering-coefficient,
+            and normalized-Laplacian spectral descriptors
+        \EndFor
+    
+        \State Pad and standardize the descriptor vectors
+        \State Apply KMeans with $C_{\mathrm{req}}$ clusters and random seed $0$
+        \State Retain the non-empty clusters
+        $\{C_1,\ldots,C_{\mathrm{eff}}\}$
+    
+        \ForAll{$C_c \in \{C_1,\ldots,C_{\mathrm{eff}}\}$}
+            \For{$b = 1,\ldots,B_{\mathrm{boot}}$}
+                \State Sample $|C_c|$ graphs from $C_c$ with replacement
+                \State Add the resulting bootstrap graph set to $\mathcal{J}$
+            \EndFor
+        \EndFor
+    
+    \Else
+        \ForAll{$G \in \mathcal{G}_{\mathrm{model}}$}
+            \State Add the singleton job $\{G\}$ to $\mathcal{J}$
+        \EndFor
+    \EndIf
+    
+    \State \Return $\mathcal{J}$
+    
+    \end{algorithmic}
+\end{algorithm}
+
 \subsection{One Graphon-Estimation Job}
 \label{subsec:method_sigl_job}
 
@@ -253,6 +292,55 @@ R=128.
 This value was chosen as a practical trade-off between preserving sufficient spatial detail in the estimated graphon and keeping the subsequent D3PM training computationally feasible within the available GPU memory. 
 The resulting \(128\times128\) matrix is the interface between the continuous implicit graphon estimate and the subsequent fixed-dimensional generative model.
 
+\begin{algorithm}[H]
+    \caption{Finite graphon estimation for one SIGL job}
+    \label{alg:sigl_graphon_estimation}
+    \begin{algorithmic}[1]
+    
+    \Require SIGL estimation job $J$, graphon resolution $R$
+    \Ensure Finite graphon estimate
+            $\widehat{W}^{(R)} \in [0,1]^{R\times R}$
+    
+    \State Train the SIGL coordinate-prediction GCN on the graphs in $J$
+    
+    \ForAll{$G_g \in J$}
+        \State Predict one latent coordinate per node
+        \State Apply sigmoid and within-graph min--max normalization
+        \State Sort nodes by the predicted coordinates and permute the adjacency matrix
+        \State Average-pool the reordered adjacency matrix into $\widehat{H}_g$
+        \State Construct midpoint coordinate--value observations from $\widehat{H}_g$
+        \State Assign
+        $
+        w_g \gets
+        |V_g| /
+        \sum_{G_h \in J}|V_h|
+        $
+    \EndFor
+    
+    \State Fit the SIREN $f_{\theta^\star}$ to the pooled observations
+           using graph-size-weighted MSE
+    
+    \For{$r,s = 0,\ldots,R-1$}
+        \State $u_r \gets (r+\tfrac{1}{2})/R$,
+               $v_s \gets (s+\tfrac{1}{2})/R$
+        \State $\widehat{W}^{(R)}_{rs}
+               \gets f_{\theta^\star}(u_r,v_s)$
+    \EndFor
+    
+    \State $\widehat{W}^{(R)}
+           \gets
+           \frac{
+           \widehat{W}^{(R)}
+           +
+           \widehat{W}^{(R)\top}
+           }{2}$
+    
+    \State Set $\operatorname{diag}(\widehat{W}^{(R)}) \gets 0$
+    
+    \State \Return $\widehat{W}^{(R)}$
+    
+    \end{algorithmic}
+\end{algorithm}
 
 \section{Finite Graphon Representation and Discretization}
 \label{sec:method_graphon_discretization}
@@ -331,7 +419,6 @@ X
 
 Thus the mathematical graphon itself has not become discrete. A finite numerical representation has instead been encoded in the categorical state space required by D3PM.
 
-
 \section{Discrete Diffusion over Graphon Representations}
 \label{sec:method_d3pm}
 
@@ -354,6 +441,68 @@ t\in\{1,\ldots,T-1\}.
 \]
 
 OGAD uses a uniform categorical forward process shared across all grid locations.
+
+\begin{algorithm}[H]
+    \caption{D3PM training step over categorical graphon representations}
+    \label{alg:d3pm_training_step}
+    \begin{algorithmic}[1]
+    
+    \Require Clean categorical graphon batch
+             $X_0 \in \{0,\ldots,K-1\}^{B\times1\times R\times R}$,
+             diffusion steps $T$,
+             transition matrices $\{Q_t,\overline{Q}_t\}$,
+             denoising model $f_\theta$,
+             hybrid coefficient $\lambda$
+    
+    \Ensure Updated model parameters $\theta$
+    
+    \State Sample
+           $t \sim \operatorname{Uniform}\{1,\ldots,T-1\}$
+    
+    \State Sample corrupted states
+           $X_t \sim q(X_t \mid X_0)$
+           using $\overline{Q}_t$
+    
+    \State Compute clean-state logits
+           $L_\theta \gets f_\theta(X_t,t)$
+    
+    \State $\widehat{\pi}_\theta
+           \gets \operatorname{softmax}(L_\theta)$
+    
+    \State Construct the exact posterior
+           $q(X_{t-1}\mid X_t,X_0)$
+    
+    \State Construct the model reverse distribution
+           $p_\theta(X_{t-1}\mid X_t)$
+           from $\widehat{\pi}_\theta$, $Q_t$, and $\overline{Q}_{t-1}$
+    
+    \State Compute
+           $\mathcal{L}_{\mathrm{vb}}
+           \gets
+           D_{\mathrm{KL}}
+           \!\left(
+           q(X_{t-1}\mid X_t,X_0)
+           \,\Vert\,
+           p_\theta(X_{t-1}\mid X_t)
+           \right)$
+    
+    \State Compute
+           $\mathcal{L}_{\mathrm{CE}}
+           \gets
+           \operatorname{CE}(L_\theta,X_0)$
+    
+    \State $\mathcal{L}
+           \gets
+           \mathcal{L}_{\mathrm{vb}}
+           +
+           \lambda\mathcal{L}_{\mathrm{CE}}$
+    
+    \State Update $\theta$ with AdamW using $\nabla_\theta\mathcal{L}$
+    
+    \State \Return $\theta$
+    
+    \end{algorithmic}
+\end{algorithm}
 
 \subsection{Forward Process}
 \label{subsec:method_d3pm_forward}
@@ -624,6 +773,98 @@ The first level evaluates the diffusion objective on held-out graphon representa
 
 The final test/reference graphs do not participate in either operation.
 
+\begin{algorithm}[H]
+    \caption{D3PM training and candidate selection}
+    \label{alg:d3pm_candidate_selection}
+    \begin{algorithmic}[1]
+    
+    \Require Graphon sets
+             $\mathcal{W}_{\mathrm{D3PM-train}}$,
+             $\mathcal{W}_{\mathrm{D3PM-val}}$,
+             candidate configurations $\mathcal{C}$,
+             optional graph validation set
+             $\mathcal{G}_{\mathrm{GGME-val}}$
+    \Ensure Selected D3PM generator
+    
+    \ForAll{candidates $c \in \mathcal{C}$}
+    
+        \State Initialize the D3PM model $\theta_c$
+               according to candidate configuration $c$
+        \State $\ell_c^\star \gets +\infty$
+    
+        \For{each training epoch}
+    
+            \ForAll{batches $W$ from
+                    $\mathcal{W}_{\mathrm{D3PM-train}}$}
+    
+                \State Quantize
+                       $X_0 \gets \mathcal{Q}_{K_c}(W)$
+                \State Sample
+                       $t \sim \operatorname{Uniform}\{1,\ldots,T-1\}$
+                \State Sample
+                       $X_t \sim q(X_t\mid X_0)$
+                \State Predict clean-state logits
+                       $f_{\theta_c}(X_t,t)$
+                \State Compute
+                       $\mathcal{L}
+                       \gets
+                       \mathcal{L}_{\mathrm{vb}}
+                       +
+                       \lambda_c\mathcal{L}_{\mathrm{CE}}$
+                \State Update $\theta_c$ with AdamW
+    
+            \EndFor
+    
+            \State Evaluate the objective on
+                   $\mathcal{W}_{\mathrm{D3PM-val}}$
+    
+            \If{validation loss improves}
+                \State Store the current checkpoint as $\theta_c^\star$
+                \State Update $\ell_c^\star$
+            \EndIf
+    
+            \If{early-stopping criterion is met}
+                \State \textbf{break}
+            \EndIf
+    
+        \EndFor
+    
+        \State Restore $\theta_c^\star$
+        \State Generate $16$ graphon-like tensors
+               $\widetilde{\mathcal{W}}_c$
+    
+    \EndFor
+    
+    \If{GGME-based candidate selection is enabled}
+    
+        \ForAll{candidates $c \in \mathcal{C}$}
+            \State Sample finite graphs from
+                   $\widetilde{\mathcal{W}}_c$
+                   using node counts from
+                   $\mathcal{G}_{\mathrm{GGME-val}}$
+            \State Evaluate the generated graphs against
+                   $\mathcal{G}_{\mathrm{GGME-val}}$
+                   with GGME
+        \EndFor
+    
+        \State $c^\star \gets$
+               candidate selected by the configured GGME rule
+    
+    \Else
+    
+        \State $c^\star
+               \gets
+               \arg\min_{c\in\mathcal{C}}\ell_c^\star$
+    
+    \EndIf
+    
+    \State \Return
+           $\theta_{c^\star}^\star$
+           and
+           $\widetilde{\mathcal{W}}_{c^\star}$
+    
+    \end{algorithmic}
+\end{algorithm}
 
 \section{Sampling Graphon-Like Representations}
 \label{sec:method_d3pm_sampling}
@@ -787,6 +1028,62 @@ s\bmod 16.
 
 The tensors are therefore reused cyclically when \(N_G>16\).
 
+\begin{algorithm}[H]
+    \caption{Finite-graph sampling from selected graphon-like representations}
+    \label{alg:graph_sampling}
+    \begin{algorithmic}[1]
+    
+    \Require Selected graphon-like representations
+             $\widetilde{\mathcal{W}}
+             =
+             \{\widetilde{W}_0,\ldots,\widetilde{W}_{15}\}$,
+             reference graphs $\mathcal{G}_{\mathrm{ref}}$,
+             resolution $R$,
+             requested number of graphs $N_G$
+    
+    \Ensure Generated graph set $\widetilde{\mathcal{G}}$
+    
+    \State $\widetilde{\mathcal{G}} \gets \emptyset$
+    
+    \For{$s = 0,\ldots,N_G-1$}
+    
+        \State $\widetilde{W}
+               \gets
+               \widetilde{W}_{\,s\bmod16}$
+    
+        \Repeat
+            \State Sample $M$ from the empirical node-count
+                   distribution of $\mathcal{G}_{\mathrm{ref}}$
+        \Until{$M \leq R$}
+    
+        \State Initialize $A \gets 0_{M\times M}$
+    
+        \For{$i = 1,\ldots,M$}
+            \State Sample $U_i \sim \mathcal{U}(0,1)$
+            \State $z_i
+                   \gets
+                   \min(R-1,\lfloor R U_i\rfloor)$
+        \EndFor
+    
+        \ForAll{$1 \leq i < j \leq M$}
+            \State $A_{ij}
+                   \sim
+                   \operatorname{Bernoulli}
+                   \left(
+                   \widetilde{W}_{z_i,z_j}
+                   \right)$
+            \State $A_{ji} \gets A_{ij}$
+        \EndFor
+    
+        \State Add the graph defined by $A$ to
+               $\widetilde{\mathcal{G}}$
+    
+    \EndFor
+    
+    \State \Return $\widetilde{\mathcal{G}}$
+    
+    \end{algorithmic}
+\end{algorithm}
 
 \section{Evaluation and Model-Selection Integration}
 \label{sec:method_ggme}
