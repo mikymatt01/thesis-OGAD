@@ -1,0 +1,31 @@
+dataset,batch,slug,status,included,reason
+ba_n100_m3,parallel_20260729_144516,ba_n100_m3_nc18,complete,True,
+ba_n100_m3,parallel_20260729_144516,ba_n100_m3_nc19,complete,True,
+ba_n100_m3,parallel_20260729_144516,ba_n100_m3_nc20,complete,True,
+ba_n100_m3,parallel_20260729_144516,ba_n100_m3_nc21,running,False,status is not complete
+ba_n100_m3,parallel_20260729_144516,ba_n100_m3_nc22,running,False,status is not complete
+ba_n100_m3,parallel_20260729_144516,ba_n100_m3_nc23,running,False,status is not complete
+ba_n100_m3,parallel_20260803_063318,ba_n100_m3_nc3,running,False,status is not complete
+er_n100_p005,parallel_20260729_144516,er_n100_p005_nc0,complete,True,
+er_n100_p005,parallel_20260729_144516,er_n100_p005_nc1,complete,True,
+er_n100_p005,parallel_20260729_144516,er_n100_p005_nc2,complete,True,
+er_n100_p005,parallel_20260729_144516,er_n100_p005_nc3,complete,True,
+er_n100_p005,parallel_20260729_144516,er_n100_p005_nc4,complete,True,
+er_n100_p005,parallel_20260729_144516,er_n100_p005_nc5,complete,True,
+er_n100_p005,parallel_20260803_063318,er_n100_p005_nc0,running,False,status is not complete
+er_n100_p005,parallel_20260803_063318,er_n100_p005_nc1,running,False,status is not complete
+er_n100_p005,parallel_20260803_063318,er_n100_p005_nc2,running,False,status is not complete
+expdeg_n100_lin,parallel_20260729_144516,expdeg_n100_lin_nc12,complete,True,
+expdeg_n100_lin,parallel_20260729_144516,expdeg_n100_lin_nc13,complete,True,
+expdeg_n100_lin,parallel_20260729_144516,expdeg_n100_lin_nc14,complete,True,
+expdeg_n100_lin,parallel_20260729_144516,expdeg_n100_lin_nc15,complete,True,
+expdeg_n100_lin,parallel_20260729_144516,expdeg_n100_lin_nc16,complete,True,
+expdeg_n100_lin,parallel_20260729_144516,expdeg_n100_lin_nc17,complete,True,
+sbm_n100_4c,parallel_20260729_144516,sbm_n100_4c_nc10,complete,True,
+sbm_n100_4c,parallel_20260729_144516,sbm_n100_4c_nc11,complete,True,
+sbm_n100_4c,parallel_20260729_144516,sbm_n100_4c_nc6,complete,True,
+sbm_n100_4c,parallel_20260729_144516,sbm_n100_4c_nc7,complete,True,
+sbm_n100_4c,parallel_20260729_144516,sbm_n100_4c_nc8,complete,True,
+sbm_n100_4c,parallel_20260729_144516,sbm_n100_4c_nc9,complete,True,
+ws_n100_k8_p01,parallel_20260729_144516,ws_n100_k8_p01_nc24,complete,True,
+ws_n100_k8_p01,parallel_20260729_144516,ws_n100_k8_p01_nc25,running,False,status is not complete

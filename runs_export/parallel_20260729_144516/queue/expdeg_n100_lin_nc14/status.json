@@ -1,0 +1,14 @@
+{
+  "status": "complete",
+  "slug": "expdeg_n100_lin_nc14",
+  "gpu_id": "1",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/queue/expdeg_n100_lin_nc14/attempt_0/launcher.log",
+      "duration_seconds": 50770.071
+    }
+  ],
+  "completed_at": "2026-08-01T11:37:46Z"
+}

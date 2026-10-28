@@ -7,10 +7,13 @@ data/models/d3pm.pkl
 src/vanilla/outputs
 data/predictions/graphs/digress
 data/train/graphons
+thesis/main.*
 
-# Local experiment runs (logs + metrics)
-runs/
-runs_imp/
+# Local experiment runs (logs + metrics): restano in locale, integrali.
+# Il sottoinsieme versionato sta in runs_export/, generato da
+# scripts/export_run_logs.py (solo i batch sui dataset baseline nostri).
+/runs/
+/runs_imp/
 
 # Terraform / infrastructure (local cache and state)
 infrastructure/.terraform/
@@ -19,3 +22,5 @@ infrastructure/*.tfstate.*
 infrastructure/crash.log
 infrastructure/*.tfplan
 docs
+datasets/
+tmp_*_test/

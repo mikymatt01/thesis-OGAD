@@ -1,0 +1,14 @@
+{
+  "status": "complete",
+  "slug": "ba_n100_m3_nc20",
+  "gpu_id": "2",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/queue/ba_n100_m3_nc20/attempt_0/launcher.log",
+      "duration_seconds": 53195.655
+    }
+  ],
+  "completed_at": "2026-08-03T05:39:01Z"
+}

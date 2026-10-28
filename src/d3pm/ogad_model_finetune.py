@@ -21,6 +21,7 @@ from d3pm_runner import D3PM
 from dit import DiT_Llama
 from training_utils import (
     deterministic_split,
+    load_d3pm_paths_config,
     load_experiment_config,
     load_graph_selection_config,
     update_run_manifest,
@@ -29,12 +30,6 @@ from training_utils import (
 
 transform = transforms.ToTensor()
 
-graphons_dataset = load_dataset(
-    "imagefolder",
-    data_dir="../../data/train/graphons",
-    split="train",
-)
-
 
 def apply_transform(example):
     image = example["image"].convert("L")
@@ -42,10 +37,17 @@ def apply_transform(example):
     return {"data": tensor}
 
 
-gr_dataset = graphons_dataset.map(
-    apply_transform, remove_columns=["image"], num_proc=None
-)
-gr_dataset.set_format(type="torch")
+def load_graphons_dataset(data_dir: str):
+    graphons_dataset = load_dataset(
+        "imagefolder",
+        data_dir=data_dir,
+        split="train",
+    )
+    graphons_dataset = graphons_dataset.map(
+        apply_transform, remove_columns=["image"], num_proc=None
+    )
+    graphons_dataset.set_format(type="torch")
+    return graphons_dataset
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
@@ -141,7 +143,7 @@ def _cpu_state_dict(model) -> dict:
     }
 
 
-def finetune_model(params, training_config, train_indices, validation_indices):
+def finetune_model(params, training_config, graphons_dataset, train_indices, validation_indices):
     num_classes = params["num_classes"]
     batch_size = params["batch_size"]
     dim = params["dim"]
@@ -168,14 +170,14 @@ def finetune_model(params, training_config, train_indices, validation_indices):
     train_generator = torch.Generator()
     train_generator.manual_seed(seed)
     train_loader = DataLoader(
-        Subset(gr_dataset, train_indices),
+        Subset(graphons_dataset, train_indices),
         batch_size=batch_size,
         shuffle=True,
         generator=train_generator,
         num_workers=num_workers,
     )
     validation_loader = DataLoader(
-        Subset(gr_dataset, validation_indices),
+        Subset(graphons_dataset, validation_indices),
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
@@ -283,9 +285,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     param_grid, training_config = load_experiment_config(args.config)
+    paths_config = load_d3pm_paths_config(args.config)
+    graphons_dataset = load_graphons_dataset(paths_config["train_graphons_dir"])
     graph_selection_config = load_graph_selection_config(args.config)
     train_indices, validation_indices = deterministic_split(
-        len(gr_dataset),
+        len(graphons_dataset),
         training_config["validation_fraction"],
         training_config["split_seed"],
     )
@@ -318,7 +322,7 @@ if __name__ == "__main__":
     for candidate_index, params in enumerate(ParameterGrid(param_grid)):
         candidate_id = f"candidate_{candidate_index:03d}"
         result = finetune_model(
-            params, training_config, train_indices, validation_indices
+            params, training_config, graphons_dataset, train_indices, validation_indices
         )
         checkpoint_path = candidate_dir / f"{candidate_id}_model.pth.gz"
         params_path = candidate_dir / f"{candidate_id}_params.pth.gz"

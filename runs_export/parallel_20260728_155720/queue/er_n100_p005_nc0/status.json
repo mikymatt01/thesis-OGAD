@@ -1,0 +1,20 @@
+{
+  "status": "failed",
+  "slug": "er_n100_p005_nc0",
+  "gpu_id": "0",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 1,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/queue/er_n100_p005_nc0/attempt_0/launcher.log",
+      "duration_seconds": 27780.803
+    },
+    {
+      "attempt": 1,
+      "returncode": 1,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/queue/er_n100_p005_nc0/attempt_1/launcher.log",
+      "duration_seconds": 27463.644
+    }
+  ],
+  "failed_at": "2026-07-29T09:14:39Z"
+}

@@ -1,0 +1,14 @@
+{
+  "status": "complete",
+  "slug": "ws_n100_k8_p01_nc4",
+  "gpu_id": "1",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_154001/queue/ws_n100_k8_p01_nc4/attempt_0/launcher.log",
+      "duration_seconds": 101119.09
+    }
+  ],
+  "completed_at": "2026-08-06T14:55:04Z"
+}

@@ -1,0 +1,14 @@
+{
+  "status": "complete",
+  "slug": "sbm_n100_4c_nc6",
+  "gpu_id": "2",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/queue/sbm_n100_4c_nc6/attempt_0/launcher.log",
+      "duration_seconds": 30848.231
+    }
+  ],
+  "completed_at": "2026-07-30T15:55:45Z"
+}

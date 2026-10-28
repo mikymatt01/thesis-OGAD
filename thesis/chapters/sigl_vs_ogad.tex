@@ -1,0 +1,89 @@
+\subsection{Effect of the D3PM Generation Stage}
+\label{subsec:exp_sigl_vs_ogad}
+
+To investigate the contribution of the diffusion stage, the final OGAD results are compared with graphs sampled directly from the graphons estimated by SIGL, before D3PM generation. Table~\ref{tab:exp_sigl_vs_ogad} reports the corresponding MMD values.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Comparison between SIGL-only graph generation and the complete OGAD pipeline. Lower MMD is better.}
+    \label{tab:exp_sigl_vs_ogad}
+    \begin{tabular}{llrrr}
+        \hline
+        Dataset & Method & DD & CC & NL \\
+        \hline
+
+        ER
+        & SIGL-only
+        & \textbf{0.04226}
+        & \textbf{12.3048}
+        & \(\mathbf{1.484\times10^{-6}}\) \\
+
+        &
+        OGAD
+        & 0.08013
+        & 69.4112
+        & \(4.288\times10^{-6}\) \\
+
+        \hline
+
+        SBM
+        & SIGL-only
+        & 0.01721
+        & 153.3657
+        & \(\mathbf{9.054\times10^{-8}}\) \\
+
+        &
+        OGAD
+        & \textbf{0.01637}
+        & \textbf{0.2031}
+        & \(4.035\times10^{-7}\) \\
+
+        \hline
+
+        BA
+        & SIGL-only
+        & \textbf{0.85887}
+        & \textbf{451.8604}
+        & \(\mathbf{1.416\times10^{-5}}\) \\
+
+        &
+        OGAD
+        & 0.98036
+        & 508.5410
+        & \(3.543\times10^{-5}\) \\
+
+        \hline
+
+        WS
+        & SIGL-only
+        & 0.33617
+        & 3303.821
+        & \(1.717\times10^{-4}\) \\
+
+        &
+        OGAD
+        & \textbf{0.33333}
+        & \textbf{2221.89}
+        & \(\mathbf{1.290\times10^{-4}}\) \\
+
+        \hline
+
+        EDG
+        & SIGL-only
+        & 0.03369
+        & 38.1626
+        & \(\mathbf{1.232\times10^{-5}}\) \\
+
+        &
+        OGAD
+        & \textbf{0.02228}
+        & \textbf{20.8710}
+        & \(1.696\times10^{-5}\) \\
+
+        \hline
+    \end{tabular}
+\end{table}
+
+The comparison shows that the effect of the D3PM generation stage is strongly dataset- and descriptor-dependent. OGAD improves all three descriptors on WS and improves degree and clustering agreement on both SBM and EDG, with a particularly large reduction in clustering discrepancy on SBM. Conversely, SIGL-only generation performs better on all three descriptors for ER and BA, and also retains better spectral agreement on SBM and EDG.
+
+Overall, the results indicate that D3PM does not uniformly improve the graphons estimated by SIGL. Rather, it modifies the structural properties preserved by the generated distribution, improving some characteristics while introducing additional discrepancy in others.

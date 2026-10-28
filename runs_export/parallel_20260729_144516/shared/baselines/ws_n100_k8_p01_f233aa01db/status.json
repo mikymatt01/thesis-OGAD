@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "ws_n100_k8_p01_f233aa01db",
+  "gpu_id": "0",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/shared/baselines/ws_n100_k8_p01_f233aa01db",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/shared/baselines/ws_n100_k8_p01_f233aa01db/launcher_attempt_0.log",
+      "duration_seconds": 21.455
+    }
+  ],
+  "completed_at": "2026-07-29T14:46:56Z"
+}

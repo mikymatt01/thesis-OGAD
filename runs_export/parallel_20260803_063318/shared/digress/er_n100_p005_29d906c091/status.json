@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "er_n100_p005_29d906c091",
+  "gpu_id": "4",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260803_063318/shared/digress/er_n100_p005_29d906c091",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_063318/shared/digress/er_n100_p005_29d906c091/launcher_attempt_0.log",
+      "duration_seconds": 1392.329
+    }
+  ],
+  "completed_at": "2026-08-03T06:57:27Z"
+}

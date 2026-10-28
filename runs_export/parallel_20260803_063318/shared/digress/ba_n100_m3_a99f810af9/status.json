@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "ba_n100_m3_a99f810af9",
+  "gpu_id": "5",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260803_063318/shared/digress/ba_n100_m3_a99f810af9",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_063318/shared/digress/ba_n100_m3_a99f810af9/launcher_attempt_0.log",
+      "duration_seconds": 1405.287
+    }
+  ],
+  "completed_at": "2026-08-03T07:20:52Z"
+}

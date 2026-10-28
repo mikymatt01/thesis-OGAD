@@ -1,0 +1,26 @@
+ Network ogad_20260729_144308_ws_n100_k8_p01_nc4_default  Creating
+ Network ogad_20260729_144308_ws_n100_k8_p01_nc4_default  Created
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.7.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Skipping virtualenv creation, as specified in config file.
+device:  cuda
+Parameters: 
+ Namespace(test_name=None, n_graphon=1, alpha=0.5, n_trials=10, n_G=10, offset=0, Res=128, n_epoch=100, epoch_show=20, gnn_dim_hidden='8,8,8', inr_dim_hidden='20,20', batch_size=1024, w0=10, lr=0.06, h_size=4, Adjs_dir='/app/datasets/ws_n100_k8_p01/CommunityGraphs_train.pkl', output_dir='/app/data/train/graphons', n_clusters=1, bootstrap_replicates=500, bootstrap_seed=0, sigl_workers=4, include_original_clusters=False, config='/app/runs/current/experiment.json', sigl_job_payload=None)
+graphs:  240
+GGME validation split: model_train=192 ggme_validation=48
+bootstrap graphons:  500 from clusters:  1
+Running 500 SIGL graphon jobs with 4 workers
+SIGL worker logs: /app/runs/current/sigl_workers

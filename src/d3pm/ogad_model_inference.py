@@ -1,3 +1,4 @@
+import argparse
 import torch
 import gzip
 import io
@@ -5,6 +6,7 @@ from pathlib import Path
 
 from d3pm_runner import D3PM
 from dit import DiT_Llama
+from training_utils import load_d3pm_paths_config
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
@@ -19,6 +21,11 @@ state_dict = torch.load(buffer, map_location=device)
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate graphons from the best D3PM checkpoint.")
+    parser.add_argument("--config", type=str, default=None)
+    args = parser.parse_args()
+    paths_config = load_d3pm_paths_config(args.config)
+
     hybrid_loss_coeff = best_model['hybrid_loss_coeff']
     N = best_model['num_classes']
     dim = best_model['dim']
@@ -41,6 +48,6 @@ if __name__ == "__main__":
         this_image = image.float().cpu() / (N - 1)
         this_image = ((this_image + this_image.transpose(-1, -2)) / 2).clamp(0, 1)
         this_image.diagonal(dim1=-2, dim2=-1).zero_()
-        out_path = Path("../../data/predictions/graphons/tensors.pt")
+        out_path = Path(paths_config["graphons_pt"])
         out_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(this_image, out_path)

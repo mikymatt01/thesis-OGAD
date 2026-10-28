@@ -1,0 +1,23 @@
+ Network ogad_20260729_144534_baselines_sbm_n100_4c_716aad4d87_default  Creating
+ Network ogad_20260729_144534_baselines_sbm_n100_4c_716aad4d87_default  Created
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.7.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+{
+  "configuration_model": "/app/data/predictions/graphs/classical/configuration_model.pickle",
+  "degree_corrected_sbm": "/app/data/predictions/graphs/classical/degree_corrected_sbm.pickle",
+  "erdos_renyi": "/app/data/predictions/graphs/classical/erdos_renyi.pickle",
+  "sbm": "/app/data/predictions/graphs/classical/sbm.pickle"
+}

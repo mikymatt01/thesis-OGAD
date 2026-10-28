@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "expdeg_n100_lin_27f3952d7d",
+  "gpu_id": "2",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/shared/digress/expdeg_n100_lin_27f3952d7d",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260728_155720/shared/digress/expdeg_n100_lin_27f3952d7d/launcher_attempt_0.log",
+      "duration_seconds": 1372.331
+    }
+  ],
+  "completed_at": "2026-07-28T17:07:17Z"
+}

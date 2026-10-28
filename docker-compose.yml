@@ -1,4 +1,4 @@
-# OGAD pipeline: sigl → d3pm → ggme → digress (vanilla baseline)
+# OGAD pipeline: sigl → d3pm → ggme → digress (baseline)
 #
 #   docker compose up --build
 #
@@ -14,9 +14,13 @@ services:
   prep_data:
     image: mikymatt/ogad-prep-data:latest
     build: ./src/sigl
+    environment:
+      PYTHONPATH: /app
     shm_size: 2gb
     volumes:
       - ./data:/app/data
+      - ./datasets:/app/datasets:ro
+      - ./community_graphs:/app/community_graphs:ro
     deploy:
       resources:
         reservations:
@@ -31,11 +35,12 @@ services:
         condition: service_completed_successfully
     image: mikymatt/ogad-train-model-a:latest
     build:
-      context: ./src/vanilla/DiGress
+      context: ./src/baselines/DiGress
       dockerfile: dockerfile
     shm_size: 4gb
     volumes:
       - ./data:/app/data
+      - ./datasets:/app/datasets:ro
     deploy:
       resources:
         reservations:
@@ -72,6 +77,7 @@ services:
     shm_size: 2gb
     volumes:
       - ./data:/app/data
+      - ./datasets:/app/datasets:ro
     deploy:
       resources:
         reservations:

@@ -1,0 +1,9 @@
+{
+  "status": "running",
+  "slug": "er_n100_p005_nc0",
+  "gpu_id": "4",
+  "attempt": 0,
+  "max_retries": 1,
+  "experiment": "runs/parallel_20260803_063318/experiments/er_n100_p005_nc0.json",
+  "started_at": "2026-08-03T07:44:21Z"
+}

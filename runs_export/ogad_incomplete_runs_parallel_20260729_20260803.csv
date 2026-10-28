@@ -1,0 +1,13 @@
+batch,run_id,dataset,n_clusters,status,reason,started_at
+parallel_20260729_144516,20260801_001426_expdeg_n100_lin_nc15,expdeg_n100_lin,4,complete,only 0 ggme rows,2026-08-01T00:14:26Z
+parallel_20260729_144516,20260801_075813_expdeg_n100_lin_nc16,expdeg_n100_lin,8,complete,missing metrics.jsonl,2026-08-01T07:58:13Z
+parallel_20260729_144516,20260801_113746_expdeg_n100_lin_nc17,expdeg_n100_lin,8,complete,missing metrics.jsonl,2026-08-01T11:37:46Z
+parallel_20260729_144516,20260801_121326_ba_n100_m3_nc18,ba_n100_m3,1,complete,only 0 ggme rows,2026-08-01T12:13:26Z
+parallel_20260729_144516,20260802_153533_ba_n100_m3_nc21,ba_n100_m3,4,running,only 0 ggme rows,2026-08-02T15:35:33Z
+parallel_20260729_144516,20260802_200413_ba_n100_m3_nc22,ba_n100_m3,8,running,only 0 ggme rows,2026-08-02T20:04:13Z
+parallel_20260729_144516,20260803_053901_ba_n100_m3_nc23,ba_n100_m3,8,running,missing metrics.jsonl,2026-08-03T05:39:01Z
+parallel_20260729_144516,20260803_150028_ws_n100_k8_p01_nc25,ws_n100_k8_p01,1,running,missing metrics.jsonl,2026-08-03T15:00:28Z
+parallel_20260803_063318,20260803_074421_ba_n100_m3_nc3,ba_n100_m3,8,running,missing metrics.jsonl,2026-08-03T07:44:21Z
+parallel_20260803_063318,20260803_074421_er_n100_p005_nc0,er_n100_p005,8,running,missing metrics.jsonl,2026-08-03T07:44:21Z
+parallel_20260803_063318,20260803_074421_er_n100_p005_nc1,er_n100_p005,16,running,missing metrics.jsonl,2026-08-03T07:44:21Z
+parallel_20260803_063318,20260803_074421_er_n100_p005_nc2,er_n100_p005,32,running,missing metrics.jsonl,2026-08-03T07:44:21Z

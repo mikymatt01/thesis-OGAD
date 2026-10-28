@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "ws_n100_k8_p01_4399758829",
+  "gpu_id": "6",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260803_063318/shared/digress/ws_n100_k8_p01_4399758829",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260803_063318/shared/digress/ws_n100_k8_p01_4399758829/launcher_attempt_0.log",
+      "duration_seconds": 1408.97
+    }
+  ],
+  "completed_at": "2026-08-03T07:44:21Z"
+}

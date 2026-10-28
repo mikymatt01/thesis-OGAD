@@ -1,0 +1,133 @@
+\documentclass[a4paper,twoside,openright]{report}
+
+% --------------------------------------------------
+% Encoding and language
+% --------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[main=english,italian]{babel}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% --------------------------------------------------
+% General packages
+% --------------------------------------------------
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{lipsum}
+\usepackage{amsmath,amssymb}
+\usepackage{csquotes}
+\usepackage{tabularx}
+\usepackage{array}
+
+% --------------------------------------------------
+% Bibliography
+% --------------------------------------------------
+\usepackage[
+  backend=biber,
+  style=numeric,
+  sorting=none
+]{biblatex}
+
+\addbibresource{references.bib}
+
+% --------------------------------------------------
+% Page layout
+% --------------------------------------------------
+\usepackage[
+  a4paper,
+  top=3cm,
+  bottom=3cm,
+  left=3cm,
+  right=3cm
+]{geometry}
+
+\usepackage[fontsize=13pt]{scrextend}
+
+% --------------------------------------------------
+% Paragraph formatting
+% --------------------------------------------------
+
+% Indentation for normal paragraphs.
+% The first paragraph after a heading remains unindented.
+\setlength{\parindent}{0pt}
+
+
+% --------------------------------------------------
+% Section titles
+% --------------------------------------------------
+\usepackage{titlesec}
+
+% Chapter formatting
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}
+  {\hspace{\parindent}\chaptertitlename\ \thechapter}
+  {20pt}
+  {\hspace{\parindent}}
+
+\titlespacing{\chapter}
+  {0pt}
+  {50pt}
+  {40pt}
+
+% Subsection formatting.
+% raggedright prevents long titles from overflowing
+% into the right margin.
+\titleformat{\subsection}[hang]
+  {\normalfont\large\bfseries\raggedright}
+  {\thesubsection}
+  {1em}
+  {}
+
+% --------------------------------------------------
+% Hyperlinks
+% --------------------------------------------------
+\usepackage[
+  hidelinks,
+  linktoc=all
+]{hyperref}
+
+% --------------------------------------------------
+% Page style
+% --------------------------------------------------
+\raggedbottom
+\pagestyle{headings}
+
+\begin{document}
+
+% --------------------------------------------------
+% Front page
+% --------------------------------------------------
+\input{frontespizio}
+
+% --------------------------------------------------
+% Front matter
+% --------------------------------------------------
+\cleardoublepage
+\pagenumbering{roman}
+
+\input{chapters/abstract}
+
+\cleardoublepage
+\tableofcontents
+
+% --------------------------------------------------
+% Main matter
+% --------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+
+\input{chapters/introduction}
+\input{chapters/background}
+\input{chapters/related_works}
+\input{chapters/method}
+\input{chapters/experiments}
+\input{chapters/conclusion}
+
+% --------------------------------------------------
+% Bibliography
+% --------------------------------------------------
+\printbibliography
+
+\end{document}

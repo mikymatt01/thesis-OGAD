@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "slug": "sbm_n100_4c_a1d444363c",
+  "gpu_id": "1",
+  "host_dir": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/shared/digress/sbm_n100_4c_a1d444363c",
+  "attempts": [
+    {
+      "attempt": 0,
+      "returncode": 0,
+      "log": "/raid/m.mattiello/OGAD/runs/parallel_20260729_144516/shared/digress/sbm_n100_4c_a1d444363c/launcher_attempt_0.log",
+      "duration_seconds": 1360.519
+    }
+  ],
+  "completed_at": "2026-07-29T15:32:30Z"
+}
